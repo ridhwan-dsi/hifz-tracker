@@ -422,7 +422,7 @@
   // Once a session is running, Timer expands into an oval with the running time and play/pause beside it.
   function timerTool() {
     var T = Timer.state(), b = tb('timer', 'Timer', IC.clock, R.sub === 'timer').replace('class="tb', 'class="tb' + (T.run ? ' live' : ''));
-    if (!Timer.active()) return b;
+    if (!Timer.active() && R.sub !== 'timer') return b; // opened but not started: shows 0:00 with play
     return '<div class="egrp tgrp">' + b + '<span class="tgt tmr-t">' + Timer.fmt(T.secs) + '</span>' +
       '<button class="tb tgo" data-ract="tGo" aria-label="' + (T.run ? 'Pause' : 'Start') + '">' + (T.run ? IC.pause : IC.play) + '</button></div>';
   }
@@ -525,8 +525,8 @@
     tags: function () { leaveModes(); R.sub = R.sub === 'tags' ? null : 'tags'; renderPanel(); },
     timer: function () {
       leaveModes();
-      // First tap starts the stopwatch straight away; after that Timer just opens/closes the target row.
-      if (!Timer.active()) { Timer.start(); R.sub = 'timer'; } else R.sub = R.sub === 'timer' ? null : 'timer';
+      // Tap opens the oval at 0:00 with play (nothing starts until play is pressed); tap again closes it.
+      R.sub = R.sub === 'timer' ? null : 'timer';
       renderPanel();
     },
     tGo: function () {
