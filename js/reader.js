@@ -35,9 +35,9 @@
   function segsFor(p) {
     if (R.sub === 'crop') return [{ p: p, y0: 0, y1: 1, raw: true }];
     var j = joinOf(p), s = [];
-    if (j.prev > 0 && p > 1) s.push({ p: p - 1, y0: Math.max(0, 1 - j.prevCut - j.prev), y1: 1 - j.prevCut });
-    s.push({ p: p, y0: j.trimT, y1: 1 - j.trimB });
-    if (j.next > 0 && p < 604) s.push({ p: p + 1, y0: j.nextCut, y1: Math.min(1, j.nextCut + j.next) });
+    if (j.prev > 0 && p > 1) s.push({ p: p - 1, y0: Math.max(0, 1 - j.prevCut - j.prev), y1: 1 - j.prevCut, role: 'prev' });
+    s.push({ p: p, y0: j.trimT, y1: 1 - j.trimB, role: 'this' });
+    if (j.next > 0 && p < 604) s.push({ p: p + 1, y0: j.nextCut, y1: Math.min(1, j.nextCut + j.next), role: 'next' });
     return s;
   }
 
@@ -122,15 +122,15 @@
       });
       var U = dims.reduce(function (a, d) { return a + d.u; }, 0);
       var vw = sc.clientWidth || innerWidth, top = 8, vh = innerHeight - R.ph - top * 2;
-      var W = (fitPage() || R.sub === 'crop' || R.edit) ? Math.min(vw, vh / U) : Math.min(vw, 820);
+      var W = (fitPage() || R.sub === 'crop' || R.sub === 'join' || R.edit) ? Math.min(vw, vh / U) : Math.min(vw, 820);
       W = Math.max(120, Math.floor(W));
       var html = '';
       segs.forEach(function (s, i) {
         var d = dims[i], k = W / d.cw, sx = d.c.l * d.nw, sy = d.c.t * d.nh + s.y0 * d.ch;
-        html += '<div class="pseg' + (s.p !== p ? ' side' : '') + '" style="height:' + (d.u * W).toFixed(2) + 'px"><img src="' + d.im.src + '" alt="" style="width:' + (d.nw * k).toFixed(2) + 'px;transform:translate(' + (-sx * k).toFixed(2) + 'px,' + (-sy * k).toFixed(2) + 'px)"></div>';
+        html += '<div class="pseg' + (s.p !== p ? ' side' : '') + (R.sub === 'join' ? ' jseg' + (s.role === R.jt ? ' jt' : '') : '') + '" style="height:' + (d.u * W).toFixed(2) + 'px"><img src="' + d.im.src + '" alt="" style="width:' + (d.nw * k).toFixed(2) + 'px;transform:translate(' + (-sx * k).toFixed(2) + 'px,' + (-sy * k).toFixed(2) + 'px)"></div>';
       });
       R.Hu = U * 1000;
-      var H = U * W, fit = fitPage() || R.sub === 'crop' || R.edit;
+      var H = U * W, fit = fitPage() || R.sub === 'crop' || R.sub === 'join' || R.edit;
       sheet.style.width = W + 'px';
       sheet.style.marginTop = (fit ? Math.max(top, (innerHeight - R.ph - H) / 2) : 0) + 'px';
       sheet.style.transition = 'none'; sheet.style.transform = '';
@@ -355,7 +355,8 @@
       host.innerHTML = x; afterPanel(); return;
     }
     x += '<div class="rpanel"><button class="grab" data-ract="collapse" aria-label="Hide controls"><i></i></button>';
-    if (R.sub === 'crop') x += cropPanel() + toolsRow();
+    if (R.sub === 'join') x += joinPanel();
+    else if (R.sub === 'crop') x += cropPanel() + toolsRow();
     else if (R.edit) x += editPanel() + toolsRow();
     else x += mainPanel();
     x += '</div>';
@@ -389,14 +390,6 @@
         if (hasBox) x += '<button class="chip' + (!am.hb ? ' on' : '') + '" data-ract="hb">Boxes ' + (am.hb ? 'off' : 'on') + '</button>';
         x += '</div>';
       }
-    }
-    if (R.sub === 'join') {
-      var j = joinOf(p);
-      x += '<div class="rsub"><div class="hint">Show part of the neighbouring pages, and trim this page to make room.</div>' +
-        (p > 1 ? '<div class="jgrp">P. ' + (p - 1) + ' (above)</div>' + slider('jn.prev', 'Show', j.prev, 60, 2.5) + slider('jn.prevCut', 'Cut bottom', j.prevCut, 30, 1) : '') +
-        '<div class="jgrp">This page</div>' + slider('jn.trimT', 'Trim top', j.trimT, 60, 2.5) + slider('jn.trimB', 'Trim bottom', j.trimB, 60, 2.5) +
-        (p < 604 ? '<div class="jgrp">P. ' + (p + 1) + ' (below)</div>' + slider('jn.next', 'Show', j.next, 60, 2.5) + slider('jn.nextCut', 'Cut top', j.nextCut, 30, 1) : '') +
-        '<div class="rrow"><button class="btn sm" data-ract="joinReset">Reset</button><span style="flex:1"></span><button class="btn sm" data-ract="joinCancel">Cancel</button><button class="btn sm pri" data-ract="subDone">Done</button></div></div>';
     }
     // Health and Tags live in the bottom toolbar and expand their row just above it.
     if (m && R.sub === 'health') x += '<div class="rsub hsub"><span class="lbl">Health</span><span class="hctl big"><button data-ract="hminus" aria-label="Lower health">−</button><span style="color:' + (h ? App.hcol(h) : 'var(--muted)') + '">' + h + '%</span><button data-ract="hplus" aria-label="Raise health">+</button></span></div>';
@@ -471,6 +464,21 @@
       '<div class="rrow scroll"><button class="btn sm" data-ract="cropAuto">Auto</button><button class="btn sm" data-ract="cropNone">Whole page</button>' +
       (R.p > 1 ? '<button class="btn sm" data-ract="cropPrev">Same as P. ' + (R.p - 1) + '</button>' : '') +
       '<span style="flex:1"></span><button class="btn sm" data-ract="cropCancel">Cancel</button><button class="btn sm pri" data-ract="cropApply">Apply</button></div>';
+  }
+  // Compact Join panel (~25% of the screen): pick which part to edit, two shared sliders act on it,
+  // and the whole joined page stays visible above, scaled to fit.
+  function joinPanel() {
+    var p = R.p, j = joinOf(p), t = R.jt;
+    if ((t === 'prev' && p <= 1) || (t === 'next' && p >= 604)) t = R.jt = 'this';
+    var opt = [];
+    if (p > 1) opt.push(['prev', IC.up + 'P. ' + (p - 1)]);
+    opt.push(['this', 'This page']);
+    if (p < 604) opt.push(['next', '<span class="jdn">' + IC.up + '</span>P. ' + (p + 1)]);
+    var x = '<div class="rrow jhead"><div class="seg jseg">' + opt.map(function (o) { return '<button class="' + (t === o[0] ? 'on' : '') + '" data-ract="jT" data-t="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div></div>';
+    if (t === 'prev') x += slider('jn.prev', 'Show', j.prev, 60, 2.5) + slider('jn.prevCut', 'Cut bottom', j.prevCut, 30, 1);
+    else if (t === 'next') x += slider('jn.next', 'Show', j.next, 60, 2.5) + slider('jn.nextCut', 'Cut top', j.nextCut, 30, 1);
+    else x += slider('jn.trimT', 'Trim top', j.trimT, 60, 2.5) + slider('jn.trimB', 'Trim bottom', j.trimB, 60, 2.5);
+    return x + '<div class="rrow"><button class="btn sm" data-ract="joinReset">Reset</button><span style="flex:1"></span><button class="btn sm" data-ract="joinCancel">Cancel</button><button class="btn sm pri" data-ract="subDone">Done</button></div>';
   }
   function slider(key, label, val, max, step) {
     return '<div class="sl"><span>' + label + '</span><input type="range" min="0" max="' + max + '" step="' + step + '" value="' + (val * 100) + '" data-rin="' + key + '"><b>' + (Math.round(val * 1000) / 10) + '%</b></div>';
@@ -591,8 +599,8 @@
     join: function () {
       leaveModes(); R.sub = R.sub === 'join' ? null : 'join';
       // Remember the page's join settings so Cancel can put them back.
-      if (R.sub === 'join') R.jsnap = { p: R.p, jn: JSON.stringify(S.get(R.p).jn || null) };
-      renderPanel();
+      if (R.sub === 'join') { R.jsnap = { p: R.p, jn: JSON.stringify(S.get(R.p).jn || null) }; R.jt = R.jt || (R.p < 604 ? 'next' : 'this'); }
+      renderPanel(); relayout();
     },
     joinCancel: function () {
       var sn = R.jsnap;
@@ -601,7 +609,8 @@
       }
       R.jsnap = null; R.sub = null; renderPanel(); relayout();
     },
-    subDone: function () { R.sub = null; renderPanel(); },
+    jT: function (el) { R.jt = el.dataset.t; renderPanel(); relayout(); },
+    subDone: function () { var j = R.sub === 'join'; R.sub = null; renderPanel(); if (j) relayout(); },
     joinReset: function () { S.edit(R.p, function (o) { delete o.jn; }); renderPanel(); relayout(); },
     fit: function () { S.d.settings.fit = fitPage() ? 'width' : 'page'; S.saveSettings(); renderPanel(); layout(); },
     fs: function () {
