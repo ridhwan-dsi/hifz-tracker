@@ -57,7 +57,7 @@
     if (s.goalDay && T.hitD !== dd && day(dd).t >= s.goalDay * 60) { T.hitD = dd; changed = true; App.toast('Daily goal achieved · ' + s.goalDay + ' min'); buzz(); }
     // Auto-review: review pages only, once per day, after the set minutes on that page today.
     if (md === 'r' && s.autoRev && S.get(p).lr !== dd && pageToday(p, 'r') >= s.autoRev * 60) {
-      var o = S.get(p), prev = { lr: o.lr, rv: JSON.parse(JSON.stringify(o.rv || {})), h: o.h };
+      var o = S.get(p), prev = { lr: o.lr, rv: JSON.parse(JSON.stringify(o.rv || {})), rl: (o.rl || []).slice(), h: o.h };
       S.reviewed(p); changed = true;
       App.toast('P. ' + p + ' auto-marked reviewed · ' + s.autoRev + ' min', function () { S.unreview(p, prev); Reader.refresh(); });
     }

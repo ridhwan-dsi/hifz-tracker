@@ -53,9 +53,25 @@
     setHealth: function (p, v) { this.edit(p, function (o) { o.h = Math.max(0, Math.min(100, v)); o.hd = today(); }); },
     reviewed: function (p) {
       var eff = this.health(p), m = month();
-      this.edit(p, function (o) { o.h = eff; o.lr = today(); o.rv = o.rv || {}; o.rv[m] = (o.rv[m] || 0) + 1; });
+      this.edit(p, function (o) {
+        o.h = eff; o.lr = today(); o.rv = o.rv || {}; o.rv[m] = (o.rv[m] || 0) + 1;
+        o.rl = o.rl || []; o.rl.push(today()); if (o.rl.length > 300) o.rl.splice(0, o.rl.length - 300);
+      });
     },
-    unreview: function (p, prev) { this.edit(p, function (o) { o.lr = prev.lr; o.rv = prev.rv; o.h = prev.h; }); },
+    // Remove the most recent review (for accidental taps). Uses the dated log; older reviews logged before it existed come off the current month, else the latest month.
+    unreviewLast: function (p) {
+      var self = this, done = false;
+      this.edit(p, function (o) {
+        var rv = o.rv || {}, rl = o.rl || [], d = rl.length ? rl.pop() : null, m = d ? d.slice(0, 7) : null;
+        if (!m || !rv[m]) m = rv[month()] ? month() : Object.keys(rv).filter(function (k) { return rv[k] > 0; }).sort().pop();
+        if (!m) return;
+        rv[m]--; if (!rv[m]) delete rv[m]; o.rv = rv; o.rl = rl; done = true;
+        if (rl.length) o.lr = rl[rl.length - 1];
+        else if (!Object.keys(rv).length) delete o.lr;
+      });
+      return done;
+    },
+    unreview: function (p, prev) { this.edit(p, function (o) { o.lr = prev.lr; o.rv = prev.rv; o.h = prev.h; o.rl = prev.rl; }); },
     monthCount: function (p, m) { var o = this.get(p); return (o.rv && o.rv[m || month()]) || 0; },
     totalCount: function (p) { var o = this.get(p), t = 0; for (var k in (o.rv || {})) t += o.rv[k]; return t; },
     hasTag: function (p, t) { var o = this.get(p); return !!(o.tags && o.tags.indexOf(t) >= 0); },

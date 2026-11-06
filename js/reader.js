@@ -373,7 +373,8 @@
     var ms = masksOf(p), am = activeMask(), x = '';
     x += '<div class="rrow nav">' + navBtns('in') + '<div class="rtitle"><span class="plabel">P. ' + p + '</span>' + App.esc(App.pageTitle(p)) + '</div></div>';
     x += '<div class="rrow scroll"><button class="pill' + (m ? ' on' : '') + '" data-ract="mem">' + (m ? IC.check + 'Memorizing' : '+ Memorize') + '</button>';
-    if (m) x += '<button class="pill soft' + (revToday ? ' on' : '') + '" data-ract="rev">' + IC.check + 'Reviewed' + (mc ? ' · ' + mc + '×' : '') + '</button>';
+    if (m) x += '<button class="pill soft' + (revToday ? ' on' : '') + '" data-ract="rev">' + IC.check + 'Reviewed' + (mc ? ' · ' + mc + '×' : '') + '</button>' +
+      (S.totalCount(p) ? '<button class="pill soft" data-ract="unrev" aria-label="Remove last review">− Undo review</button>' : '');
     x += '</div>';
     // Three fixed mask slots per page; a slot's mask is created the first time it is opened.
     x += '<div class="rrow scroll"><span class="lbl">Masks</span>' + [0, 1, 2].map(function (k) {
@@ -487,9 +488,13 @@
     hminus: function () { S.setHealth(R.p, S.health(R.p) - 5); renderPanel(); },
     hplus: function () { S.setHealth(R.p, S.health(R.p) + 5); renderPanel(); },
     rev: function () {
-      var o = S.get(R.p), prev = { lr: o.lr, rv: JSON.parse(JSON.stringify(o.rv || {})), h: o.h }, p = R.p;
+      var o = S.get(R.p), prev = { lr: o.lr, rv: JSON.parse(JSON.stringify(o.rv || {})), rl: (o.rl || []).slice(), h: o.h }, p = R.p;
       S.reviewed(p); renderPanel();
       App.toast('Marked reviewed · ' + S.monthCount(p) + '× this month', function () { S.unreview(p, prev); if (R.p === p) renderPanel(); });
+    },
+    unrev: function () {
+      var p = R.p;
+      if (S.unreviewLast(p)) { renderPanel(); App.toast('Removed one review · ' + S.monthCount(p) + '× this month'); }
     },
     tags: function () { leaveModes(); R.sub = R.sub === 'tags' ? null : 'tags'; renderPanel(); },
     timer: function () { leaveModes(); R.sub = R.sub === 'timer' ? null : 'timer'; renderPanel(); },
