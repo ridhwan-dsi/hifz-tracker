@@ -93,9 +93,9 @@
     });
     if (!rows) {
       var any = Object.keys(S.d.pages).some(function (k) { return S.d.pages[k].m; });
-      return '<div class="list"><div class="empty">' + (any ? 'No pages with the selected tags.' : 'Nothing here yet.<br>Open <b>To Memorize</b>, tap <b>Edit</b> and tick surahs or pages.') + '</div></div>';
+      return h + '<div class="list"><div class="empty">' + (any ? 'No pages with the selected tags.' : 'Nothing here yet.<br>Open <b>To Memorize</b>, tap <b>Edit</b> and tick surahs or pages.') + '</div></div>';
     }
-    return '<div class="list">' + rows + '</div>';
+    return h + '<div class="list">' + rows + '</div>';
   }
 
   function tomTab() {

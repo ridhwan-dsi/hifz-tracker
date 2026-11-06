@@ -136,7 +136,11 @@
       opt = opt || {}; opt.headers = Object.assign({ Authorization: 'Bearer ' + this.tok }, opt.headers || {});
       return fetch(url, opt).then(function (r) {
         if (r.status === 401) { self.tok = null; sessionStorage.removeItem('hifz.tok'); self.set('paused'); throw new Error('auth'); }
-        if (!r.ok) throw new Error('http ' + r.status);
+        if (!r.ok) return r.json().catch(function () { return {}; }).then(function (j) {
+          var m = (j.error && j.error.message) || ('HTTP ' + r.status);
+          if (window.App) App.toast('Sync error: ' + m.slice(0, 120));
+          throw new Error('http ' + r.status);
+        });
         return r;
       });
     },
