@@ -98,7 +98,7 @@
         '<button class="exp ' + (open ? 'open' : '') + '" data-act="exp" data-k="mem" data-n="' + n + '" aria-label="Pages">' + ICON.chev + '</button></div>';
       if (open) rows += '<div class="pages">' + pg.map(function (p) {
         var hh = S.health(p);
-        return '<button class="pl" data-act="open" data-p="' + p + '"><span class="hd" style="background:' + hcol(hh) + '"></span>P. ' + S.kp(p) + '</button>';
+        return '<button class="pl" data-act="open" data-k="mem" data-p="' + p + '"><span class="hd" style="background:' + hcol(hh) + '"></span>P. ' + S.kp(p) + '</button>';
       }).join('') + '<button class="addlink" data-act="addPages" data-n="' + n + '">+ add pages</button></div>';
     });
     if (!rows) {
@@ -295,11 +295,15 @@
       pg.forEach(function (p) { S.toggleTag(p, t, !all); }); App.render();
     },
     tagP: function (el) { S.toggleTag(el.dataset.p, st.tedit); App.render(); },
-    open: function (el) { closeSheet(); var k = el.dataset.p; Reader.open(S.kp(k), S.kn(k)); },
+    open: function (el) {
+      closeSheet(); var k = el.dataset.p, rg = null;
+      if (el.dataset.k === 'mem') rg = units(S.kn(k)).filter(memMatch);
+      Reader.open(S.kp(k), S.kn(k), rg);
+    },
     openS: function (el) {
-      var n = +el.dataset.n, pg = units(n);
-      if (el.dataset.k === 'mem') { var f = pg.filter(memMatch); if (f.length) pg = f; }
-      Reader.open(S.kp(pg[0]), n);
+      var n = +el.dataset.n, pg = units(n), rg = null;
+      if (el.dataset.k === 'mem') { var f = pg.filter(memMatch); if (f.length) pg = rg = f; }
+      Reader.open(S.kp(pg[0]), n, rg);
     },
     tickS: function (el) {
       var pg = units(+el.dataset.n), all = pg.every(function (p) { return S.isMem(p); });

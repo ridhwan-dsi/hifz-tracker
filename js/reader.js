@@ -86,9 +86,11 @@
 
   /* ---------- open / close ---------- */
   var Reader = {
-    open: function (p, n) {
+    // range: optional list of unit keys (from the Memorizing tab) — swiping/arrows then stay within those pages.
+    open: function (p, n, range) {
       R.style = boxDef(); R.palOpen = false;
       p = clamp(p | 0, 1, 604); R.n = n || 0;
+      R.range = range && range.length ? range.slice().sort(function (a, b) { return S.kp(a) - S.kp(b); }) : null;
       if (!Reader.isOpen()) history.pushState({ reader: 1 }, '', '#p' + p);
       $('#reader').classList.add('on'); document.body.style.overflow = 'hidden';
       go(p, 0);
@@ -107,8 +109,18 @@
   window.Reader = Reader;
   window.addEventListener('popstate', function () { if (Reader.isOpen()) Reader.close(); });
 
-  function go(p, dir) {
+  // Next/previous page: the next listed page when opened from Memorizing, otherwise the adjacent mushaf page.
+  function stepTo(dir) {
+    if (!R.range) { var q = R.p + dir; return q >= 1 && q <= 604 ? { p: q } : null; }
+    var r = R.range, i, k;
+    if (dir > 0) { for (i = 0; i < r.length; i++) if (S.kp(r[i]) > R.p) { k = r[i]; break; } }
+    else { for (i = r.length - 1; i >= 0; i--) if (S.kp(r[i]) < R.p) { k = r[i]; break; } }
+    return k ? { p: S.kp(k), n: S.kn(k) } : null;
+  }
+  function step(dir) { var t = stepTo(dir); if (t) go(t.p, dir, t.n); return t; }
+  function go(p, dir, n) {
     if (p < 1 || p > 604) return;
+    if (n) R.n = n;
     if (dir) buzz();
     // Which surah's portion of the page this is. A shared page keeps the surah you came from if it is on it;
     // otherwise moving forward lands on the first surah there, moving back on the last.
@@ -332,10 +344,10 @@
       if (!g || e.pointerId !== g.id) return;
       clearTimeout(g.lp); var dx = e.clientX - g.x, dy = e.clientY - g.y, dt = Date.now() - g.t, ax = g.ax, sh = $('#sheet'); g = null;
       if (ax === 'x') {
-        var dir = dx > 0 ? 1 : -1, np = R.p + dir;
-        if (Math.abs(dx) > 60 && np >= 1 && np <= 604) {
+        var dir = dx > 0 ? 1 : -1, nt = stepTo(dir);
+        if (Math.abs(dx) > 60 && nt) {
           sh.style.transition = 'transform .13s ease-in'; sh.style.transform = 'translateX(' + (dir * innerWidth) + 'px)';
-          setTimeout(function () { go(np, dir); }, 130); return;
+          setTimeout(function () { go(nt.p, dir, nt.n); }, 130); return;
         }
         sh.style.transition = 'transform .18s ease-out'; sh.style.transform = ''; return;
       }
@@ -348,7 +360,7 @@
     sc.addEventListener('pointercancel', function (e) { if (g && e.pointerId === g.id) { g = null; var sh = $('#sheet'); sh.style.transition = 'transform .18s'; sh.style.transform = ''; } });
     document.addEventListener('keydown', function (e) {
       if (!Reader.isOpen() || /INPUT|SELECT|TEXTAREA/.test((e.target || {}).tagName)) return;
-      if (e.key === 'ArrowLeft') go(R.p + 1, 1); else if (e.key === 'ArrowRight') go(R.p - 1, -1); else if (e.key === 'Escape') history.back();
+      if (e.key === 'ArrowLeft') step(1); else if (e.key === 'ArrowRight') step(-1); else if (e.key === 'Escape') history.back();
     });
   }
   function togglePanel(on) { R.panel = on; renderPanel(); }
@@ -369,8 +381,8 @@
   };
   function tb(id, label, icon, on, off) { return '<button class="tb' + (on ? ' on' : '') + '" data-ract="' + id + '"' + (off ? ' disabled' : '') + '>' + icon + label + '</button>'; }
   function navBtns(cls) {
-    return '<button class="navb ' + cls + ' l" data-ract="next" aria-label="Next page"' + (R.p >= 604 ? ' disabled' : '') + '>' + IC.left + '</button>' +
-      '<button class="navb ' + cls + ' r" data-ract="prev" aria-label="Previous page"' + (R.p <= 1 ? ' disabled' : '') + '>' + IC.right + '</button>';
+    return '<button class="navb ' + cls + ' l" data-ract="next" aria-label="Next page"' + (!stepTo(1) ? ' disabled' : '') + '>' + IC.left + '</button>' +
+      '<button class="navb ' + cls + ' r" data-ract="prev" aria-label="Previous page"' + (!stepTo(-1) ? ' disabled' : '') + '>' + IC.right + '</button>';
   }
   function renderPanel() {
     var host = $('#rui'), p = R.p, x = '';
@@ -601,7 +613,7 @@
   function setActive(id) { saveMasks(function (ms, o) { o.am = id || ''; }); loadItems(); }
   var RACT = {
     home: function () { history.back(); },
-    next: function () { go(R.p + 1, 1); }, prev: function () { go(R.p - 1, -1); },
+    next: function () { step(1); }, prev: function () { step(-1); },
     collapse: function () { togglePanel(false); }, expand: function () { togglePanel(true); },
     dsz: function () { if (R.noTap) return; var z = dzCur(); setDz(z === 'full' ? 'fit' : z === 'fit' ? 'rib' : 'full'); },
     mem: function () { var on = !S.isMem(R.k); S.setMem(R.k, on); App.toast(on ? 'Added to Memorizing (New)' : 'Moved back to To Memorize'); renderPanel(); App.precache(); },
