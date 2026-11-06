@@ -507,7 +507,7 @@
     var on = Timer.active(); // while running, the time and play/pause sit in the toolbar oval instead
     // The session time and play/pause always live in the toolbar oval; pausing opens the Resume/Save box.
     var x = '<div class="rsub tsub">';
-    var opts = [0, 10, 20, 30], cur = s.sessT || 0;
+    var opts = [0, 5, 10, 15, 20, 30], cur = s.sessT || 0;
     if (opts.indexOf(cur) < 0) opts.push(cur);
     x += '<div class="rrow scroll"><span class="lbl">Target</span>' + opts.map(function (v) { return '<button class="chip' + (cur === v ? ' on' : '') + '" data-ract="tT" data-v="' + v + '">' + (v ? v + ' min' : 'None') + '</button>'; }).join('') +
       '<button class="chip" data-ract="tT" data-v="custom" aria-label="Custom target">+</button></div>';

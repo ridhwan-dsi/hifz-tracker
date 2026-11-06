@@ -153,7 +153,7 @@ svg.i { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-widt
 .btn.danger { color: var(--bad); }
 .rrow.tools { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 6px; }
 .rrow { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
-.rrow.scroll { overflow-x: auto; scrollbar-width: none; } .rrow.scroll::-webkit-scrollbar { display: none; }
+.rrow.scroll { overflow-x: auto; padding-right: 12px; -webkit-overflow-scrolling: touch; scrollbar-width: none; } .rrow.scroll::-webkit-scrollbar { display: none; }
 .rtitle { flex: 1; min-width: 0; text-align: center; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
 .plabel { display: inline-block; padding: 1px 9px; border: 1.5px solid var(--line); border-radius: 99px; font-size: 12.5px; font-weight: 700; color: var(--muted); margin-right: 4px; }
 .tb { flex: none; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 6px; border-radius: 10px; font-size: 11px; font-weight: 700; color: var(--muted); min-width: 46px; }
