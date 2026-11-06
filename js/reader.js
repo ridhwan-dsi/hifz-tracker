@@ -416,17 +416,25 @@
       tb('edGrp', 'Edit', open ? IC.x : IC.pen, false).replace('class="tb', 'class="tb edbtn') + '</div>';
     return '<div class="rrow scroll tools">' +
       tb('health', m ? h + '%' : 'Health', IC.heart, R.sub === 'health', !m) + tb('tags', 'Tags', IC.tag, R.sub === 'tags', !m) +
-      tb('timer', Timer.active() ? '<span class="tmr-t">' + Timer.fmt(Timer.state().secs) + '</span>' : 'Timer', IC.clock, R.sub === 'timer').replace('class="tb', 'class="tb' + (Timer.state().run ? ' live' : '')) +
+      timerTool() +
       (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + '<span style="flex:1"></span>' + grp + '</div>';
+  }
+  // Once a session is running, Timer expands into an oval with the running time and play/pause beside it.
+  function timerTool() {
+    var T = Timer.state(), b = tb('timer', 'Timer', IC.clock, R.sub === 'timer').replace('class="tb', 'class="tb' + (T.run ? ' live' : ''));
+    if (!Timer.active()) return b;
+    return '<div class="egrp tgrp">' + b + '<span class="tgt tmr-t">' + Timer.fmt(T.secs) + '</span>' +
+      '<button class="tb tgo" data-ract="tGo" aria-label="' + (T.run ? 'Pause' : 'Start') + '">' + (T.run ? IC.pause : IC.play) + '</button></div>';
   }
   // Close crop (keeping the crop) or mask editing (keeping the shapes) before switching to another tool.
   function leaveModes() { if (R.edit) RACT.doneEdit(); if (R.sub === 'crop') RACT.cropApply(); }
   function timerPanel() {
     var T = Timer.state(), s = S.d.settings, p = R.p, dd = Timer.day(S.today()), g = s.goalDay, ach = Timer.achieved();
     var md = Timer.modeOf(p) === 'r' ? 'review' : 'memorizing';
-    var x = '<div class="rsub tsub"><div class="rrow"><span class="tbig' + (ach ? ' ach' : '') + '"><span class="tmr-t">' + Timer.fmt(T.secs) + '</span></span>' +
+    var on = Timer.active(); // while running, the time and play/pause sit in the toolbar oval instead
+    var x = '<div class="rsub tsub"><div class="rrow">' + (on ? '' : '<span class="tbig' + (ach ? ' ach' : '') + '"><span class="tmr-t">' + Timer.fmt(T.secs) + '</span></span>') +
       '<span class="small muted tmeta">' + (ach ? '<b class="tach">' + IC.check + 'Achieved</b><br>' : '') + md + ' · this page <span class="tmr-pg">' + Timer.fmt(Timer.pageToday(p)) + '</span></span><span style="flex:1"></span>' +
-      '<button class="tbtn pri" data-ract="tGo" aria-label="' + (T.run ? 'Pause' : 'Start') + '">' + (T.run ? IC.pause : IC.play) + '</button>' +
+      (on ? '' : '<button class="tbtn pri" data-ract="tGo" aria-label="' + (T.run ? 'Pause' : 'Start') + '">' + (T.run ? IC.pause : IC.play) + '</button>') +
       (Timer.active() ? '<button class="tbtn stop" data-ract="tStop" aria-label="Stop and save">' + IC.stop + '</button>' : '') + '</div>';
     var opts = [0, 10, 20, 30], cur = s.sessT || 0;
     if (opts.indexOf(cur) < 0) opts.push(cur);
