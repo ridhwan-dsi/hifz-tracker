@@ -365,6 +365,7 @@
     // Keep the active tool visible when the toolbar is wider than the screen.
     var on = document.querySelector('.rpanel .tools .tb.on'), row = on && on.parentNode;
     if (on && (on.offsetLeft < row.scrollLeft || on.offsetLeft + on.offsetWidth > row.scrollLeft + row.clientWidth)) row.scrollLeft = on.offsetLeft - row.clientWidth / 2 + on.offsetWidth / 2;
+    if (R.scrollEnd) { R.scrollEnd = false; var tr = document.querySelector('.rpanel .rrow.tools'); if (tr) tr.scrollLeft = tr.scrollWidth; }
     if (measurePanel()) relayout();
   }
 
@@ -406,12 +407,17 @@
   // The bottom toolbar stays put in every mode; each tool opens its row above it and a second tap closes it.
   function toolsRow() {
     var p = R.p, m = S.isMem(p), h = S.health(p), am = activeMask();
-    return '<div class="rrow scroll tools">' + tb('tCrop', 'Crop', IC.crop, R.sub === 'crop') + tb('join', 'Join', IC.join, R.sub === 'join') +
+    // Editing tools (Crop, Join, Box, Line, Clear) live behind one Edit button; opening it expands them inside the same oval.
+    var busy = R.sub === 'crop' || R.sub === 'join' || R.edit, open = R.edOpen || busy;
+    var grp = '<div class="egrp' + (open ? ' open' : '') + '">' + (open ?
+      tb('tCrop', 'Crop', IC.crop, R.sub === 'crop') + tb('join', 'Join', IC.join, R.sub === 'join') +
+      tb('tBox', 'Box', IC.box, R.edit && R.etool === 'box', !am) + tb('tLine', 'Line', IC.line, R.edit && R.etool === 'line', !am) +
+      tb('delMask', 'Clear', IC.trash, false, !am || !R.items.length).replace('class="tb', 'class="tb danger') : '') +
+      tb('edGrp', 'Edit', open ? IC.x : IC.pen, false).replace('class="tb', 'class="tb edbtn') + '</div>';
+    return '<div class="rrow scroll tools">' +
       tb('health', m ? h + '%' : 'Health', IC.heart, R.sub === 'health', !m) + tb('tags', 'Tags', IC.tag, R.sub === 'tags', !m) +
       tb('timer', Timer.active() ? '<span class="tmr-t">' + Timer.fmt(Timer.state().secs) + '</span>' : 'Timer', IC.clock, R.sub === 'timer').replace('class="tb', 'class="tb' + (Timer.state().run ? ' live' : '')) +
-      (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + '<span style="flex:1"></span>' +
-      tb('tBox', 'Box', IC.box, R.edit && R.etool === 'box', !am) + tb('tLine', 'Line', IC.line, R.edit && R.etool === 'line', !am) +
-      tb('delMask', 'Clear', IC.trash, false, !am || !R.items.length).replace('class="tb', 'class="tb danger') + '</div>';
+      (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + '<span style="flex:1"></span>' + grp + '</div>';
   }
   // Close crop (keeping the crop) or mask editing (keeping the shapes) before switching to another tool.
   function leaveModes() { if (R.edit) RACT.doneEdit(); if (R.sub === 'crop') RACT.cropApply(); }
@@ -492,6 +498,12 @@
       if (S.get(p).lr === S.today()) { S.unreviewToday(p); renderPanel(); App.toast('Review for today removed'); return; }
       S.reviewed(p); renderPanel();
       App.toast('Marked reviewed · ' + S.monthCount(p) + '× this month');
+    },
+    edGrp: function () {
+      if (R.edOpen || R.sub === 'crop' || R.sub === 'join' || R.edit) {
+        leaveModes(); if (R.sub === 'join') R.sub = null; R.edOpen = false;
+      } else { R.edOpen = true; R.scrollEnd = true; }
+      renderPanel();
     },
     tags: function () { leaveModes(); R.sub = R.sub === 'tags' ? null : 'tags'; renderPanel(); },
     timer: function () { leaveModes(); R.sub = R.sub === 'timer' ? null : 'timer'; renderPanel(); },

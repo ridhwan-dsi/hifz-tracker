@@ -232,3 +232,9 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 .tsplit { display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin: 5px 0 3px; background: var(--line); }
 .tsplit i { display: block; }
 .seg.mini { margin: 0; flex: none; } .seg.mini button { flex: none; padding: 5px 9px; font-size: 12px; }
+
+/* Edit group: one light oval holding the Edit button and, when open, the editing tools. */
+.egrp { flex: none; display: flex; align-items: center; gap: 2px; padding: 1px; border: 1.5px solid var(--line); border-radius: 99px; }
+.egrp .tb { border-radius: 99px; }
+.egrp.open { border-color: var(--acc); background: color-mix(in srgb, var(--acc-soft) 45%, transparent); }
+.egrp.open .edbtn { color: var(--acc); }
