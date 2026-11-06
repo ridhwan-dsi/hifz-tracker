@@ -192,3 +192,6 @@ svg.i { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-widt
 
 .rpanel .ehint{min-height:4.5em;line-height:1.5}
 .rpanel .ehint .addlink{padding:0 2px;line-height:1.5;vertical-align:baseline}
+.rpanel .etitle{text-align:left;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rpanel .bstyle.off{opacity:.35;pointer-events:none}
+.rpanel .etop .pill{flex:1;justify-content:center}

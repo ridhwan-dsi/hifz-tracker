@@ -283,16 +283,23 @@
     sc.addEventListener('pointerdown', function (e) {
       if (R.edit || R.sub === 'crop' || (e.pointerType === 'mouse' && e.button !== 0)) return;
       g = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId, ax: null };
+      var g0 = g, ev = { clientX: e.clientX, clientY: e.clientY };
+      if (activeMask() && R.items.length) g.lp = setTimeout(function () {
+        if (g !== g0 || g.ax || !$('#ov')) return;
+        var i = hitItem(P(ev)); if (i < 0) return;
+        g = null; if (navigator.vibrate) try { navigator.vibrate(15); } catch (x) {}
+        startEdit(i); R.sel = i; draw(); renderPanel();
+      }, 480);
     });
     sc.addEventListener('pointermove', function (e) {
       if (!g || e.pointerId !== g.id) return;
       var dx = e.clientX - g.x, dy = e.clientY - g.y;
-      if (!g.ax && Math.abs(dx) + Math.abs(dy) > 12) g.ax = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      if (!g.ax && Math.abs(dx) + Math.abs(dy) > 12) { g.ax = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; clearTimeout(g.lp); }
       if (g.ax === 'x') { var sh = $('#sheet'); sh.style.transition = 'none'; sh.style.transform = 'translateX(' + dx + 'px)'; }
     });
     sc.addEventListener('pointerup', function (e) {
       if (!g || e.pointerId !== g.id) return;
-      var dx = e.clientX - g.x, dy = e.clientY - g.y, dt = Date.now() - g.t, ax = g.ax, sh = $('#sheet'); g = null;
+      clearTimeout(g.lp); var dx = e.clientX - g.x, dy = e.clientY - g.y, dt = Date.now() - g.t, ax = g.ax, sh = $('#sheet'); g = null;
       if (ax === 'x') {
         var dir = dx > 0 ? 1 : -1, np = R.p + dir;
         if (Math.abs(dx) > 60 && np >= 1 && np <= 604) {
@@ -324,7 +331,7 @@
     full: I('<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>'),
     fitp: I('<rect x="6" y="3" width="12" height="18" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h4"/>'), fitw: I('<path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/>'),
     left: I('<path d="M15 18l-6-6 6-6"/>'), right: I('<path d="M9 18l6-6-6-6"/>'), check: I('<path d="M20 6L9 17l-5-5"/>'),
-    pen: I('<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), up: I('<path d="M18 15l-6-6-6 6"/>'), trash: I('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>')
+    pen: I('<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), up: I('<path d="M18 15l-6-6-6 6"/>'), trash: I('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'), x: I('<path d="M6 6l12 12M18 6L6 18"/>')
   };
   function tb(id, label, icon, on, off) { return '<button class="tb' + (on ? ' on' : '') + '" data-ract="' + id + '"' + (off ? ' disabled' : '') + '>' + icon + label + '</button>'; }
   function navBtns(cls) {
@@ -378,19 +385,20 @@
         '<div class="rrow"><button class="btn sm" data-ract="joinReset">Reset</button><span style="flex:1"></span><button class="btn sm pri" data-ract="subDone">Done</button></div></div>';
     }
     x += '<div class="rrow scroll tools">' + tb('crop', 'Crop', IC.crop, false) + tb('join', 'Join', IC.join, R.sub === 'join') +
-      tb('fit', fitPage() ? 'Fit page' : 'Fit width', fitPage() ? IC.fitp : IC.fitw, false) + (installed() ? '' : tb('fs', 'Full screen', IC.full, false))  + '<span style="flex:1"></span>' + tb('editMask', 'Edit', IC.pen, false, !am) + tb('delMask', 'Delete', IC.trash, false, !am).replace('class="tb', 'class="tb danger')+ '</div>';
+      (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + '<span style="flex:1"></span>' + tb('addBox', 'Box', IC.box, false, !am) + tb('addLine', 'Line', IC.line, false, !am) + tb('delMask', 'Clear', IC.trash, false, !am || !R.items.length).replace('class="tb', 'class="tb danger') + '</div>';
     return x;
   }
   function editPanel() {
     var am = activeMask(), m = R.items[R.sel], x = '';
-    x += '<div class="rrow etop"><div class="rtitle" style="text-align:left"><b>' + (am ? 'Mask ' + (masksOf(R.p).indexOf(am) + 1) : '') + '</b></div>' +
+    x += '<div class="rrow etop">' +
       '<button class="pill soft" data-ract="addBox">' + IC.box + 'Box</button><button class="pill soft" data-ract="addLine">' + IC.line + 'Line</button>' +
       '<button class="icb danger" data-ract="del" aria-label="Delete selected"' + (m ? '' : ' disabled') + '>' + IC.trash + '</button>' +
-      '<button class="icb pri" data-ract="doneEdit" aria-label="Done">' + IC.check + '</button></div>';
+      '<button class="icb" data-ract="cancelEdit" aria-label="Cancel changes">' + IC.x + '</button>' +
+      '<button class="icb pri" data-ract="doneEdit" aria-label="Save">' + IC.check + '</button></div>';
     // The style row is always shown so the drawer keeps one height; with no box selected it sets the style for the next box.
-    x += boxStyle(m && m.k === 'box' ? m : R.style);
-    x += '<div class="hint ehint">' + (m ? (m.k === 'box' ? 'Drag the box to move it; drag a round handle to resize.' + '' : 'Drag to move. Side handles make a step; the middle one moves it.') + (m.k === 'div' ? ' <button class="addlink" data-ract="straight">Straighten</button>' : '')
-      : 'Tap Box or Line to add one, or tap a shape to select it. The style above is for new boxes.') + '</div>';
+    x += boxStyle(m && m.k === 'box' ? m : R.style, m && m.k === 'div');
+    x += '<div class="hint ehint"><b>' + (am ? 'Mask ' + (masksOf(R.p).indexOf(am) + 1) : '') + '</b> · ' + (m ? (m.k === 'box' ? 'Drag the box to move it; drag a round handle to resize.' + '' : 'Drag to move. Side handles make a step; the middle one moves it.') + (m.k === 'div' ? ' <button class="addlink" data-ract="straight">Straighten</button>' : '')
+      : 'Tap Box or Line to add one, or tap a shape to select it. Tip: long-press a shape while reading to edit it.') + '</div>';
     return x;
   }
   function cropPanel() {
@@ -403,12 +411,12 @@
   function slider(key, label, val, max, step) {
     return '<div class="sl"><span>' + label + '</span><input type="range" min="0" max="' + max + '" step="' + step + '" value="' + (val * 100) + '" data-rin="' + key + '"><b>' + (Math.round(val * 1000) / 10) + '%</b></div>';
   }
-  function boxStyle(m) {
+  function boxStyle(m, off) {
     var list = R.palOpen ? COLORS : recentC();
     if (!R.palOpen && list.indexOf(m.c) < 0) list = [m.c].concat(list.slice(0, 2));
     var more = '<button class="sw-more" data-ract="pal" aria-label="' + (R.palOpen ? 'Fewer colours' : 'More colours') + '">' + (R.palOpen ? '‹' : '+') + '</button>';
     var sw = (R.palOpen ? more : '') + list.map(function (c) { return '<button class="sw-c' + (m.c === c ? ' on' : '') + '" style="background:' + c + '" data-ract="bc" data-c="' + c + '" aria-label="Colour"></button>'; }).join('') + (R.palOpen ? '' : more);
-    return '<div class="rrow bstyle"><div class="cscroll">' + sw + '</div>' +
+    return '<div class="rrow bstyle' + (off ? ' off' : '') + '"><div class="cscroll">' + sw + '</div>' +
       '<span class="hctl"><button data-ract="bo" data-d="-1" aria-label="Lighter">−</button><span>' + Math.round(m.o * 100) + '%</span><button data-ract="bo" data-d="1" aria-label="Darker">+</button></span>' +
       '<button class="pill soft' + (m.b ? ' on' : '') + '" data-ract="bb">Border</button></div>';
   }
@@ -416,6 +424,20 @@
   /* ---------- actions ---------- */
   function selBox() { var m = R.items[R.sel]; return (R.edit && m && m.k === 'box') ? m : R.style; }
   function afterStyle() { var m = selBox(); if (m !== R.style) { R.style.c = m.c; R.style.o = m.o; R.style.b = m.b; commitItems(); } rememberStyle(m); draw(); renderPanel(); }
+  function startEdit(sel) {
+    var am = activeMask(); if (!am) return false;
+    if (!R.edit) { R.snap = { items: JSON.stringify(am.items || []), sec: am.sec || 0 }; R.edit = true; R.sub = null; R.sel = sel; renderPanel(); layout(); }
+    return true;
+  }
+  // Long-press in read mode: which shape (if any) is under the finger.
+  function hitItem(pt) {
+    for (var i = R.items.length - 1; i >= 0; i--) {
+      var m = R.items[i];
+      if (m.k === 'box' && pt.x >= m.x - 15 && pt.x <= m.x + m.w + 15 && pt.y >= m.y - 15 && pt.y <= m.y + m.h + 15) return i;
+      if (m.k === 'div' && Math.abs(pt.y - (pt.x >= m.x ? m.y1 : m.y2)) < 35) return i;
+    }
+    return -1;
+  }
   function setActive(id) { saveMasks(function (ms, o) { o.am = id || ''; }); loadItems(); }
   var RACT = {
     home: function () { history.back(); },
@@ -441,8 +463,14 @@
       });
       loadItems(); draw(); renderPanel();
     },
-    editMask: function () { if (!activeMask()) return; R.edit = true; R.sel = -1; R.sub = null; renderPanel(); layout(); },
-    doneEdit: function () { R.edit = false; R.sel = -1; R.tmp = null; renderPanel(); layout(); },
+    editMask: function () { startEdit(-1); },
+    doneEdit: function () { R.edit = false; R.sel = -1; R.tmp = null; R.snap = null; renderPanel(); layout(); },
+    cancelEdit: function () {
+      // Put the mask back exactly as it was when editing started.
+      var am = activeMask(), snap = R.snap;
+      if (am && snap) saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) { m.items = JSON.parse(snap.items); m.sec = snap.sec; } }); });
+      loadItems(); R.edit = false; R.sel = -1; R.tmp = null; R.snap = null; draw(); renderPanel(); layout();
+    },
     delMask: function () {
       var am = activeMask(); if (!am) return;
       var n = masksOf(R.p).indexOf(am) + 1;
@@ -451,11 +479,13 @@
       loadItems(); R.edit = false; R.sel = -1; R.sub = null; draw(); renderPanel(); layout();
     },
     addBox: function () {
+      if (!startEdit(-1)) return;
       var nb = R.items.filter(function (q) { return q.k === 'box'; }).length, off = (nb % 6) * 40;
       R.items.push({ k: 'box', x: 330 + off * 0.5, y: clamp(R.Hu * 0.3 + off, 0, R.Hu - 90), w: 340, h: 80, c: R.style.c, o: R.style.o, b: R.style.b });
       R.sel = R.items.length - 1; commitItems(); draw(); renderPanel();
     },
     addLine: function () {
+      if (!startEdit(-1)) return;
       var ds = dividers(), last = ds.length ? ds[ds.length - 1].m : null, y = last ? Math.max(last.y1, last.y2) + 140 : R.Hu * 0.35;
       if (y > R.Hu - 40) y = R.Hu / 2;
       R.items.push({ k: 'div', x: 500, y1: y, y2: y }); R.sel = R.items.length - 1; commitItems(); draw(); renderPanel();
