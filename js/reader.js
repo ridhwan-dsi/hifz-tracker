@@ -405,7 +405,42 @@
     x += '</div>';
     host.innerHTML = x; afterPanel();
   }
+  /* Page strip under the surah name: the listed pages (Memorizing) or the surah's pages, current one centred.
+     Scroll or drag the strip; whichever number settles in the centre opens. Tap a number to jump to it. */
+  function stripKeys() {
+    if (R.range) return R.range;
+    var s = QURAN.S[R.n - 1], a = []; if (!s) return [String(R.p)];
+    for (var q = s[3]; q <= s[4]; q++) a.push(S.uk(q, R.n));
+    return a;
+  }
+  function pstrip() {
+    return '<div class="pstrip">' + stripKeys().map(function (k) {
+      var q = S.kp(k); return '<button class="pc' + (q === R.p ? ' cur' : '') + '" data-ract="pgo" data-p="' + q + '" data-n="' + S.kn(k) + '">' + q + '</button>';
+    }).join('') + '</div>';
+  }
+  function stripMid(ps) {
+    var c = ps.scrollLeft + ps.clientWidth / 2, best = null, bd = 1e9;
+    [].forEach.call(ps.children, function (b) { var d = Math.abs(b.offsetLeft + b.offsetWidth / 2 - c); if (d < bd) { bd = d; best = b; } });
+    return best;
+  }
+  function wireStrip() {
+    var ps = document.querySelector('.rpanel .pstrip'); if (!ps) return;
+    var cur = ps.querySelector('.cur');
+    if (cur) { R.stripSet = true; ps.scrollLeft = cur.offsetLeft + cur.offsetWidth / 2 - ps.clientWidth / 2; }
+    var t = null;
+    ps.addEventListener('scroll', function () {
+      if (R.stripSet) { R.stripSet = false; return; }
+      var m = stripMid(ps);
+      [].forEach.call(ps.children, function (b) { b.classList.toggle('cur', b === m); });
+      clearTimeout(t);
+      t = setTimeout(function () {
+        var b = stripMid(ps); if (!b) return; var q = +b.dataset.p;
+        if (q !== R.p) go(q, q > R.p ? 1 : -1, +b.dataset.n);
+      }, 220);
+    }, { passive: true });
+  }
   function afterPanel() {
+    wireStrip();
     var zc = $('#rui .zchip'); if (land()) { if (zc) zc.outerHTML = zoomChip(); else $('#rui').insertAdjacentHTML('beforeend', zoomChip()); } else if (zc) zc.remove();
     // Keep the active tool visible when the toolbar is wider than the screen.
     var on = document.querySelector('.rpanel .tools .tb.on'), row = on && on.parentNode;
@@ -466,7 +501,7 @@
   function mainPanel() {
     var p = R.p, k = R.k, o = S.get(k), m = S.isMem(k), h = S.health(k), mc = S.monthCount(k), revToday = o.lr === S.today();
     var ms = masksOf(p), am = activeMask(), x = '';
-    x += '<div class="rrow nav">' + navBtns('in') + '<div class="rtitle"><span class="plabel">P. ' + p + '</span>' + surahTitle(p) + '</div></div>';
+    x += '<div class="rrow nav">' + navBtns('in') + '<div class="rtitle tcol"><div class="tname">' + surahTitle(p) + '</div>' + pstrip() + '</div></div>';
     x += '<div class="rrow scroll"><button class="pill' + (m ? ' on' : '') + '" data-ract="mem">' + (m ? IC.check + 'Memorizing' : '+ Memorize') + '</button>';
     if (m) x += '<button class="pill soft' + (revToday ? ' on' : '') + '" data-ract="rev">' + IC.check + 'Reviewed' + (mc ? ' · ' + mc + '×' : '') + '</button>' +
 ''; // Reviewed is a once-a-day toggle
@@ -614,6 +649,7 @@
   var RACT = {
     home: function () { history.back(); },
     next: function () { step(1); }, prev: function () { step(-1); },
+    pgo: function (el) { var q = +el.dataset.p; if (q !== R.p) go(q, q > R.p ? 1 : -1, +el.dataset.n); },
     collapse: function () { togglePanel(false); }, expand: function () { togglePanel(true); },
     dsz: function () { if (R.noTap) return; var z = dzCur(); setDz(z === 'full' ? 'fit' : z === 'fit' ? 'rib' : 'full'); },
     mem: function () { var on = !S.isMem(R.k); S.setMem(R.k, on); App.toast(on ? 'Added to Memorizing (New)' : 'Moved back to To Memorize'); renderPanel(); App.precache(); },

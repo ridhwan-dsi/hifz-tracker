@@ -286,3 +286,10 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 .sortbar { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; }
 .sortbar select { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); font-size: 13px; min-width: 0; flex: 1; }
 .sortbar .btn { white-space: nowrap; flex: none; }
+
+.rtitle.tcol { display: flex; flex-direction: column; align-items: stretch; gap: 6px; overflow: visible; }
+.rtitle.tcol .tname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.pstrip { display: flex; gap: 9px; align-items: center; overflow-x: auto; scroll-snap-type: x mandatory; padding: 5px 50%; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent); mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent); touch-action: pan-x; }
+.pstrip::-webkit-scrollbar { display: none; }
+.pc { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--line); color: var(--muted); font-size: 12px; font-weight: 700; display: grid; place-items: center; scroll-snap-align: center; transition: transform .12s, background .12s, color .12s; }
+.pc.cur { background: var(--acc); border-color: var(--acc); color: #fff; transform: scale(1.25); }
