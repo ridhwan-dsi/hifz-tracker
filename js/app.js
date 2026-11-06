@@ -180,6 +180,7 @@
       '<h4>Custom tags</h4>' + (S.d.tags.length ? S.d.tags.map(function (t) { return '<div class="frow"><label>' + esc(t.name) + '</label><button class="btn sm" data-act="delTag" data-t="' + esc(t.id) + '">Remove</button></div>'; }).join('') : '<p class="small muted">None yet — add one with “+ Tag” on the Memorizing tab.</p>') +
       '<h4>Account &amp; sync</h4>' + acct +
       '<h4>Offline</h4><button class="btn sm" data-act="precache">Save my Memorizing pages for offline</button>' +
+      '<h4>Update app</h4><div class="frow"><label>Load the latest version<br><span class="small muted">Clears the cached app files and reloads. Your data and offline pages are kept. Version: ' + esc((window.HIFZ_CONFIG || {}).appVersion || '—') + '</span></label><button class="btn sm" data-act="updateApp">Update app</button></div>' +
       '<p class="small muted" style="margin-top:14px">Install: open the browser menu → “Install app” / “Add to Home screen” for full screen.</p>' +
       '<div style="text-align:right;margin-top:10px"><button class="btn" data-act="closeSheet">Close</button></div></div>';
     var sc = $('#scrim');
@@ -231,6 +232,15 @@
       st.ssel = {}; App.toast(ps.length + ' page' + (ps.length === 1 ? '' : 's') + ' marked for review'); App.render();
     },
     settings: openSettings, closeSheet: closeSheet,
+    updateApp: function (el) {
+      el.disabled = true; el.textContent = 'Updating…';
+      var sw = navigator.serviceWorker, files = ['./', 'index.html', 'css/app.css', 'js/config.js', 'js/quran.js', 'js/autocrop.js', 'js/store.js', 'js/reader.js', 'js/app.js', 'sw.js'];
+      var p1 = sw ? sw.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }) : Promise.resolve();
+      var p2 = window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k !== 'hifz-pages'; }).map(function (k) { return caches.delete(k); })); }) : Promise.resolve();
+      // Refetch the app files past the browser's HTTP cache so the reload gets fresh copies.
+      var p3 = Promise.all(files.map(function (f) { return fetch(f, { cache: 'reload' }).catch(function () {}); }));
+      Promise.all([p1, p2, p3]).catch(function () {}).then(function () { location.replace(location.pathname + '?v=' + Date.now() + location.hash); });
+    },
     theme: function (el) { S.d.settings.theme = el.dataset.t; S.saveSettings(); App.render(); openSettings(); },
     decayOn: function () { S.d.settings.decayOn = !S.d.settings.decayOn; S.saveSettings(); openSettings(); App.render(); },
     cover: function (el) { S.d.settings.cover = el.dataset.c; S.saveSettings(); openSettings(); },
