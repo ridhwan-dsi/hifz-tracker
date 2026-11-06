@@ -387,9 +387,10 @@
       '<button class="pill soft" data-ract="addBox">' + IC.box + 'Box</button><button class="pill soft" data-ract="addLine">' + IC.line + 'Line</button>' +
       '<button class="icb danger" data-ract="del" aria-label="Delete selected"' + (m ? '' : ' disabled') + '>' + IC.trash + '</button>' +
       '<button class="icb pri" data-ract="doneEdit" aria-label="Done">' + IC.check + '</button></div>';
-    if (m && m.k === 'box') x += boxStyle(m);
-    x += '<div class="hint">' + (m ? (m.k === 'box' ? 'Drag the box to move it; drag a round handle to resize.' + '' : 'Drag the line to move it. Drag a side handle to make a step; the middle handle moves the step.') + (m.k === 'div' ? ' <button class="addlink" data-ract="straight">Straighten</button>' : '')
-      : 'Tap + Box or + Line to add one. Tap a box or line to select it.') + '</div>';
+    // The style row is always shown so the drawer keeps one height; with no box selected it sets the style for the next box.
+    x += boxStyle(m && m.k === 'box' ? m : R.style);
+    x += '<div class="hint ehint">' + (m ? (m.k === 'box' ? 'Drag the box to move it; drag a round handle to resize.' + '' : 'Drag to move. Side handles make a step; the middle one moves it.') + (m.k === 'div' ? ' <button class="addlink" data-ract="straight">Straighten</button>' : '')
+      : 'Tap Box or Line to add one, or tap a shape to select it. The style above is for new boxes.') + '</div>';
     return x;
   }
   function cropPanel() {

@@ -189,3 +189,6 @@ svg.i { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-widt
 .tb:disabled { opacity: .35; }
 .tb.danger { color: #d64545; }
 .chip.num { min-width: 40px; justify-content: center; text-align: center; }
+
+.rpanel .ehint{min-height:4.5em;line-height:1.5}
+.rpanel .ehint .addlink{padding:0 2px;line-height:1.5;vertical-align:baseline}
