@@ -475,9 +475,9 @@
     opt.push(['this', 'This page']);
     if (p < 604) opt.push(['next', '<span class="jdn">' + IC.up + '</span>P. ' + (p + 1)]);
     var x = '<div class="rrow jhead"><div class="seg jseg">' + opt.map(function (o) { return '<button class="' + (t === o[0] ? 'on' : '') + '" data-ract="jT" data-t="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div></div>';
-    if (t === 'prev') x += slider('jn.prev', 'Show', j.prev, 60, 2.5) + slider('jn.prevCut', 'Cut bottom', j.prevCut, 30, 1);
-    else if (t === 'next') x += slider('jn.next', 'Show', j.next, 60, 2.5) + slider('jn.nextCut', 'Cut top', j.nextCut, 30, 1);
-    else x += slider('jn.trimT', 'Trim top', j.trimT, 60, 2.5) + slider('jn.trimB', 'Trim bottom', j.trimB, 60, 2.5);
+    if (t === 'prev') x += slider('jn.prev', 'Show', j.prev, 60, 1) + slider('jn.prevCut', 'Cut bottom', j.prevCut, 30, 1);
+    else if (t === 'next') x += slider('jn.next', 'Show', j.next, 60, 1) + slider('jn.nextCut', 'Cut top', j.nextCut, 30, 1);
+    else x += slider('jn.trimT', 'Trim top', j.trimT, 60, 1) + slider('jn.trimB', 'Trim bottom', j.trimB, 60, 1);
     return x + '<div class="rrow"><button class="btn sm" data-ract="joinReset">Reset</button><span style="flex:1"></span><button class="btn sm" data-ract="joinCancel">Cancel</button><button class="btn sm pri" data-ract="subDone">Done</button></div>';
   }
   function slider(key, label, val, max, step) {
