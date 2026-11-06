@@ -262,6 +262,9 @@
   Sync.init();
   if (location.hash.match(/^#p\d+$/)) { var p0 = +location.hash.slice(2); history.replaceState(null, '', location.pathname); Reader.open(p0); }
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').then(function () { setTimeout(App.precache, 3000); }).catch(function () {});
+    var hadSW = !!navigator.serviceWorker.controller, reloaded = false;
+    // When a newer build takes over, reload once so the new code is used straight away.
+    navigator.serviceWorker.addEventListener('controllerchange', function () { if (hadSW && !reloaded) { reloaded = true; location.reload(); } });
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (reg) { reg.update(); setTimeout(App.precache, 3000); }).catch(function () {});
   }
 })();
