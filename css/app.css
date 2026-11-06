@@ -238,3 +238,14 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 .egrp .tb { border-radius: 99px; }
 .tgrp .tgt { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; padding: 0 2px; }
 .tgrp .tgo { min-width: 40px; color: var(--acc); }
+/* Edit oval, open: Edit shaded like Timer, tools in green (Clear stays red). */
+.egrp.open .edbtn { background: var(--acc-soft); color: var(--acc); }
+.egrp.open .tb:not(.danger):not(.edbtn) { color: var(--acc); }
+/* Pause box: session time with Resume / Save. */
+.pbox { max-width: 380px; text-align: center; }
+.pbox .pbt { font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--muted); }
+.pbox .tbig { font-size: 40px; font-weight: 800; color: var(--acc); font-variant-numeric: tabular-nums; line-height: 1.1; margin: 6px 0 4px; }
+.pbox .tach { color: var(--acc); }
+.pbox .pbtns { display: flex; gap: 10px; margin-top: 16px; }
+.pbox .pbtns .btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.pbox .pbtns svg.i { width: 17px; height: 17px; }

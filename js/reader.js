@@ -426,16 +426,27 @@
     return '<div class="egrp tgrp">' + b + '<span class="tgt tmr-t">' + Timer.fmt(T.secs) + '</span>' +
       '<button class="tb tgo" data-ract="tGo" aria-label="' + (T.run ? 'Pause' : 'Start') + '">' + (T.run ? IC.pause : IC.play) + '</button></div>';
   }
+  // Pause box: the session time and this page's time, with Resume or Save. Tapping outside keeps it paused.
+  function pauseBox() {
+    var sc = document.getElementById('scrim'); if (!sc) return;
+    var T = Timer.state(), p = R.p, md = Timer.modeOf(p) === 'r' ? 'review' : 'memorizing', ach = Timer.achieved();
+    sc.innerHTML = '<div class="sheetm pbox"><div class="pbt">Paused</div>' +
+      '<div class="tbig' + (ach ? ' ach' : '') + '"><span class="tmr-t">' + Timer.fmt(T.secs) + '</span></div>' +
+      '<div class="small muted">' + (ach ? '<b class="tach">' + IC.check + 'Achieved</b> · ' : '') + md + ' · this page <span class="tmr-pg">' + Timer.fmt(Timer.pageToday(p)) + '</span></div>' +
+      '<div class="pbtns"><button class="btn" data-ract="tSave">' + IC.check + 'Save</button><button class="btn pri" data-ract="tResume">' + IC.play + 'Resume</button></div></div>';
+    sc.style.display = 'flex';
+  }
+  function closePause() { var sc = document.getElementById('scrim'); if (sc) { sc.style.display = 'none'; sc.innerHTML = ''; } }
   // Close crop (keeping the crop) or mask editing (keeping the shapes) before switching to another tool.
   function leaveModes() { if (R.edit) RACT.doneEdit(); if (R.sub === 'crop') RACT.cropApply(); }
   function timerPanel() {
     var T = Timer.state(), s = S.d.settings, p = R.p, dd = Timer.day(S.today()), g = s.goalDay, ach = Timer.achieved();
     var md = Timer.modeOf(p) === 'r' ? 'review' : 'memorizing';
     var on = Timer.active(); // while running, the time and play/pause sit in the toolbar oval instead
-    var x = '<div class="rsub tsub"><div class="rrow">' + (on ? '' : '<span class="tbig' + (ach ? ' ach' : '') + '"><span class="tmr-t">' + Timer.fmt(T.secs) + '</span></span>') +
-      '<span class="small muted tmeta">' + (ach ? '<b class="tach">' + IC.check + 'Achieved</b><br>' : '') + md + ' · this page <span class="tmr-pg">' + Timer.fmt(Timer.pageToday(p)) + '</span></span><span style="flex:1"></span>' +
-      (on ? '' : '<button class="tbtn pri" data-ract="tGo" aria-label="' + (T.run ? 'Pause' : 'Start') + '">' + (T.run ? IC.pause : IC.play) + '</button>') +
-      (Timer.active() ? '<button class="tbtn stop" data-ract="tStop" aria-label="Stop and save">' + IC.stop + '</button>' : '') + '</div>';
+    // While a session is running, its time and play/pause sit in the toolbar oval; pausing opens the Resume/Save box.
+    var x = '<div class="rsub tsub">' + (on ? '' : '<div class="rrow"><span class="tbig' + (ach ? ' ach' : '') + '"><span class="tmr-t">' + Timer.fmt(T.secs) + '</span></span>' +
+      '<span class="small muted tmeta">' + md + ' · this page <span class="tmr-pg">' + Timer.fmt(Timer.pageToday(p)) + '</span></span><span style="flex:1"></span>' +
+      '<button class="tbtn pri" data-ract="tGo" aria-label="Start">' + IC.play + '</button></div>');
     var opts = [0, 10, 20, 30], cur = s.sessT || 0;
     if (opts.indexOf(cur) < 0) opts.push(cur);
     x += '<div class="rrow scroll"><span class="lbl">Target</span>' + opts.map(function (v) { return '<button class="chip' + (cur === v ? ' on' : '') + '" data-ract="tT" data-v="' + v + '">' + (v ? v + ' min' : 'None') + '</button>'; }).join('') +
@@ -515,8 +526,12 @@
     },
     tags: function () { leaveModes(); R.sub = R.sub === 'tags' ? null : 'tags'; renderPanel(); },
     timer: function () { leaveModes(); R.sub = R.sub === 'timer' ? null : 'timer'; renderPanel(); },
-    tGo: function () { Timer.toggle(); renderPanel(); },
-    tStop: function () { Timer.stop(); renderPanel(); },
+    tGo: function () {
+      if (Timer.state().run) { Timer.pause(); pauseBox(); } else Timer.start();
+      renderPanel();
+    },
+    tResume: function () { closePause(); Timer.start(); renderPanel(); },
+    tSave: function () { closePause(); Timer.stop(); renderPanel(); },
     tT: function (el) {
       var v = el.dataset.v;
       if (v === 'custom') { v = parseInt(prompt('Session target in minutes', S.d.settings.sessT || 45), 10); if (!(v > 0)) return; }
