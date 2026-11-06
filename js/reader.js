@@ -389,7 +389,7 @@
         (p > 1 ? '<div class="jgrp">P. ' + (p - 1) + ' (above)</div>' + slider('jn.prev', 'Show', j.prev, 60, 2.5) + slider('jn.prevCut', 'Cut bottom', j.prevCut, 30, 1) : '') +
         '<div class="jgrp">This page</div>' + slider('jn.trimT', 'Trim top', j.trimT, 60, 2.5) + slider('jn.trimB', 'Trim bottom', j.trimB, 60, 2.5) +
         (p < 604 ? '<div class="jgrp">P. ' + (p + 1) + ' (below)</div>' + slider('jn.next', 'Show', j.next, 60, 2.5) + slider('jn.nextCut', 'Cut top', j.nextCut, 30, 1) : '') +
-        '<div class="rrow"><button class="btn sm" data-ract="joinReset">Reset</button><span style="flex:1"></span><button class="btn sm pri" data-ract="subDone">Done</button></div></div>';
+        '<div class="rrow"><button class="btn sm" data-ract="joinReset">Reset</button><span style="flex:1"></span><button class="btn sm" data-ract="joinCancel">Cancel</button><button class="btn sm pri" data-ract="subDone">Done</button></div></div>';
     }
     // Health and Tags live in the bottom toolbar and expand their row just above it.
     if (m && R.sub === 'health') x += '<div class="rsub hsub"><span class="lbl">Health</span><span class="hctl big"><button data-ract="hminus" aria-label="Lower health">−</button><span style="color:' + (h ? App.hcol(h) : 'var(--muted)') + '">' + h + '%</span><button data-ract="hplus" aria-label="Raise health">+</button></span></div>';
@@ -534,7 +534,19 @@
     bo: function (el) { var m = selBox(); m.o = clamp(Math.round(m.o * 20) / 20 + (+el.dataset.d) * 0.05, 0.05, 1); m.o = Math.round(m.o * 100) / 100; afterStyle(); },
     pal: function () { R.palOpen = !R.palOpen; renderPanel(); },
     bb: function () { var m = selBox(); m.b = !m.b; afterStyle(); },
-    join: function () { R.sub = R.sub === 'join' ? null : 'join'; renderPanel(); },
+    join: function () {
+      R.sub = R.sub === 'join' ? null : 'join';
+      // Remember the page's join settings so Cancel can put them back.
+      if (R.sub === 'join') R.jsnap = { p: R.p, jn: JSON.stringify(S.get(R.p).jn || null) };
+      renderPanel();
+    },
+    joinCancel: function () {
+      var sn = R.jsnap;
+      if (sn && sn.p === R.p && JSON.stringify(S.get(R.p).jn || null) !== sn.jn) {
+        var jn = JSON.parse(sn.jn); S.edit(R.p, function (o) { if (jn) o.jn = jn; else delete o.jn; });
+      }
+      R.jsnap = null; R.sub = null; renderPanel(); relayout();
+    },
     subDone: function () { R.sub = null; renderPanel(); },
     joinReset: function () { S.edit(R.p, function (o) { delete o.jn; }); renderPanel(); relayout(); },
     fit: function () { S.d.settings.fit = fitPage() ? 'width' : 'page'; S.saveSettings(); renderPanel(); layout(); },
