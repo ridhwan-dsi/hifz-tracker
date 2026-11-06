@@ -20,7 +20,7 @@
   var BUILTIN = [{ id: 'new', name: 'New' }, { id: 'review', name: 'Selected for review' }];
   function allTags() { return BUILTIN.concat(S.d.tags); }
 
-  var st = { view: 'home', exp: { mem: {}, tom: {} }, edit: false, q: '', sf: 'all', ssel: {}, month: null };
+  var st = { view: 'home', exp: { mem: {}, tom: {} }, edit: false, tedit: null, q: '', sf: 'all', ssel: {}, month: null };
 
   var App = {
     esc: esc, ICON: ICON, sPages: sPages, onPage: onPage, pageTitle: pageTitle, hcol: hcol, allTags: allTags,
@@ -79,6 +79,13 @@
     var h = '<div class="chips">' + allTags().map(function (t) {
       return '<button class="chip ' + (S.d.ui.chips.indexOf(t.id) >= 0 ? 'on' : '') + '" data-act="chip" data-t="' + esc(t.id) + '">' + esc(t.name) + '</button>';
     }).join('') + '<button class="chip add" data-act="addTag">+ Tag</button></div>';
+    var ch = S.d.ui.chips, one = ch.length === 1 ? allTags().filter(function (t) { return t.id === ch[0]; })[0] : null;
+    if (!one) st.tedit = null;
+    if (one) {
+      var cnt = Object.keys(S.d.pages).filter(function (k) { return S.d.pages[k].m && S.hasTag(+k, one.id); }).length;
+      h += '<div class="tagbar"><span><b>' + esc(one.name) + '</b> <span class="muted">· ' + cnt + ' page' + (cnt === 1 ? '' : 's') + '</span></span><button class="btn sm ' + (st.tedit ? 'pri' : '') + '" data-act="tedit" data-t="' + esc(one.id) + '">' + (st.tedit ? 'Done' : 'Edit') + '</button></div>';
+    }
+    if (st.tedit) return h + tagEditList(st.tedit);
     var rows = '';
     SUR.forEach(function (s, i) {
       var n = i + 1, pg = sPages(n).filter(memMatch);
@@ -96,6 +103,24 @@
       return h + '<div class="list"><div class="empty">' + (any ? 'No pages with the selected tags.' : 'Nothing here yet.<br>Open <b>To Memorize</b>, tap <b>Edit</b> and tick surahs or pages.') + '</div></div>';
     }
     return h + '<div class="list">' + rows + '</div>';
+  }
+
+  /* Tag edit mode: every Memorizing surah/page, ticked if it carries the tag. */
+  function tagEditList(t) {
+    var rows = '';
+    SUR.forEach(function (s, i) {
+      var n = i + 1, pg = sPages(n).filter(function (p) { return S.isMem(p); });
+      if (!pg.length) return;
+      var sel = pg.filter(function (p) { return S.hasTag(p, t); }).length, all = sel === pg.length, open = st.exp.mem[n];
+      rows += '<div class="srow"><button class="tick ' + (all ? 'on' : sel ? 'part' : '') + '" data-act="tagS" data-n="' + n + '" aria-label="Tag surah">' + (all ? ICON.check : '') + '</button>' +
+        '<button class="sname" data-act="tagS" data-n="' + n + '"><span class="num">' + n + '</span><span class="nm">' + esc(s[0]) + '</span><span class="ar">' + esc(s[1]) + '</span></button>' +
+        '<button class="exp ' + (open ? 'open' : '') + '" data-act="exp" data-k="mem" data-n="' + n + '" aria-label="Pages">' + ICON.chev + '</button></div>';
+      if (open) rows += '<div class="pages">' + pg.map(function (p) {
+        var on = S.hasTag(p, t);
+        return '<button class="pl ' + (on ? 'mem' : '') + '" data-act="tagP" data-p="' + p + '">' + (on ? '✓ ' : '') + 'P. ' + p + '</button>';
+      }).join('') + '</div>';
+    });
+    return '<div class="list">' + (rows || '<div class="empty">Nothing in Memorizing yet.</div>') + '</div>';
   }
 
   function tomTab() {
@@ -190,8 +215,8 @@
 
   /* ---------------- Actions ---------------- */
   var ACT = {
-    tab: function (el) { S.d.ui.tab = el.dataset.t; S.saveUi(); App.render(); window.scrollTo(0, 0); },
-    chip: function (el) { var c = S.d.ui.chips, t = el.dataset.t, i = c.indexOf(t); if (i >= 0) c.splice(i, 1); else c.push(t); S.saveUi(); App.render(); },
+    tab: function (el) { st.tedit = null; S.d.ui.tab = el.dataset.t; S.saveUi(); App.render(); window.scrollTo(0, 0); },
+    chip: function (el) { st.tedit = null; var c = S.d.ui.chips, t = el.dataset.t, i = c.indexOf(t); if (i >= 0) c.splice(i, 1); else c.push(t); S.saveUi(); App.render(); },
     addTag: function () {
       var name = (prompt('New tag name') || '').trim(); if (!name) return;
       var id = 't' + Date.now().toString(36); S.d.tags.push({ id: id, name: name }); S.saveSettings(); App.render();
@@ -199,6 +224,12 @@
     delTag: function (el) { S.d.tags = S.d.tags.filter(function (t) { return t.id !== el.dataset.t; }); S.d.ui.chips = S.d.ui.chips.filter(function (c) { return c !== el.dataset.t; }); S.saveSettings(); openSettings(); App.render(); },
     exp: function (el) { var k = el.dataset.k, n = el.dataset.n; st.exp[k][n] = !st.exp[k][n]; App.render(); },
     edit: function () { st.edit = !st.edit; App.render(); },
+    tedit: function (el) { st.tedit = st.tedit ? null : el.dataset.t; App.render(); },
+    tagS: function (el) {
+      var t = st.tedit, pg = sPages(+el.dataset.n).filter(function (p) { return S.isMem(p); }), all = pg.every(function (p) { return S.hasTag(p, t); });
+      pg.forEach(function (p) { S.toggleTag(p, t, !all); }); App.render();
+    },
+    tagP: function (el) { S.toggleTag(+el.dataset.p, st.tedit); App.render(); },
     open: function (el) { closeSheet(); Reader.open(+el.dataset.p); },
     openS: function (el) {
       var n = +el.dataset.n, pg = sPages(n);
