@@ -29,13 +29,13 @@
     return { l: Math.max(0, a[0] - sp), t: Math.max(0, a[1] - pad), r: Math.max(0, a[2] - sp), b: Math.max(0, a[3] - pad) };
   }
   function cropOf(p) { var c = S.get(p).crop; return c ? { l: c.l || 0, t: c.t || 0, r: c.r || 0, b: c.b || 0 } : autoCrop(p); }
-  function joinOf(p) { var j = S.get(p).jn || {}; return { prev: j.prev || 0, next: j.next || 0, trimT: j.trimT || 0, trimB: j.trimB || 0 }; }
+  function joinOf(p) { var j = S.get(p).jn || {}; return { prev: j.prev || 0, next: j.next || 0, trimT: j.trimT || 0, trimB: j.trimB || 0, prevCut: j.prevCut || 0, nextCut: j.nextCut || 0 }; }
   function segsFor(p) {
     if (R.sub === 'crop') return [{ p: p, y0: 0, y1: 1, raw: true }];
     var j = joinOf(p), s = [];
-    if (j.prev > 0 && p > 1) s.push({ p: p - 1, y0: 1 - j.prev, y1: 1 });
+    if (j.prev > 0 && p > 1) s.push({ p: p - 1, y0: Math.max(0, 1 - j.prevCut - j.prev), y1: 1 - j.prevCut });
     s.push({ p: p, y0: j.trimT, y1: 1 - j.trimB });
-    if (j.next > 0 && p < 604) s.push({ p: p + 1, y0: 0, y1: j.next });
+    if (j.next > 0 && p < 604) s.push({ p: p + 1, y0: j.nextCut, y1: Math.min(1, j.nextCut + j.next) });
     return s;
   }
 
@@ -370,8 +370,9 @@
     if (R.sub === 'join') {
       var j = joinOf(p);
       x += '<div class="rsub"><div class="hint">Show part of the neighbouring pages, and trim this page to make room.</div>' +
-        slider('jn.prev', 'From P. ' + (p - 1), j.prev, 60, 2.5) + slider('jn.next', 'From P. ' + (p + 1), j.next, 60, 2.5) +
-        slider('jn.trimT', 'Trim top', j.trimT, 60, 2.5) + slider('jn.trimB', 'Trim bottom', j.trimB, 60, 2.5) +
+        (p > 1 ? '<div class="jgrp">P. ' + (p - 1) + ' (above)</div>' + slider('jn.prev', 'Show', j.prev, 60, 2.5) + slider('jn.prevCut', 'Cut bottom', j.prevCut, 30, 1) : '') +
+        '<div class="jgrp">This page</div>' + slider('jn.trimT', 'Trim top', j.trimT, 60, 2.5) + slider('jn.trimB', 'Trim bottom', j.trimB, 60, 2.5) +
+        (p < 604 ? '<div class="jgrp">P. ' + (p + 1) + ' (below)</div>' + slider('jn.next', 'Show', j.next, 60, 2.5) + slider('jn.nextCut', 'Cut top', j.nextCut, 30, 1) : '') +
         '<div class="rrow"><button class="btn sm" data-ract="joinReset">Reset</button><span style="flex:1"></span><button class="btn sm pri" data-ract="subDone">Done</button></div></div>';
     }
     x += '<div class="rrow scroll tools">' + tb('crop', 'Crop', IC.crop, false) + tb('join', 'Join', IC.join, R.sub === 'join') +
@@ -494,7 +495,7 @@
     e.target.nextElementSibling.textContent = (Math.round(v * 1000) / 10) + '%';
     S.edit(R.p, function (o) {
       o[parts[0]] = o[parts[0]] || {}; o[parts[0]][parts[1]] = v;
-      var j = o.jn; if ((j.trimT || 0) + (j.trimB || 0) > 0.8) j[parts[1]] = 0.8 - (parts[1] === 'trimT' ? (j.trimB || 0) : (j.trimT || 0));
+      var j = o.jn; if (o.jn && /^trim/.test(parts[1]) && (j.trimT || 0) + (j.trimB || 0) > 0.8) j[parts[1]] = 0.8 - (parts[1] === 'trimT' ? (j.trimB || 0) : (j.trimT || 0));
     });
     relayout();
   });

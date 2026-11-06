@@ -182,3 +182,4 @@ svg.i { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-widt
 .icb.pri { background: var(--acc); border-color: var(--acc); color: var(--acc-ink); }
 .icb.danger { color: #d64545; }
 .icb:disabled { opacity: .35; }
+.jgrp { font-size: 11.5px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); margin: 6px 0 0; }
