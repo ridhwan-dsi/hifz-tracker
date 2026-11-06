@@ -1,0 +1,96 @@
+/* Stopwatch: counts time on the page open in the reader, credits it per day/page, checks targets and the auto-review rule. */
+(function () {
+  var LK = 'hifz.timer', DK = 'hifz.dev';
+  var dev = localStorage.getItem(DK);
+  if (!dev) { dev = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); try { localStorage.setItem(DK, dev); } catch (e) {} }
+
+  // Session state stays on this device only.
+  var T = { run: false, secs: 0, last: 0, hitS: false, hitD: '' };
+  try { Object.assign(T, JSON.parse(localStorage.getItem(LK)) || {}); } catch (e) {}
+  T.run = false; // never resume running after a reload; the person taps play again
+  function keep() { try { localStorage.setItem(LK, JSON.stringify(T)); } catch (e) {} }
+
+  function fmt(s) {
+    s = Math.floor(s || 0); var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+    var p = function (n) { return String(n).padStart(2, '0'); };
+    return h ? h + ':' + p(m) + ':' + p(x) : p(m) + ':' + p(x);
+  }
+  function mins(s) { var m = Math.round((s || 0) / 60); return m < 60 ? m + ' min' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm'; }
+  // Pages tagged New (or not yet in Memorizing) count as memorizing; other Memorizing pages count as review.
+  function modeOf(p) { return S.isMem(p) && !S.hasTag(p, 'new') ? 'r' : 'n'; }
+
+  /* Totals for one day across all devices: { r, n, t, pages: { p: { r, n } } } */
+  function day(d) {
+    var o = { r: 0, n: 0, t: 0, pages: {} }, D = (S.d.time || {})[d] || {};
+    Object.keys(D).forEach(function (dv) {
+      ['r', 'n'].forEach(function (md) {
+        var a = D[dv][md] || {};
+        for (var p in a) { var v = a[p] || 0; o[md] += v; o.t += v; var q = o.pages[p] || (o.pages[p] = { r: 0, n: 0 }); q[md] += v; }
+      });
+    });
+    return o;
+  }
+  function pageToday(p, md) { var q = day(S.today()).pages[p]; return q ? (md ? q[md] : q.r + q.n) : 0; }
+
+  function credit(p, dt) {
+    var d = S.today(), md = modeOf(p), TM = S.d.time || (S.d.time = {});
+    var D = TM[d] || (TM[d] = {}), v = D[dev] || (D[dev] = { r: {}, n: {} }), m = v[md] || (v[md] = {});
+    m[p] = Math.round(((m[p] || 0) + dt) * 10) / 10;
+    return md;
+  }
+
+  var tickN = 0;
+  function tick() {
+    if (!T.run) return;
+    var now = Date.now();
+    if (!window.Reader || !Reader.isOpen() || document.hidden) { Timer.pause(); return; }
+    // Cap each step so a frozen tab never books a long gap.
+    var dt = Math.min((now - T.last) / 1000, 3); T.last = now;
+    if (dt <= 0) return;
+    var p = Reader.page(), md = credit(p, dt);
+    T.secs += dt; tickN++;
+    if (tickN % 5 === 0) { keep(); S.persist(); }
+    if (tickN % 60 === 0) S.save();
+    var changed = false, s = S.d.settings;
+    if (s.sessT && !T.hitS && T.secs >= s.sessT * 60) { T.hitS = true; changed = true; App.toast('Session target reached · ' + s.sessT + ' min'); buzz(); }
+    var dd = S.today();
+    if (s.goalDay && T.hitD !== dd && day(dd).t >= s.goalDay * 60) { T.hitD = dd; changed = true; App.toast('Daily goal achieved · ' + s.goalDay + ' min'); buzz(); }
+    // Auto-review: review pages only, once per day, after the set minutes on that page today.
+    if (md === 'r' && s.autoRev && S.get(p).lr !== dd && pageToday(p, 'r') >= s.autoRev * 60) {
+      var o = S.get(p), prev = { lr: o.lr, rv: JSON.parse(JSON.stringify(o.rv || {})), h: o.h };
+      S.reviewed(p); changed = true;
+      App.toast('P. ' + p + ' auto-marked reviewed · ' + s.autoRev + ' min', function () { S.unreview(p, prev); Reader.refresh(); });
+    }
+    if (changed) { keep(); Reader.refresh(); } else paint();
+  }
+  function buzz() { try { navigator.vibrate && navigator.vibrate([60, 60, 60]); } catch (e) {} }
+
+  // Update only the live numbers so taps on the panel are never interrupted.
+  function paint() {
+    var t = fmt(T.secs);
+    document.querySelectorAll('.tmr-t').forEach(function (el) { el.textContent = t; });
+    if (!window.Reader || !Reader.isOpen()) return;
+    var p = Reader.page(), dd = day(S.today()), g = S.d.settings.goalDay;
+    document.querySelectorAll('.tmr-pg').forEach(function (el) { el.textContent = fmt(pageToday(p)); });
+    document.querySelectorAll('.tmr-day').forEach(function (el) { el.textContent = Math.floor(dd.t / 60); });
+    document.querySelectorAll('.tmr-bar').forEach(function (el) { el.style.width = (g ? Math.min(100, dd.t / (g * 60) * 100) : 0) + '%'; });
+  }
+
+  var Timer = {
+    fmt: fmt, mins: mins, day: day, pageToday: pageToday, modeOf: modeOf,
+    state: function () { return T; },
+    active: function () { return T.run || T.secs > 0; },
+    achieved: function () { return !!S.d.settings.sessT && T.secs >= S.d.settings.sessT * 60; },
+    start: function () { if (T.run) return; T.run = true; T.last = Date.now(); keep(); },
+    pause: function () { if (!T.run) return; T.run = false; keep(); S.save(); if (window.Reader && Reader.isOpen()) Reader.refresh(); },
+    toggle: function () { if (T.run) Timer.pause(); else Timer.start(); },
+    stop: function () {
+      var s = T.secs; T.run = false; T.secs = 0; T.hitS = false; keep(); S.save();
+      if (s >= 1) App.toast('Session saved · ' + mins(s));
+    },
+    setTarget: function (m) { S.d.settings.sessT = m; T.hitS = T.secs >= m * 60 && m > 0; S.saveSettings(); keep(); }
+  };
+  window.Timer = Timer;
+  setInterval(tick, 1000);
+  document.addEventListener('visibilitychange', function () { if (document.hidden) Timer.pause(); });
+})();

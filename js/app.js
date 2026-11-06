@@ -20,7 +20,7 @@
   var BUILTIN = [{ id: 'new', name: 'New' }, { id: 'review', name: 'Selected for review' }];
   function allTags() { return BUILTIN.concat(S.d.tags); }
 
-  var st = { view: 'home', exp: { mem: {}, tom: {} }, edit: false, tedit: null, q: '', sf: 'all', ssel: {}, month: null };
+  var st = { view: 'home', exp: { mem: {}, tom: {} }, edit: false, tedit: null, q: '', sf: 'all', ssel: {}, month: null, stab: 'prog', cal: null, cday: null, sper: 'all' };
 
   var App = {
     esc: esc, ICON: ICON, sPages: sPages, onPage: onPage, pageTitle: pageTitle, hcol: hcol, allTags: allTags,
@@ -154,6 +154,8 @@
     Object.keys(S.d.pages).forEach(function (k) { var rv = S.d.pages[k].rv || {}; for (var mm in rv) { months[mm] = (months[mm] || 0) + rv[mm]; all += rv[mm]; if (mm === m) monthTotal += rv[mm]; } });
     mem.forEach(function (p) { sumH += S.health(p); });
     var h = '<header class="top"><button class="ib" data-act="home" aria-label="Back">' + ICON.back + '</button><div class="brand">Stats</div></header>';
+    h += '<div class="seg"><button class="' + (st.stab !== 'time' ? 'on' : '') + '" data-act="stab" data-t="prog">Progress</button><button class="' + (st.stab === 'time' ? 'on' : '') + '" data-act="stab" data-t="time">Time</button></div>';
+    if (st.stab === 'time') return h + timeStats();
     h += '<div class="cards"><div class="card"><div class="v">' + mem.length + '</div><div class="k">Pages memorizing</div></div>' +
       '<div class="card"><div class="v">' + (mem.length ? Math.round(sumH / mem.length) : 0) + '%</div><div class="k">Average health</div></div>' +
       '<div class="card"><div class="v">' + monthTotal + '</div><div class="k">Reviews this month</div></div>' +
@@ -186,6 +188,63 @@
     return h;
   }
 
+  /* ---------------- Time dashboard ---------------- */
+  function dkey(dt) { return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0'); }
+  function timeStats() {
+    var TM = S.d.time || {}, days = Object.keys(TM).sort(), g = S.d.settings.goalDay, td = S.today(), D = {};
+    days.forEach(function (k) { D[k] = Timer.day(k); });
+    var sum = function (pred) { var t = 0; days.forEach(function (k) { if (pred(k)) t += D[k].t; }); return t; };
+    var now = new Date(), wk = new Date(now); wk.setDate(now.getDate() - 6); var wks = dkey(wk), mth = S.month();
+    // Streak: consecutive days meeting the daily goal (any time at all when no goal is set), ending today or yesterday.
+    var streak = 0, c = new Date(now), met = function (k) { return D[k] && D[k].t >= (g ? g * 60 : 1); };
+    if (!met(dkey(c))) c.setDate(c.getDate() - 1);
+    while (met(dkey(c))) { streak++; c.setDate(c.getDate() - 1); }
+    var h = '<div class="cards">' +
+      '<div class="card"><div class="v">' + Math.floor(((D[td] || {}).t || 0) / 60) + (g ? '<span class="small muted"> / ' + g + '</span>' : '') + '</div><div class="k">Minutes today' + (g && met(td) ? ' · ✓ goal' : '') + '</div></div>' +
+      '<div class="card"><div class="v">' + streak + '</div><div class="k">Day streak</div></div>' +
+      '<div class="card"><div class="v">' + Timer.mins(sum(function (k) { return k >= wks; })) + '</div><div class="k">Last 7 days</div></div>' +
+      '<div class="card"><div class="v">' + Timer.mins(sum(function () { return true; })) + '</div><div class="k">Total time</div></div></div>';
+    if (st.cday) return h + dayDetail(st.cday, D[st.cday]);
+    // Month calendar
+    var cm = st.cal || mth, y = +cm.slice(0, 4), mo = +cm.slice(5, 7) - 1, first = new Date(y, mo, 1), nd = new Date(y, mo + 1, 0).getDate();
+    var prev = dkey(new Date(y, mo - 1, 1)).slice(0, 7), next = dkey(new Date(y, mo + 1, 1)).slice(0, 7), mt = 0;
+    h += '<div class="calhd"><button class="ib" data-act="cal" data-m="' + prev + '" aria-label="Previous month">' + ICON.back + '</button><b>' + first.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) + '</b><button class="ib" data-act="cal" data-m="' + next + '" aria-label="Next month"' + (cm >= mth ? ' disabled style="opacity:.3"' : '') + '>' + ICON.fwd + '</button></div>';
+    h += '<div class="cal">' + ['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(function (x) { return '<span class="dow">' + x + '</span>'; }).join('');
+    for (var i = 0; i < first.getDay(); i++) h += '<span></span>';
+    for (var d = 1; d <= nd; d++) {
+      var k = cm + '-' + String(d).padStart(2, '0'), o = D[k], m = o ? Math.round(o.t / 60) : 0; if (o) mt += o.t;
+      var lvl = !o || o.t < 30 ? 0 : g ? Math.min(4, Math.ceil(o.t / (g * 60) * 4)) : Math.min(4, Math.ceil(m / 15));
+      h += '<button class="cd l' + lvl + (k === td ? ' today' : '') + '"' + (o && o.t >= 30 ? ' data-act="cday" data-d="' + k + '"' : ' disabled') + '><b>' + d + '</b>' +
+        (m ? '<span>' + m + 'm</span>' : '') + '<i>' + (o && o.n >= 30 ? '<em class="dn"></em>' : '') + (o && o.r >= 30 ? '<em class="dr"></em>' : '') + '</i>' + (g && o && o.t >= g * 60 ? '<u>✓</u>' : '') + '</button>';
+    }
+    h += '</div><div class="small muted callg"><em class="dn"></em> memorizing <em class="dr"></em> review · ✓ daily goal · ' + Timer.mins(mt) + ' this month</div>';
+    // By surah
+    var per = st.sper, bys = {};
+    days.forEach(function (k) {
+      if (per === 'month' && k.slice(0, 7) !== mth) return;
+      var P = D[k].pages;
+      for (var p in P) { var ss = onPage(+p); ss.forEach(function (n) { var b = bys[n] || (bys[n] = { r: 0, n: 0 }); b.r += P[p].r / ss.length; b.n += P[p].n / ss.length; }); }
+    });
+    var list = Object.keys(bys).map(Number).sort(function (a, b) { return (bys[b].r + bys[b].n) - (bys[a].r + bys[a].n); });
+    var mx = list.length ? bys[list[0]].r + bys[list[0]].n : 1;
+    h += '<div class="bar" style="margin-top:14px"><b style="align-self:center">By surah</b><span style="flex:1"></span><div class="seg mini">' + [['all', 'All time'], ['month', 'This month']].map(function (x) { return '<button class="' + (per === x[0] ? 'on' : '') + '" data-act="sper" data-p="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div></div>';
+    h += '<div class="list">' + (list.map(function (n) {
+      var b = bys[n], t = b.r + b.n;
+      return '<div class="prow"><div class="grow"><div style="display:flex;justify-content:space-between;gap:8px"><span><span class="muted small">' + n + '</span> <b>' + esc(SUR[n - 1][0]) + '</b></span><b>' + Timer.mins(t) + '</b></div>' +
+        '<div class="tsplit" style="width:' + Math.max(4, t / mx * 100) + '%"><i class="dn" style="flex:' + b.n + '"></i><i class="dr" style="flex:' + b.r + '"></i></div>' +
+        '<div class="small muted">' + (b.n >= 30 ? 'Memorizing ' + Timer.mins(b.n) : '') + (b.n >= 30 && b.r >= 30 ? ' · ' : '') + (b.r >= 30 ? 'Review ' + Timer.mins(b.r) : '') + '</div></div></div>';
+    }).join('') || '<div class="empty">No time yet. Start the stopwatch from the Timer button in the reader.</div>') + '</div>';
+    return h;
+  }
+  function dayDetail(k, o) {
+    var dt = new Date(k + 'T00:00:00'), ps = Object.keys(o.pages).map(Number).sort(function (a, b) { return a - b; });
+    var h = '<div class="bar"><button class="btn sm" data-act="cday" data-d="">‹ Calendar</button><b style="align-self:center">' + dt.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + Timer.mins(o.t) + '</b></div>';
+    return h + '<div class="list">' + ps.map(function (p) {
+      var q = o.pages[p];
+      return '<div class="prow"><button class="pl" data-act="open" data-p="' + p + '">P. ' + p + '</button><div class="grow small">' + esc(pageTitle(p)) + '<br><span class="muted">' + (q.n >= 30 ? 'memorizing ' + Timer.mins(q.n) : '') + (q.n >= 30 && q.r >= 30 ? ' · ' : '') + (q.r >= 30 ? 'review ' + Timer.mins(q.r) : '') + '</span></div><b>' + Timer.mins(q.r + q.n) + '</b></div>';
+    }).join('') + '</div>';
+  }
+
   /* ---------------- Settings ---------------- */
   function openSettings() {
     var s = S.d.settings, cid = Sync.cid();
@@ -201,6 +260,8 @@
       '<h4>Health decay</h4><div class="frow"><label>Lose health when not reviewed</label><button class="sw ' + (s.decayOn ? 'on' : '') + '" data-act="decayOn"></button></div>' +
       '<div class="frow"><label>Start after</label><select data-in="decayAfter">' + [7, 10, 14, 21, 30].map(function (v) { return '<option value="' + v + '"' + (s.decayAfter === v ? ' selected' : '') + '>' + v + ' days</option>'; }).join('') + '</select></div>' +
       '<div class="frow"><label>Then lose</label><select data-in="decayPct">' + [5, 10, 15].map(function (v) { return '<option value="' + v + '"' + (s.decayPct === v ? ' selected' : '') + '>' + v + '% per week</option>'; }).join('') + '</select></div>' +
+      '<h4>Stopwatch</h4><div class="frow"><label>Daily goal</label><select data-in="goalDay">' + [0, 10, 15, 20, 30, 45, 60, 90].map(function (v) { return '<option value="' + v + '"' + (s.goalDay === v ? ' selected' : '') + '>' + (v ? v + ' min' : 'Off') + '</option>'; }).join('') + '</select></div>' +
+      '<div class="frow"><label>Auto-mark reviewed<br><span class="small muted">After this much stopwatch time on a review page in a day. Pages tagged New are left alone.</span></label><select data-in="autoRev">' + [0, 3, 5, 10, 15, 20].map(function (v) { return '<option value="' + v + '"' + (s.autoRev === v ? ' selected' : '') + '>' + (v ? v + ' min' : 'Off') + '</option>'; }).join('') + '</select></div>' +
       '<h4>Section hiding colour</h4><div class="rrow">' + [['#ffffff', 'White'], ['#fbf6e9', 'Cream'], ['#e9ecea', 'Grey']].map(function (c) { return '<button class="sw-c ' + (s.cover === c[0] ? 'on' : '') + '" style="background:' + c[0] + '" data-act="cover" data-c="' + c[0] + '" aria-label="' + c[1] + '"></button>'; }).join('') + '</div>' +
       '<h4>Custom tags</h4>' + (S.d.tags.length ? S.d.tags.map(function (t) { return '<div class="frow"><label>' + esc(t.name) + '</label><button class="btn sm" data-act="delTag" data-t="' + esc(t.id) + '">Remove</button></div>'; }).join('') : '<p class="small muted">None yet — add one with “+ Tag” on the Memorizing tab.</p>') +
       '<h4>Account &amp; sync</h4>' + acct +
@@ -249,6 +310,10 @@
     stats: function () { st.view = 'stats'; st.ssel = {}; st.month = null; App.render(); window.scrollTo(0, 0); },
     home: function () { st.view = 'home'; App.render(); },
     sf: function (el) { st.sf = el.dataset.f; App.render(); },
+    stab: function (el) { st.stab = el.dataset.t; st.cday = null; App.render(); },
+    cal: function (el) { st.cal = el.dataset.m; App.render(); },
+    cday: function (el) { st.cday = el.dataset.d || null; App.render(); window.scrollTo(0, 0); },
+    sper: function (el) { st.sper = el.dataset.p; App.render(); },
     month: function (el) { st.month = el.dataset.m || null; App.render(); },
     ssel: function (el) { st.ssel[el.dataset.p] = !st.ssel[el.dataset.p]; App.render(); },
     sselAll: function () {
@@ -265,7 +330,7 @@
     settings: openSettings, closeSheet: closeSheet,
     updateApp: function (el) {
       el.disabled = true; el.textContent = 'Updating…';
-      var sw = navigator.serviceWorker, files = ['./', 'index.html', 'css/app.css', 'js/config.js', 'js/quran.js', 'js/autocrop.js', 'js/store.js', 'js/reader.js', 'js/app.js', 'sw.js'];
+      var sw = navigator.serviceWorker, files = ['./', 'index.html', 'css/app.css', 'js/config.js', 'js/quran.js', 'js/autocrop.js', 'js/store.js', 'js/timer.js', 'js/reader.js', 'js/app.js', 'sw.js'];
       var p1 = sw ? sw.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }) : Promise.resolve();
       var p2 = window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k !== 'hifz-pages'; }).map(function (k) { return caches.delete(k); })); }) : Promise.resolve();
       // Refetch the app files past the browser's HTTP cache so the reload gets fresh copies.
@@ -292,7 +357,7 @@
     if (k === 'q') {
       st.q = e.target.value; var pos = e.target.selectionStart; App.render();
       var inp = document.querySelector('[data-in=q]'); if (inp) { inp.focus(); try { inp.setSelectionRange(pos, pos); } catch (x) {} }
-    } else if (k === 'decayAfter' || k === 'decayPct' || k === 'trimPad') { S.d.settings[k] = +e.target.value; S.saveSettings(); App.render(); }
+    } else if (k === 'decayAfter' || k === 'decayPct' || k === 'trimPad' || k === 'goalDay' || k === 'autoRev') { S.d.settings[k] = +e.target.value; S.saveSettings(); App.render(); }
     else if (k === 'fit' || k === 'trim') { S.d.settings[k] = e.target.value; S.saveSettings(); App.render(); }
   });
   document.addEventListener('click', function (e) { if (e.target.id === 'scrim') closeSheet(); });

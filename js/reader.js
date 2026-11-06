@@ -83,10 +83,13 @@
       go(p, 0);
     },
     close: function () {
+      if (window.Timer) Timer.pause();
       $('#reader').classList.remove('on'); document.body.style.overflow = '';
       R.sub = null; R.edit = false; R.sel = -1; App.render();
     },
     isOpen: function () { return $('#reader').classList.contains('on'); },
+    page: function () { return R.p; },
+    refresh: function () { if (Reader.isOpen()) renderPanel(); },
     relayout: function () { if (Reader.isOpen()) layout(); }
   };
   window.Reader = Reader;
@@ -328,6 +331,8 @@
     box: I('<rect x="3" y="6" width="18" height="12" rx="2"/>'), line: I('<path d="M3 9h10v6h8"/>'),
     crop: I('<path d="M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2"/>'), join: I('<path d="M4 4h16v5H4zM4 15h16v5H4zM12 9v6"/>'),
     heart: I('<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21.2l8.8-8.8a5.5 5.5 0 0 0 0-7.8z"/>'),
+    clock: I('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M10 2h4"/>'), pause: I('<path d="M8 5v14M16 5v14"/>'),
+    play: I('<path d="M7 4l13 8-13 8z"/>'), stop: I('<rect x="6" y="6" width="12" height="12" rx="1.5"/>'),
     tag: I('<path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.5"/>'),
     full: I('<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>'),
     fitp: I('<rect x="6" y="3" width="12" height="18" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h4"/>'), fitw: I('<path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/>'),
@@ -342,7 +347,11 @@
   function renderPanel() {
     var host = $('#rui'), p = R.p, x = '<button class="rback" data-ract="home" aria-label="Home">' + IC.left + '</button>';
     if (!R.panel) {
-      x += navBtns('float') + '<button class="rhandle" data-ract="expand" aria-label="Show controls">' + IC.up + '<span>P. ' + p + '</span></button>';
+      var ta = Timer.active(), tr = Timer.state().run;
+      if (ta) x += '<button class="tchip' + (Timer.achieved() ? ' ach' : '') + (tr ? '' : ' paused') + '" data-ract="tGo" aria-label="' + (tr ? 'Pause' : 'Resume') + ' stopwatch">' +
+        (Timer.achieved() ? IC.check + 'Achieved · ' : '<i class="tdot"></i>') + '<span class="tmr-t">' + Timer.fmt(Timer.state().secs) + '</span>' +
+        (S.d.settings.sessT && !Timer.achieved() ? ' / ' + S.d.settings.sessT + ':00' : '') + (tr ? IC.pause : IC.play) + '</button>';
+      x += navBtns('float') + '<button class="rhandle" data-ract="expand" aria-label="Show controls">' + IC.up + '<span>P. ' + p + (ta ? ' · </span>' + IC.clock + '<span class="tmr-t">' + Timer.fmt(Timer.state().secs) + '</span>' : '</span>') + '</button>';
       host.innerHTML = x; afterPanel(); return;
     }
     x += '<div class="rpanel"><button class="grab" data-ract="collapse" aria-label="Hide controls"><i></i></button>';
@@ -385,10 +394,26 @@
     // Health and Tags live in the bottom toolbar and expand their row just above it.
     if (m && R.sub === 'health') x += '<div class="rsub hsub"><span class="lbl">Health</span><span class="hctl big"><button data-ract="hminus" aria-label="Lower health">−</button><span style="color:' + (h ? App.hcol(h) : 'var(--muted)') + '">' + h + '%</span><button data-ract="hplus" aria-label="Raise health">+</button></span></div>';
     if (m && R.sub === 'tags') x += '<div class="rrow scroll">' + App.allTags().map(function (t) { return '<button class="chip' + (S.hasTag(p, t.id) ? ' on' : '') + '" data-ract="tag" data-t="' + App.esc(t.id) + '">' + App.esc(t.name) + '</button>'; }).join('') + '</div>';
+    if (R.sub === 'timer') x += timerPanel();
     x += '<div class="rrow scroll tools">' + tb('crop', 'Crop', IC.crop, false) + tb('join', 'Join', IC.join, R.sub === 'join') +
       tb('health', m ? h + '%' : 'Health', IC.heart, R.sub === 'health', !m) + tb('tags', 'Tags', IC.tag, R.sub === 'tags', !m) +
+      tb('timer', Timer.active() ? '<span class="tmr-t">' + Timer.fmt(Timer.state().secs) + '</span>' : 'Timer', IC.clock, R.sub === 'timer').replace('class="tb', 'class="tb' + (Timer.state().run ? ' live' : '')) +
       (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + '<span style="flex:1"></span>' + tb('addBox', 'Box', IC.box, false, !am) + tb('addLine', 'Line', IC.line, false, !am) + tb('delMask', 'Clear', IC.trash, false, !am || !R.items.length).replace('class="tb', 'class="tb danger') + '</div>';
     return x;
+  }
+  function timerPanel() {
+    var T = Timer.state(), s = S.d.settings, p = R.p, dd = Timer.day(S.today()), g = s.goalDay, ach = Timer.achieved();
+    var md = Timer.modeOf(p) === 'r' ? 'review' : 'memorizing';
+    var x = '<div class="rsub tsub"><div class="rrow"><span class="tbig' + (ach ? ' ach' : '') + '"><span class="tmr-t">' + Timer.fmt(T.secs) + '</span></span>' +
+      '<span class="small muted tmeta">' + (ach ? '<b class="tach">' + IC.check + 'Achieved</b><br>' : '') + md + ' · this page <span class="tmr-pg">' + Timer.fmt(Timer.pageToday(p)) + '</span></span><span style="flex:1"></span>' +
+      '<button class="tbtn pri" data-ract="tGo" aria-label="' + (T.run ? 'Pause' : 'Start') + '">' + (T.run ? IC.pause : IC.play) + '</button>' +
+      (Timer.active() ? '<button class="tbtn stop" data-ract="tStop" aria-label="Stop and save">' + IC.stop + '</button>' : '') + '</div>';
+    var opts = [0, 10, 20, 30], cur = s.sessT || 0;
+    if (opts.indexOf(cur) < 0) opts.push(cur);
+    x += '<div class="rrow scroll"><span class="lbl">Target</span>' + opts.map(function (v) { return '<button class="chip' + (cur === v ? ' on' : '') + '" data-ract="tT" data-v="' + v + '">' + (v ? v + ' min' : 'None') + '</button>'; }).join('') +
+      '<button class="chip" data-ract="tT" data-v="custom" aria-label="Custom target">+</button></div>';
+    if (g) x += '<div class="rrow"><span class="small muted" style="white-space:nowrap">Today <span class="tmr-day">' + Math.floor(dd.t / 60) + '</span> / ' + g + ' min' + (dd.t >= g * 60 ? ' ✓' : '') + '</span><div class="hbar" style="flex:1;margin:0"><i class="tmr-bar" style="width:' + Math.min(100, dd.t / (g * 60) * 100) + '%;background:var(--acc)"></i></div></div>';
+    return x + '</div>';
   }
   function editPanel() {
     var am = activeMask(), m = R.items[R.sel], x = '';
@@ -454,6 +479,14 @@
       App.toast('Marked reviewed · ' + S.monthCount(p) + '× this month', function () { S.unreview(p, prev); if (R.p === p) renderPanel(); });
     },
     tags: function () { R.sub = R.sub === 'tags' ? null : 'tags'; renderPanel(); },
+    timer: function () { R.sub = R.sub === 'timer' ? null : 'timer'; renderPanel(); },
+    tGo: function () { Timer.toggle(); renderPanel(); },
+    tStop: function () { Timer.stop(); renderPanel(); },
+    tT: function (el) {
+      var v = el.dataset.v;
+      if (v === 'custom') { v = parseInt(prompt('Session target in minutes', S.d.settings.sessT || 45), 10); if (!(v > 0)) return; }
+      Timer.setTarget(+v); renderPanel();
+    },
     health: function () { R.sub = R.sub === 'health' ? null : 'health'; renderPanel(); },
     tag: function (el) { S.toggleTag(R.p, el.dataset.t); renderPanel(); },
     mask: function (el) {
