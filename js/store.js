@@ -52,11 +52,18 @@
     },
     setHealth: function (p, v) { this.edit(p, function (o) { o.h = Math.max(0, Math.min(100, v)); o.hd = today(); }); },
     reviewed: function (p) {
+      if (this.get(p).lr === today()) return false; // at most one review per page per day
       var eff = this.health(p), m = month();
       this.edit(p, function (o) {
         o.h = eff; o.lr = today(); o.rv = o.rv || {}; o.rv[m] = (o.rv[m] || 0) + 1;
         o.rl = o.rl || []; o.rl.push(today()); if (o.rl.length > 300) o.rl.splice(0, o.rl.length - 300);
       });
+      return true;
+    },
+    // Un-mark today: removes every review logged today (also clears any same-day duplicates from before this rule).
+    unreviewToday: function (p) {
+      var t = today(), self = this;
+      while (this.get(p).lr === t && this.unreviewLast(p)) {}
     },
     // Remove the most recent review (for accidental taps). Uses the dated log; older reviews logged before it existed come off the current month, else the latest month.
     unreviewLast: function (p) {
