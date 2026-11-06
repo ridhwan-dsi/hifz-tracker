@@ -5,7 +5,7 @@
   if (!dev) { dev = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); try { localStorage.setItem(DK, dev); } catch (e) {} }
 
   // Session state stays on this device only.
-  var T = { run: false, secs: 0, last: 0, hitS: false, hitD: '' };
+  var T = { run: false, secs: 0, last: 0, hitS: false, hitD: '', cr: {} };
   try { Object.assign(T, JSON.parse(localStorage.getItem(LK)) || {}); } catch (e) {}
   T.run = false; // never resume running after a reload; the person taps play again
   function keep() { try { localStorage.setItem(LK, JSON.stringify(T)); } catch (e) {} }
@@ -36,6 +36,7 @@
     var d = S.today(), md = modeOf(p), TM = S.d.time || (S.d.time = {});
     var D = TM[d] || (TM[d] = {}), v = D[dev] || (D[dev] = { r: {}, n: {} }), m = v[md] || (v[md] = {});
     m[p] = Math.round(((m[p] || 0) + dt) * 10) / 10;
+    var k = d + '|' + md + '|' + p, cr = T.cr || (T.cr = {}); cr[k] = (cr[k] || 0) + dt;
     return md;
   }
 
@@ -85,8 +86,18 @@
     pause: function () { if (!T.run) return; T.run = false; keep(); S.save(); if (window.Reader && Reader.isOpen()) Reader.refresh(); },
     toggle: function () { if (T.run) Timer.pause(); else Timer.start(); },
     stop: function () {
-      var s = T.secs; T.run = false; T.secs = 0; T.hitS = false; keep(); S.save();
+      var s = T.secs; T.run = false; T.secs = 0; T.hitS = false; T.cr = {}; keep(); S.save();
       if (s >= 1) App.toast('Session saved · ' + mins(s));
+    },
+    // Throw the session away: take back every second it credited, then reset.
+    discard: function () {
+      var cr = T.cr || {};
+      Object.keys(cr).forEach(function (k) {
+        var a = k.split('|'), D = (S.d.time || {})[a[0]], v = D && D[dev], m = v && v[a[1]];
+        if (m && m[a[2]] != null) { m[a[2]] = Math.max(0, Math.round((m[a[2]] - cr[k]) * 10) / 10); if (!m[a[2]]) delete m[a[2]]; }
+      });
+      T.run = false; T.secs = 0; T.hitS = false; T.cr = {}; keep(); S.save();
+      App.toast('Session deleted');
     },
     setTarget: function (m) { S.d.settings.sessT = m; T.hitS = T.secs >= m * 60 && m > 0; S.saveSettings(); keep(); }
   };

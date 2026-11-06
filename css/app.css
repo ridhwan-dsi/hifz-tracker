@@ -249,3 +249,4 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 .pbox .pbtns { display: flex; gap: 10px; margin-top: 16px; }
 .pbox .pbtns .btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .pbox .pbtns svg.i { width: 17px; height: 17px; }
+.pbox .pbtns .btn.pdel { flex: none; width: 52px; padding: 0; color: #d64545; }

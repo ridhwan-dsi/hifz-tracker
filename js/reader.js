@@ -433,7 +433,7 @@
     sc.innerHTML = '<div class="sheetm pbox"><div class="pbt">Paused</div>' +
       '<div class="tbig' + (ach ? ' ach' : '') + '"><span class="tmr-t">' + Timer.fmt(T.secs) + '</span></div>' +
       '<div class="small muted">' + (ach ? '<b class="tach">' + IC.check + 'Achieved</b> · ' : '') + md + ' · this page <span class="tmr-pg">' + Timer.fmt(Timer.pageToday(p)) + '</span></div>' +
-      '<div class="pbtns"><button class="btn" data-ract="tSave">' + IC.check + 'Save</button><button class="btn pri" data-ract="tResume">' + IC.play + 'Resume</button></div></div>';
+      '<div class="pbtns"><button class="btn pdel" data-ract="tDel" aria-label="Delete session">' + IC.trash + '</button><button class="btn" data-ract="tSave">' + IC.check + 'Save</button><button class="btn pri" data-ract="tResume">' + IC.play + 'Resume</button></div></div>';
     sc.style.display = 'flex';
   }
   function closePause() { var sc = document.getElementById('scrim'); if (sc) { sc.style.display = 'none'; sc.innerHTML = ''; } }
@@ -532,6 +532,7 @@
     },
     tResume: function () { closePause(); Timer.start(); renderPanel(); },
     tSave: function () { closePause(); Timer.stop(); renderPanel(); },
+    tDel: function () { if (!confirm('Delete this session? Its time won’t be counted.')) return; closePause(); Timer.discard(); renderPanel(); },
     tT: function (el) {
       var v = el.dataset.v;
       if (v === 'custom') { v = parseInt(prompt('Session target in minutes', S.d.settings.sessT || 45), 10); if (!(v > 0)) return; }
