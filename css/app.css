@@ -282,3 +282,7 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 .sswitch::-webkit-scrollbar { display: none; }
 .sswitch button { flex: none; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); color: var(--muted); font: inherit; font-size: 13px; font-weight: 700; }
 .sswitch button.on { background: var(--acc-soft); border-color: var(--acc); color: var(--acc); }
+
+.sortbar { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; }
+.sortbar select { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); font-size: 13px; min-width: 0; flex: 1; }
+.sortbar .btn { white-space: nowrap; flex: none; }

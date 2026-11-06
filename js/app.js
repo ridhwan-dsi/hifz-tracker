@@ -23,7 +23,7 @@
   var BUILTIN = [{ id: 'new', name: 'New' }, { id: 'review', name: 'Selected for review' }];
   function allTags() { return BUILTIN.concat(S.d.tags); }
 
-  var st = { view: 'home', exp: { mem: {}, tom: {} }, edit: false, tedit: null, q: '', sf: 'all', ssel: {}, month: null, stab: 'prog', cal: null, cday: null, sper: 'all' };
+  var st = { view: 'home', exp: { mem: {}, tom: {} }, edit: false, tedit: null, q: '', sf: 'all', srt: 'page', sdir: 0, sprd: 'all', ssel: {}, month: null, stab: 'prog', cal: null, cday: null, sper: 'all' };
 
   var App = {
     esc: esc, ICON: ICON, sPages: sPages, onPage: onPage, pageTitle: pageTitle, hcol: hcol, allTags: allTags,
@@ -169,7 +169,7 @@
         (rowsM.map(function (p) { return '<div class="prow"><button class="pl" data-act="open" data-p="' + p + '">P. ' + S.kp(p) + '</button><div class="grow small">' + esc(unitTitle(p)) + '</div><b>' + S.d.pages[p].rv[st.month] + '×</b></div>'; }).join('') || '<div class="empty">No reviews.</div>') + '</div>';
       return h;
     }
-    h += '<div class="seg">' + [['all', 'All'], ['low', 'Below 50%'], ['weak', 'Weakest first'], ['months', 'By month']].map(function (x) {
+    h += '<div class="seg">' + [['all', 'All'], ['low', 'Below 50%'], ['months', 'By month']].map(function (x) {
       return '<button class="' + (st.sf === x[0] ? 'on' : '') + '" data-act="sf" data-f="' + x[0] + '">' + x[1] + '</button>';
     }).join('') + '</div>';
     if (st.sf === 'months') {
@@ -178,13 +178,29 @@
     }
     var list = mem.slice();
     if (st.sf === 'low') list = list.filter(function (p) { return S.health(p) < 50; });
-    if (st.sf === 'weak') list.sort(function (a, b) { return S.health(a) - S.health(b); });
+    // Sort: page / health / time / reviews / last reviewed; time and review counts for all time or one month.
+    var prd = st.sprd, tmap = {}, pms = {};
+    Object.keys(S.d.time || {}).forEach(function (d) {
+      var mm = d.slice(0, 7); pms[mm] = 1; if (prd !== 'all' && mm !== prd) return;
+      var pg = Timer.day(d).pages; for (var q in pg) tmap[q] = (tmap[q] || 0) + pg[q].r + pg[q].n;
+    });
+    for (var mm2 in months) pms[mm2] = 1; pms[m] = 1;
+    var tOf = function (p) { return tmap[S.kp(p)] || 0; };
+    var rOf = function (p) { var rv = S.get(p).rv || {}, t = 0; if (prd !== 'all') return rv[prd] || 0; for (var x in rv) t += rv[x]; return t; };
+    var SRT = { page: ['Page', 'Mushaf order', 'Reversed', null], health: ['Health', 'Best first', 'Worst first', function (p) { return S.health(p); }],
+      time: ['Time spent', 'Most first', 'Least first', tOf], revs: ['Times reviewed', 'Most first', 'Least first', rOf],
+      last: ['Last reviewed', 'Most recent first', 'Longest ago first', function (p) { var d = S.get(p).lr; return d ? new Date(d + 'T00:00:00').getTime() : 0; }] };
+    var sk = SRT[st.srt] || SRT.page, kf = sk[3], dn = st.sdir ? -1 : 1;
+    list.sort(function (a, b) { var c = kf ? kf(b) - kf(a) : 0; return (c || byUnit(a, b)) * (kf ? (c ? dn : 1) : dn); });
+    h += '<div class="sortbar"><select data-in="srt" aria-label="Sort by">' + Object.keys(SRT).map(function (k) { return '<option value="' + k + '"' + (st.srt === k ? ' selected' : '') + '>' + SRT[k][0] + '</option>'; }).join('') + '</select>' +
+      '<button class="btn sm" data-act="sdir">⇅ ' + sk[st.sdir ? 2 : 1] + '</button>' +
+      '<select data-in="sprd" aria-label="Period"><option value="all">All time</option>' + Object.keys(pms).sort().reverse().map(function (k) { return '<option value="' + k + '"' + (prd === k ? ' selected' : '') + '>' + (k === m ? 'This month' : k) + '</option>'; }).join('') + '</select></div>';
     h += '<div class="list">' + (list.map(function (p) {
       var hh = S.health(p), o = S.get(p), on = st.ssel[p];
       return '<div class="prow"><button class="tick ' + (on ? 'on' : '') + '" style="margin:0" data-act="ssel" data-p="' + p + '">' + (on ? ICON.check : '') + '</button>' +
         '<div class="grow"><div style="display:flex;gap:8px;align-items:center"><button class="pl" data-act="open" data-p="' + p + '">P. ' + S.kp(p) + '</button><span class="small muted" style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">' + esc(unitTitle(p)) + (S.hasTag(p, 'review') ? ' · for review' : '') + '</span></div>' +
         '<div class="hbar"><i style="width:' + hh + '%;background:' + hcol(hh) + '"></i></div></div>' +
-        '<div style="text-align:right;font-size:12px"><b>' + hh + '%</b><br><span class="muted">' + ago(o.lr) + ' · ' + S.monthCount(p) + '×</span></div></div>';
+        '<div style="text-align:right;font-size:12px"><b>' + hh + '%</b><br><span class="muted">' + ago(o.lr) + ' · ' + rOf(p) + '×' + (tOf(p) >= 30 ? ' · ' + Timer.mins(tOf(p)) : '') + '</span></div></div>';
     }).join('') || '<div class="empty">No pages.</div>') + '</div>';
     var nsel = Object.keys(st.ssel).filter(function (k) { return st.ssel[k]; }).length;
     if (list.length) h += '<div class="actbar"><button class="btn" data-act="sselAll">' + (nsel ? 'Clear (' + nsel + ')' : 'Select all') + '</button><button class="btn pri" data-act="tagReview" ' + (nsel ? '' : 'disabled style="opacity:.5"') + '>Mark for review</button></div>';
@@ -318,6 +334,7 @@
     stats: function () { st.view = 'stats'; st.ssel = {}; st.month = null; App.render(); window.scrollTo(0, 0); },
     home: function () { st.view = 'home'; App.render(); },
     sf: function (el) { st.sf = el.dataset.f; App.render(); },
+    sdir: function () { st.sdir = st.sdir ? 0 : 1; App.render(); },
     stab: function (el) { st.stab = el.dataset.t; st.cday = null; App.render(); },
     cal: function (el) { st.cal = el.dataset.m; App.render(); },
     cday: function (el) { st.cday = el.dataset.d || null; App.render(); window.scrollTo(0, 0); },
@@ -371,6 +388,8 @@
       st.q = e.target.value; var pos = e.target.selectionStart; App.render();
       var inp = document.querySelector('[data-in=q]'); if (inp) { inp.focus(); try { inp.setSelectionRange(pos, pos); } catch (x) {} }
     } else if (k === 'decayAfter' || k === 'decayPct' || k === 'trimPad' || k === 'goalDay' || k === 'autoRev') { S.d.settings[k] = +e.target.value; S.saveSettings(); App.render(); }
+    else if (k === 'srt') { st.srt = e.target.value; st.sdir = 0; App.render(); }
+    else if (k === 'sprd') { st.sprd = e.target.value; App.render(); }
     else if (k === 'fit' || k === 'trim') { S.d.settings[k] = e.target.value; S.saveSettings(); App.render(); }
   });
   document.addEventListener('click', function (e) { if (e.target.id === 'scrim') closeSheet(); });
