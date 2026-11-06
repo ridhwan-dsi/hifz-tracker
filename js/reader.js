@@ -129,7 +129,7 @@
         var d = dims[i], k = W / d.cw, sx = d.c.l * d.nw, sy = d.c.t * d.nh + s.y0 * d.ch;
         html += '<div class="pseg' + (s.p !== p ? ' side' : '') + (R.sub === 'join' ? ' jseg' + (s.role === R.jt ? ' jt' : '') : '') + '" style="height:' + (d.u * W).toFixed(2) + 'px"><img src="' + d.im.src + '" alt="" style="width:' + (d.nw * k).toFixed(2) + 'px;transform:translate(' + (-sx * k).toFixed(2) + 'px,' + (-sy * k).toFixed(2) + 'px)"></div>';
       });
-      R.Hu = U * 1000;
+      R.Hu = U * 1000; R.U = U;
       var H = U * W, fit = fitPage() || R.sub === 'crop' || R.sub === 'join' || R.edit;
       sheet.style.width = W + 'px';
       sheet.style.marginTop = (fit ? Math.max(top, (innerHeight - R.ph - H) / 2) : 0) + 'px';
@@ -142,6 +142,7 @@
       if (dir) sc.scrollTop = 0;
       if (R.sub === 'crop') drawCrop(); else draw();
       bindOv();
+      if (R.U !== R.fitU && dzCur() === 'fit') { R.fitU = R.U; fitRows(); if (measurePanel()) relayout(); }
     }).catch(function () {
       if (seq === layoutSeq) $('#sheet').innerHTML = '<div style="padding:40px;text-align:center;color:#666;background:#fff">Couldn’t load this page. Check your connection.</div>';
     });
@@ -337,7 +338,7 @@
     full: I('<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>'),
     fitp: I('<rect x="6" y="3" width="12" height="18" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h4"/>'), fitw: I('<path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/>'),
     left: I('<path d="M15 18l-6-6 6-6"/>'), right: I('<path d="M9 18l6-6-6-6"/>'), check: I('<path d="M20 6L9 17l-5-5"/>'),
-    pen: I('<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), up: I('<path d="M18 15l-6-6-6 6"/>'), trash: I('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'), x: I('<path d="M6 6l12 12M18 6L6 18"/>'), back: I('<path d="M19 12H5M12 19l-7-7 7-7"/>')
+    pen: I('<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), up: I('<path d="M18 15l-6-6-6 6"/>'), down: I('<path d="M6 9l6 6 6-6"/>'), trash: I('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'), x: I('<path d="M6 6l12 12M18 6L6 18"/>'), back: I('<path d="M19 12H5M12 19l-7-7 7-7"/>')
   };
   function tb(id, label, icon, on, off) { return '<button class="tb' + (on ? ' on' : '') + '" data-ract="' + id + '"' + (off ? ' disabled' : '') + '>' + icon + label + '</button>'; }
   function navBtns(cls) {
@@ -354,7 +355,8 @@
       x += navBtns('float') + '<button class="rhandle" data-ract="expand" aria-label="Show controls">' + IC.up + '<span>P. ' + p + (ta ? ' · </span>' + IC.clock + '<span class="tmr-t">' + Timer.fmt(Timer.state().secs) + '</span>' : '</span>') + '</button>';
       host.innerHTML = x; afterPanel(); return;
     }
-    x += '<div class="rpanel"><button class="grab" data-ract="collapse" aria-label="Hide controls"><i></i></button>';
+    var dz = dzCur();
+    x += '<div class="rpanel dz-' + dz + '"><button class="grab" data-ract="dsz" aria-label="Resize controls">' + (dz === 'rib' ? IC.up : IC.down) + '</button>';
     if (R.sub === 'join') x += joinPanel();
     else if (R.sub === 'crop') x += cropPanel() + toolsRow();
     else if (R.edit) x += editPanel() + toolsRow();
@@ -367,8 +369,51 @@
     var on = document.querySelector('.rpanel .tools .tb.on'), row = on && on.parentNode;
     if (on && (on.offsetLeft < row.scrollLeft || on.offsetLeft + on.offsetWidth > row.scrollLeft + row.clientWidth)) row.scrollLeft = on.offsetLeft - row.clientWidth / 2 + on.offsetWidth / 2;
     if (R.scrollEnd) { R.scrollEnd = false; var tr = document.querySelector('.rpanel .rrow.tools'); if (tr) tr.scrollLeft = tr.scrollWidth; }
+    fitRows();
     if (measurePanel()) relayout();
   }
+  /* Drawer sizes: Full (all rows), Fit (shrinks to the gap under a full-width page), Ribbon (toolbar only).
+     Tools that need room (Crop, Join, Box/Line) always open at Full. Rows for Health/Tags/Timer stay visible in every size. */
+  var DZ = ['hide', 'rib', 'fit', 'full'];
+  function dzCur() { return (R.sub === 'crop' || R.sub === 'join' || R.edit) ? 'full' : (S.d.settings.dsz || 'full'); }
+  function setDz(z) {
+    if (z === 'hide') { togglePanel(false); return; }
+    S.d.settings.dsz = z; S.saveSettings(); R.fitU = R.U; R.panel = true; renderPanel();
+  }
+  function fitRows() {
+    var pn = $('.rpanel'), host = $('#rui'); if (!pn) return;
+    [].forEach.call(pn.querySelectorAll('.dzh'), function (e) { e.classList.remove('dzh'); });
+    [].forEach.call(host.querySelectorAll('.navb.float'), function (e) { e.remove(); });
+    var dz = dzCur(); if (dz === 'full') return;
+    var rows = [].filter.call(pn.children, function (e) { return !e.matches('.grab,.tools,.rsub,.subrow'); });
+    if (dz === 'rib') rows.forEach(function (e) { e.classList.add('dzh'); });
+    else {
+      var vw = ($('#rscroll') || {}).clientWidth || innerWidth, gap = R.U ? Math.floor(innerHeight - 16 - R.U * Math.min(vw, 820)) - 1 : 0;
+      for (var i = 0; i < rows.length && pn.offsetHeight > gap; i++) rows[i].classList.add('dzh');
+    }
+    // With the nav row gone, keep the tactile page arrows floating just above the drawer.
+    var nav = pn.querySelector('.rrow.nav');
+    if (nav && nav.classList.contains('dzh')) {
+      host.insertAdjacentHTML('beforeend', navBtns('float'));
+      [].forEach.call(host.querySelectorAll('.navb.float'), function (b) { b.style.bottom = (pn.offsetHeight + 12) + 'px'; });
+    }
+  }
+  // Hold the arrow and drag: up grows the drawer, down shrinks it (past Ribbon it hides); it snaps to the next size.
+  document.addEventListener('pointerdown', function (e) {
+    var gb = e.target.closest && e.target.closest('.rpanel .grab'); if (!gb) return;
+    var pn = gb.parentNode, y0 = e.clientY, moved = false, id = e.pointerId;
+    function mv(ev) { if (ev.pointerId !== id) return; var dy = ev.clientY - y0; if (Math.abs(dy) > 8) moved = true; pn.style.transition = 'none'; pn.style.transform = dy > 0 ? 'translateY(' + dy + 'px)' : ''; }
+    function up(ev) {
+      if (ev.pointerId !== id) return;
+      document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); document.removeEventListener('pointercancel', up);
+      pn.style.transform = ''; if (!moved) return;
+      R.noTap = true; setTimeout(function () { R.noTap = false; }, 350);
+      var dy = ev.clientY - y0; if (Math.abs(dy) < 40) return;
+      var st = (dy < 0 ? 1 : -1) * (Math.abs(dy) > 160 ? 2 : 1), i = DZ.indexOf(dzCur());
+      setDz(DZ[Math.max(0, Math.min(3, i + st))]);
+    }
+    document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
+  });
 
   function mainPanel() {
     var p = R.p, o = S.get(p), m = S.isMem(p), h = S.health(p), mc = S.monthCount(p), revToday = o.lr === S.today();
@@ -393,7 +438,7 @@
     }
     // Health and Tags live in the bottom toolbar and expand their row just above it.
     if (m && R.sub === 'health') x += '<div class="rsub hsub"><span class="lbl">Health</span><span class="hctl big"><button data-ract="hminus" aria-label="Lower health">−</button><span style="color:' + (h ? App.hcol(h) : 'var(--muted)') + '">' + h + '%</span><button data-ract="hplus" aria-label="Raise health">+</button></span></div>';
-    if (m && R.sub === 'tags') x += '<div class="rrow scroll">' + App.allTags().map(function (t) { return '<button class="chip' + (S.hasTag(p, t.id) ? ' on' : '') + '" data-ract="tag" data-t="' + App.esc(t.id) + '">' + App.esc(t.name) + '</button>'; }).join('') + '</div>';
+    if (m && R.sub === 'tags') x += '<div class="rrow scroll subrow">' + App.allTags().map(function (t) { return '<button class="chip' + (S.hasTag(p, t.id) ? ' on' : '') + '" data-ract="tag" data-t="' + App.esc(t.id) + '">' + App.esc(t.name) + '</button>'; }).join('') + '</div>';
     if (R.sub === 'timer') x += timerPanel();
     return x + toolsRow();
   }
@@ -515,6 +560,7 @@
     home: function () { history.back(); },
     next: function () { go(R.p + 1, 1); }, prev: function () { go(R.p - 1, -1); },
     collapse: function () { togglePanel(false); }, expand: function () { togglePanel(true); },
+    dsz: function () { if (R.noTap) return; var z = dzCur(); setDz(z === 'full' ? 'fit' : z === 'fit' ? 'rib' : 'full'); },
     mem: function () { var on = !S.isMem(R.p); S.setMem(R.p, on); App.toast(on ? 'Added to Memorizing (New)' : 'Moved back to To Memorize'); renderPanel(); App.precache(); },
     hminus: function () { S.setHealth(R.p, S.health(R.p) - 5); renderPanel(); },
     hplus: function () { S.setHealth(R.p, S.health(R.p) + 5); renderPanel(); },

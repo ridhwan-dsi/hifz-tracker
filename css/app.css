@@ -140,8 +140,10 @@ svg.i { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-widt
 .rhandle { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 42; display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 99px; background: rgba(20,24,22,.6); color: #fff; font-weight: 700; font-size: 13px; backdrop-filter: blur(6px); }
 .rhandle svg.i { width: 18px; height: 18px; }
 .rpanel { position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; background: var(--card); color: var(--ink); border-radius: 18px 18px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,.25); padding: 0 12px calc(10px + env(safe-area-inset-bottom)); max-width: 820px; margin: 0 auto; max-height: 75vh; overflow-y: auto; }
-.grab { display: block; width: 100%; height: 22px; position: relative; }
-.grab i { position: absolute; left: 50%; top: 8px; width: 44px; height: 5px; margin-left: -22px; border-radius: 3px; background: var(--line); }
+.grab { display: flex; justify-content: center; align-items: center; width: 100%; height: 26px; touch-action: none; color: var(--muted); cursor: grab; }
+.grab svg.i { width: 34px; height: 22px; stroke-width: 2.6; padding: 0 6px; border-radius: 99px; background: var(--line); color: var(--ink); opacity: .75; }
+.rpanel .dzh { display: none !important; }
+.rpanel { transition: transform .15s; }
 .rrow.nav { gap: 10px; padding: 2px 0 6px; }
 .rrow.nav .navb.l { order: 0; } .rrow.nav .rtitle { order: 1; } .rrow.nav .navb.r { order: 2; }
 .lbl { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; flex: none; }
