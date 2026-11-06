@@ -1,5 +1,5 @@
 /* Service worker: app shell network-first (so updates arrive), mushaf pages cache-first (full resolution, offline). */
-
+var SHELL = 'hifz-shell-v10', PAGES = 'hifz-pages';
 var FILES = ['./', 'index.html', 'css/app.css', 'js/config.js', 'js/quran.js', 'js/autocrop.js', 'js/store.js', 'js/reader.js', 'js/app.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', function (e) { e.waitUntil(caches.open(SHELL).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); })); });
 self.addEventListener('activate', function (e) {
@@ -17,9 +17,12 @@ self.addEventListener('fetch', function (e) {
     return;
   }
   e.respondWith(fetch(req).then(function (r) {
-    if (r.ok) { var cp = r.clone(); caches.open(SHELL).then(function (c) { c.put(req, cp); }); }
+    if (r.ok) { var cp = r.clone(); caches.open(SHELL).then(function (c) { return c.put(req, cp); }).catch(function () {}); }
     return r;
-  }).catch(function () { return caches.match(req).then(function (h) { return h || caches.match('index.html'); }); }));
+  }, function (err) {
+    // Offline: serve the cached copy; if there is none, let the network error through rather than an empty reply.
+    return caches.match(req).then(function (h) { return h || caches.match('index.html'); }).then(function (h) { if (h) return h; throw err; });
+  }));
 });
 self.addEventListener('message', function (e) {
   if (!e.data || e.data.type !== 'precache') return;
