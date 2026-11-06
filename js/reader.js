@@ -370,10 +370,12 @@
     var host = $('#rui'), p = R.p, x = '';
     if (!R.panel) {
       var ta = Timer.active(), tr = Timer.state().run;
+      // One bottom pill: expand handle, then (when a session exists) the stopwatch chip — tap it to pause/resume.
+      x += navBtns('float') + '<div class="rhandle"><button class="rh-exp" data-ract="expand" aria-label="Show controls">' + IC.up + '<span>P. ' + p + '</span></button>';
       if (ta) x += '<button class="tchip' + (Timer.achieved() ? ' ach' : '') + (tr ? '' : ' paused') + '" data-ract="tGo" aria-label="' + (tr ? 'Pause' : 'Resume') + ' stopwatch">' +
-        (Timer.achieved() ? IC.check + 'Achieved · ' : '<i class="tdot"></i>') + '<span class="tmr-t">' + Timer.fmt(Timer.state().secs) + '</span>' +
-        (S.d.settings.sessT && !Timer.achieved() ? ' / ' + S.d.settings.sessT + ':00' : '') + (tr ? IC.pause : IC.play) + '</button>';
-      x += navBtns('float') + '<button class="rhandle" data-ract="expand" aria-label="Show controls">' + IC.up + '<span>P. ' + p + (ta ? ' · </span>' + IC.clock + '<span class="tmr-t">' + Timer.fmt(Timer.state().secs) + '</span>' : '</span>') + '</button>';
+        (Timer.achieved() ? IC.check : '<i class="tdot"></i>') + '<span class="tmr-t">' + Timer.fmt(Timer.state().secs) + '</span>' +
+        (S.d.settings.sessT && !Timer.achieved() ? '<span class="tgl">/ ' + S.d.settings.sessT + ':00</span>' : '') + (tr ? IC.pause : IC.play) + '</button>';
+      x += '</div>';
       host.innerHTML = x; afterPanel(); return;
     }
     var dz = dzCur();

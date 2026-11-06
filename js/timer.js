@@ -53,7 +53,13 @@
     if (tickN % 5 === 0) { keep(); S.persist(); }
     if (tickN % 60 === 0) S.save();
     var changed = false, s = S.d.settings;
-    if (s.sessT && !T.hitS && T.secs >= s.sessT * 60) { T.hitS = true; changed = true; App.toast('Session target reached · ' + s.sessT + ' min'); buzz(); }
+    // Target reached while reading: the session is saved automatically; the notice offers Delete for 10 s.
+    if (s.sessT && !T.hitS && T.secs >= s.sessT * 60) {
+      T.hitS = true; var cr = T.cr || {}; buzz();
+      T.run = false; T.secs = 0; T.hitS = false; T.cr = {}; keep(); S.save();
+      App.toast('Target reached · ' + s.sessT + ' min session saved', function () { takeBack(cr); T.cr = {}; keep(); S.save(); App.toast('Session deleted'); Reader.refresh(); }, 'Delete', 10000);
+      Reader.refresh(); return;
+    }
     var dd = S.today();
     if (s.goalDay && T.hitD !== dd && day(dd).t >= s.goalDay * 60) { T.hitD = dd; changed = true; App.toast('Daily goal achieved · ' + s.goalDay + ' min'); buzz(); }
     // Auto-review: review pages only, once per day, after the set minutes on that page today.
@@ -63,6 +69,12 @@
       App.toast('P. ' + p + ' auto-marked reviewed · ' + s.autoRev + ' min', function () { S.unreview(p, prev); Reader.refresh(); });
     }
     if (changed) { keep(); Reader.refresh(); } else paint();
+  }
+  function takeBack(cr) {
+    Object.keys(cr).forEach(function (k) {
+      var a = k.split('|'), D = (S.d.time || {})[a[0]], v = D && D[dev], m = v && v[a[1]];
+      if (m && m[a[2]] != null) { m[a[2]] = Math.max(0, Math.round((m[a[2]] - cr[k]) * 10) / 10); if (!m[a[2]]) delete m[a[2]]; }
+    });
   }
   function buzz() { try { navigator.vibrate && navigator.vibrate([60, 60, 60]); } catch (e) {} }
 
@@ -91,11 +103,7 @@
     },
     // Throw the session away: take back every second it credited, then reset.
     discard: function () {
-      var cr = T.cr || {};
-      Object.keys(cr).forEach(function (k) {
-        var a = k.split('|'), D = (S.d.time || {})[a[0]], v = D && D[dev], m = v && v[a[1]];
-        if (m && m[a[2]] != null) { m[a[2]] = Math.max(0, Math.round((m[a[2]] - cr[k]) * 10) / 10); if (!m[a[2]]) delete m[a[2]]; }
-      });
+      takeBack(T.cr || {});
       T.run = false; T.secs = 0; T.hitS = false; T.cr = {}; keep(); S.save();
       App.toast('Session deleted');
     },

@@ -31,9 +31,9 @@
       $('#app').innerHTML = st.view === 'stats' ? stats() : home();
     },
     syncChanged: function () { var el = $('#syncChip'); if (el) el.outerHTML = syncChip(); if ($('#settingsSheet')) openSettings(); },
-    toast: function (msg, undo) {
-      var t = $('#toast'); t.innerHTML = '<span>' + esc(msg) + '</span>' + (undo ? '<button id="toastUndo">Undo</button>' : '');
-      t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove('on'); }, undo ? 5000 : 2200);
+    toast: function (msg, undo, label, ms) {
+      var t = $('#toast'); t.innerHTML = '<span>' + esc(msg) + '</span>' + (undo ? '<button id="toastUndo">' + esc(label || 'Undo') + '</button>' : '');
+      t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove('on'); }, ms || (undo ? 5000 : 2200));
       if (undo) $('#toastUndo').onclick = function () { undo(); t.classList.remove('on'); };
     },
     precache: function () {
