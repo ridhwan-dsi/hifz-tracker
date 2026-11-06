@@ -86,9 +86,9 @@
 
   /* ---------- open / close ---------- */
   var Reader = {
-    open: function (p) {
+    open: function (p, n) {
       R.style = boxDef(); R.palOpen = false;
-      p = clamp(p | 0, 1, 604);
+      p = clamp(p | 0, 1, 604); R.n = n || 0;
       if (!Reader.isOpen()) history.pushState({ reader: 1 }, '', '#p' + p);
       $('#reader').classList.add('on'); document.body.style.overflow = 'hidden';
       go(p, 0);
@@ -100,6 +100,7 @@
     },
     isOpen: function () { return $('#reader').classList.contains('on'); },
     page: function () { return R.p; },
+    unit: function () { return R.k; },
     refresh: function () { if (Reader.isOpen()) renderPanel(); },
     relayout: function () { if (Reader.isOpen()) layout(); }
   };
@@ -109,6 +110,11 @@
   function go(p, dir) {
     if (p < 1 || p > 604) return;
     if (dir) buzz();
+    // Which surah's portion of the page this is. A shared page keeps the surah you came from if it is on it;
+    // otherwise moving forward lands on the first surah there, moving back on the last.
+    var ss = S.onPage(p);
+    if (ss.indexOf(R.n) < 0) R.n = dir < 0 ? ss[ss.length - 1] : ss[0];
+    R.k = S.uk(p, R.n);
     R.p = p; R.sel = -1; R.drag = null; R.edit = false; R.draft = null;
     // Every page opens on Mask 1 (created the first time it's needed).
     var ms0 = masksOf(p);
@@ -116,7 +122,7 @@
     else if (S.get(p).am !== ms0[0].id) setActive(ms0[0].id);
     if (R.sub === 'crop' || R.sub === 'join') R.sub = null;
     loadItems();
-    S.setLast(p);
+    S.setLast(p, R.k);
     if (history.state && history.state.reader) history.replaceState({ reader: 1 }, '', '#p' + p);
     renderPanel();
     layout(dir);
@@ -439,10 +445,16 @@
     document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
   });
 
+  // On a page shared by several surahs, the title is a switch: each surah's part has its own memorizing state.
+  function surahTitle(p) {
+    var ss = S.onPage(p);
+    if (ss.length < 2) return App.esc(App.pageTitle(p));
+    return '<span class="sswitch">' + ss.map(function (n) { return '<button class="' + (n === R.n ? 'on' : '') + '" data-ract="surah" data-n="' + n + '">' + App.esc(QURAN.S[n - 1][0]) + '</button>'; }).join('') + '</span>';
+  }
   function mainPanel() {
-    var p = R.p, o = S.get(p), m = S.isMem(p), h = S.health(p), mc = S.monthCount(p), revToday = o.lr === S.today();
+    var p = R.p, k = R.k, o = S.get(k), m = S.isMem(k), h = S.health(k), mc = S.monthCount(k), revToday = o.lr === S.today();
     var ms = masksOf(p), am = activeMask(), x = '';
-    x += '<div class="rrow nav">' + navBtns('in') + '<div class="rtitle"><span class="plabel">P. ' + p + '</span>' + App.esc(App.pageTitle(p)) + '</div></div>';
+    x += '<div class="rrow nav">' + navBtns('in') + '<div class="rtitle"><span class="plabel">P. ' + p + '</span>' + surahTitle(p) + '</div></div>';
     x += '<div class="rrow scroll"><button class="pill' + (m ? ' on' : '') + '" data-ract="mem">' + (m ? IC.check + 'Memorizing' : '+ Memorize') + '</button>';
     if (m) x += '<button class="pill soft' + (revToday ? ' on' : '') + '" data-ract="rev">' + IC.check + 'Reviewed' + (mc ? ' · ' + mc + '×' : '') + '</button>' +
 ''; // Reviewed is a once-a-day toggle
@@ -462,13 +474,13 @@
     }
     // Health and Tags live in the bottom toolbar and expand their row just above it.
     if (m && R.sub === 'health') x += '<div class="rsub hsub"><span class="lbl">Health</span><span class="hctl big"><button data-ract="hminus" aria-label="Lower health">−</button><span style="color:' + (h ? App.hcol(h) : 'var(--muted)') + '">' + h + '%</span><button data-ract="hplus" aria-label="Raise health">+</button></span></div>';
-    if (m && R.sub === 'tags') x += '<div class="rrow scroll subrow">' + App.allTags().map(function (t) { return '<button class="chip' + (S.hasTag(p, t.id) ? ' on' : '') + '" data-ract="tag" data-t="' + App.esc(t.id) + '">' + App.esc(t.name) + '</button>'; }).join('') + '</div>';
+    if (m && R.sub === 'tags') x += '<div class="rrow scroll subrow">' + App.allTags().map(function (t) { return '<button class="chip' + (S.hasTag(R.k, t.id) ? ' on' : '') + '" data-ract="tag" data-t="' + App.esc(t.id) + '">' + App.esc(t.name) + '</button>'; }).join('') + '</div>';
     if (R.sub === 'timer') x += timerPanel();
     return x + toolsRow();
   }
   // The bottom toolbar stays put in every mode; each tool opens its row above it and a second tap closes it.
   function toolsRow() {
-    var p = R.p, m = S.isMem(p), h = S.health(p), am = activeMask();
+    var p = R.p, m = S.isMem(R.k), h = S.health(R.k), am = activeMask();
     // Editing tools (Crop, Join, Box, Line, Clear) live behind one Edit button; opening it expands them inside the same oval.
     var busy = R.sub === 'crop' || R.sub === 'join' || R.edit, open = R.edOpen || busy;
     var grp = '<div class="egrp' + (open ? ' open' : '') + '">' + (open ?
@@ -491,7 +503,7 @@
   // Pause box: the session time and this page's time, with Resume or Save. Tapping outside keeps it paused.
   function pauseBox() {
     var sc = document.getElementById('scrim'); if (!sc) return;
-    var T = Timer.state(), p = R.p, md = Timer.modeOf(p) === 'r' ? 'review' : 'memorizing', ach = Timer.achieved();
+    var T = Timer.state(), p = R.p, md = Timer.modeOf(R.k) === 'r' ? 'review' : 'memorizing', ach = Timer.achieved();
     sc.innerHTML = '<div class="sheetm pbox"><div class="pbt">Paused</div>' +
       '<div class="tbig' + (ach ? ' ach' : '') + '"><span class="tmr-t">' + Timer.fmt(T.secs) + '</span></div>' +
       '<div class="small muted">' + (ach ? '<b class="tach">' + IC.check + 'Achieved</b> · ' : '') + md + ' · this page <span class="tmr-pg">' + Timer.fmt(Timer.pageToday(p)) + '</span></div>' +
@@ -503,7 +515,7 @@
   function leaveModes() { if (R.edit) RACT.doneEdit(); if (R.sub === 'crop') RACT.cropApply(); }
   function timerPanel() {
     var T = Timer.state(), s = S.d.settings, p = R.p, dd = Timer.day(S.today()), g = s.goalDay, ach = Timer.achieved();
-    var md = Timer.modeOf(p) === 'r' ? 'review' : 'memorizing';
+    var md = Timer.modeOf(R.k) === 'r' ? 'review' : 'memorizing';
     var on = Timer.active(); // while running, the time and play/pause sit in the toolbar oval instead
     // The session time and play/pause always live in the toolbar oval; pausing opens the Resume/Save box.
     var x = '<div class="rsub tsub">';
@@ -592,11 +604,12 @@
     next: function () { go(R.p + 1, 1); }, prev: function () { go(R.p - 1, -1); },
     collapse: function () { togglePanel(false); }, expand: function () { togglePanel(true); },
     dsz: function () { if (R.noTap) return; var z = dzCur(); setDz(z === 'full' ? 'fit' : z === 'fit' ? 'rib' : 'full'); },
-    mem: function () { var on = !S.isMem(R.p); S.setMem(R.p, on); App.toast(on ? 'Added to Memorizing (New)' : 'Moved back to To Memorize'); renderPanel(); App.precache(); },
-    hminus: function () { S.setHealth(R.p, S.health(R.p) - 5); renderPanel(); },
-    hplus: function () { S.setHealth(R.p, S.health(R.p) + 5); renderPanel(); },
+    mem: function () { var on = !S.isMem(R.k); S.setMem(R.k, on); App.toast(on ? 'Added to Memorizing (New)' : 'Moved back to To Memorize'); renderPanel(); App.precache(); },
+    hminus: function () { S.setHealth(R.k, S.health(R.k) - 5); renderPanel(); },
+    hplus: function () { S.setHealth(R.k, S.health(R.k) + 5); renderPanel(); },
+    surah: function (el) { R.n = +el.dataset.n; R.k = S.uk(R.p, R.n); S.setLast(R.p, R.k); renderPanel(); },
     rev: function () {
-      var p = R.p;
+      var p = R.k;
       if (S.get(p).lr === S.today()) { S.unreviewToday(p); renderPanel(); App.toast('Review for today removed'); return; }
       S.reviewed(p); renderPanel();
       App.toast('Marked reviewed · ' + S.monthCount(p) + '× this month');
@@ -629,7 +642,7 @@
       Timer.setTarget(+v); renderPanel();
     },
     health: function () { leaveModes(); R.sub = R.sub === 'health' ? null : 'health'; renderPanel(); },
-    tag: function (el) { S.toggleTag(R.p, el.dataset.t); renderPanel(); },
+    tag: function (el) { S.toggleTag(R.k, el.dataset.t); renderPanel(); },
     mask: function (el) {
       var k = el.dataset.slot;
       if (k === '') { setActive(''); loadItems(); renderPanel(); layout(); return; }

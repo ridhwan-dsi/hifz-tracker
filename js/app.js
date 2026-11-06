@@ -7,6 +7,9 @@
   function onPage(p) { var o = []; SUR.forEach(function (s, i) { if (s[3] <= p && s[4] >= p) o.push(i + 1); }); return o; }
   function juzOf(p) { var j = 1; QURAN.J.forEach(function (st, i) { if (p >= st) j = i + 1; }); return j; }
   function hcol(h) { return h >= 80 ? 'var(--ok)' : h >= 50 ? 'var(--mid)' : h > 0 ? 'var(--bad)' : 'var(--line)'; }
+  function units(n) { return sPages(n).map(function (p) { return S.uk(p, n); }); }
+  function byUnit(a, b) { return S.kp(a) - S.kp(b) || S.kn(a) - S.kn(b); }
+  function unitTitle(k) { return SUR[S.kn(k) - 1][0]; }
   function pageTitle(p) { return onPage(p).map(function (n) { return SUR[n - 1][0]; }).join(' · '); }
   function ago(d) { if (!d) return 'never'; var n = Math.floor((Date.now() - new Date(d + 'T00:00:00').getTime()) / 864e5); return n <= 0 ? 'today' : n === 1 ? 'yesterday' : n + 'd ago'; }
 
@@ -39,7 +42,7 @@
     precache: function () {
       if (!navigator.serviceWorker || !navigator.serviceWorker.controller) return;
       var set = {};
-      Object.keys(S.d.pages).forEach(function (k) { if (S.d.pages[k].m) { var p = +k; set[p] = 1; if (p > 1) set[p - 1] = 1; if (p < 604) set[p + 1] = 1; } });
+      Object.keys(S.d.pages).forEach(function (k) { if (S.d.pages[k].m) { var p = S.kp(k); set[p] = 1; if (p > 1) set[p - 1] = 1; if (p < 604) set[p + 1] = 1; } });
       if (S.d.last) set[S.d.last.p] = 1;
       var urls = Object.keys(set).map(function (p) { return 'pages/p' + String(p).padStart(3, '0') + '.jpg'; });
       navigator.serviceWorker.controller.postMessage({ type: 'precache', urls: urls });
@@ -61,9 +64,9 @@
       '<button class="ib" data-act="stats" aria-label="Stats">' + ICON.stats + '</button>' +
       '<button class="ib" data-act="settings" aria-label="Settings">' + ICON.gear + '</button></header>';
     if (d.last && d.last.p) {
-      var lp = d.last.p;
-      if (d.ui.contMin) h += '<div class="cont min"><button class="go" data-act="open" data-p="' + lp + '">' + ICON.play + ' P. ' + lp + '</button><button class="ib" data-act="contMin" aria-label="Expand">' + ICON.fwd + '</button></div>';
-      else h += '<div class="cont"><button class="go" data-act="open" data-p="' + lp + '">' + ICON.play + '<span class="small">Continue</span><b>' + esc(pageTitle(lp)) + '</b><span class="plabel" style="color:inherit;border-color:rgba(255,255,255,.5)">P. ' + lp + '</span></button><button class="ib" data-act="contMin" aria-label="Minimise">' + ICON.back + '</button></div>';
+      var lp = d.last.p, lk = d.last.k || S.uk(lp);
+      if (d.ui.contMin) h += '<div class="cont min"><button class="go" data-act="open" data-p="' + lk + '">' + ICON.play + ' P. ' + lp + '</button><button class="ib" data-act="contMin" aria-label="Expand">' + ICON.fwd + '</button></div>';
+      else h += '<div class="cont"><button class="go" data-act="open" data-p="' + lk + '">' + ICON.play + '<span class="small">Continue</span><b>' + esc(unitTitle(lk)) + '</b><span class="plabel" style="color:inherit;border-color:rgba(255,255,255,.5)">P. ' + lp + '</span></button><button class="ib" data-act="contMin" aria-label="Minimise">' + ICON.back + '</button></div>';
     }
     h += '<nav class="tabs"><button class="' + (d.ui.tab === 'mem' ? 'on' : '') + '" data-act="tab" data-t="mem">Memorizing</button><button class="' + (d.ui.tab === 'tom' ? 'on' : '') + '" data-act="tab" data-t="tom">To Memorize</button></nav>';
     h += d.ui.tab === 'mem' ? memTab() : tomTab();
@@ -82,20 +85,20 @@
     var ch = S.d.ui.chips, one = ch.length === 1 ? allTags().filter(function (t) { return t.id === ch[0]; })[0] : null;
     if (!one) st.tedit = null;
     if (one) {
-      var cnt = Object.keys(S.d.pages).filter(function (k) { return S.d.pages[k].m && S.hasTag(+k, one.id); }).length;
+      var cnt = Object.keys(S.d.pages).filter(function (k) { return S.d.pages[k].m && S.hasTag(k, one.id); }).length;
       h += '<div class="tagbar"><span><b>' + esc(one.name) + '</b> <span class="muted">· ' + cnt + ' page' + (cnt === 1 ? '' : 's') + '</span></span><button class="btn sm ' + (st.tedit ? 'pri' : '') + '" data-act="tedit" data-t="' + esc(one.id) + '">' + (st.tedit ? 'Done' : 'Edit') + '</button></div>';
     }
     if (st.tedit) return h + tagEditList(st.tedit);
     var rows = '';
     SUR.forEach(function (s, i) {
-      var n = i + 1, pg = sPages(n).filter(memMatch);
+      var n = i + 1, pg = units(n).filter(memMatch);
       if (!pg.length) return;
       var open = st.exp.mem[n];
       rows += '<div class="srow"><button class="sname" data-act="openS" data-n="' + n + '" data-k="mem"><span class="num">' + n + '</span><span class="nm">' + esc(s[0]) + '</span><span class="ar">' + esc(s[1]) + '</span></button>' +
         '<button class="exp ' + (open ? 'open' : '') + '" data-act="exp" data-k="mem" data-n="' + n + '" aria-label="Pages">' + ICON.chev + '</button></div>';
       if (open) rows += '<div class="pages">' + pg.map(function (p) {
         var hh = S.health(p);
-        return '<button class="pl" data-act="open" data-p="' + p + '"><span class="hd" style="background:' + hcol(hh) + '"></span>P. ' + p + '</button>';
+        return '<button class="pl" data-act="open" data-p="' + p + '"><span class="hd" style="background:' + hcol(hh) + '"></span>P. ' + S.kp(p) + '</button>';
       }).join('') + '<button class="addlink" data-act="addPages" data-n="' + n + '">+ add pages</button></div>';
     });
     if (!rows) {
@@ -109,7 +112,7 @@
   function tagEditList(t) {
     var rows = '';
     SUR.forEach(function (s, i) {
-      var n = i + 1, pg = sPages(n).filter(function (p) { return S.isMem(p); });
+      var n = i + 1, pg = units(n).filter(function (p) { return S.isMem(p); });
       if (!pg.length) return;
       var sel = pg.filter(function (p) { return S.hasTag(p, t); }).length, all = sel === pg.length, open = st.exp.mem[n];
       rows += '<div class="srow"><button class="tick ' + (all ? 'on' : sel ? 'part' : '') + '" data-act="tagS" data-n="' + n + '" aria-label="Tag surah">' + (all ? ICON.check : '') + '</button>' +
@@ -117,7 +120,7 @@
         '<button class="exp ' + (open ? 'open' : '') + '" data-act="exp" data-k="mem" data-n="' + n + '" aria-label="Pages">' + ICON.chev + '</button></div>';
       if (open) rows += '<div class="pages">' + pg.map(function (p) {
         var on = S.hasTag(p, t);
-        return '<button class="pl ' + (on ? 'mem' : '') + '" data-act="tagP" data-p="' + p + '">' + (on ? '✓ ' : '') + 'P. ' + p + '</button>';
+        return '<button class="pl ' + (on ? 'mem' : '') + '" data-act="tagP" data-p="' + p + '">' + (on ? '✓ ' : '') + 'P. ' + S.kp(p) + '</button>';
       }).join('') + '</div>';
     });
     return '<div class="list">' + (rows || '<div class="empty">Nothing in Memorizing yet.</div>') + '</div>';
@@ -132,7 +135,7 @@
       if (q && !(String(n) === q || s[0].toLowerCase().indexOf(q) >= 0 || s[1].indexOf(st.q.trim()) >= 0 || (+q >= s[3] && +q <= s[4]))) return;
       var j = juzOf(s[3]);
       if (!q && j !== lastJ) { rows += '<div class="divider">Juz ' + j + '</div>'; lastJ = j; }
-      var pg = sPages(n), sel = pg.filter(function (p) { return S.isMem(p); }).length, frac = sel / pg.length;
+      var pg = units(n), sel = pg.filter(function (p) { return S.isMem(p); }).length, frac = sel / pg.length;
       var mark = sel === 0 ? '' : '<span class="mark" style="background:' + (frac === 1 ? 'var(--acc)' : 'var(--mid)') + '"></span>';
       var open = st.exp.tom[n] || (q && +q >= s[3] && +q <= s[4]);
       rows += '<div class="srow" id="s' + n + '"><span class="prog" style="width:' + (frac * 100).toFixed(1) + '%"></span>' + mark +
@@ -141,7 +144,7 @@
         '<button class="exp ' + (open ? 'open' : '') + '" data-act="exp" data-k="tom" data-n="' + n + '" aria-label="Pages">' + ICON.chev + '</button></div>';
       if (open) rows += '<div class="pages">' + pg.map(function (p) {
         var m = S.isMem(p);
-        return '<button class="pl ' + (m ? 'mem' : '') + '" data-act="' + (st.edit ? 'tickP' : 'open') + '" data-p="' + p + '">' + (st.edit && m ? '✓ ' : '') + 'P. ' + p + '</button>';
+        return '<button class="pl ' + (m ? 'mem' : '') + '" data-act="' + (st.edit ? 'tickP' : 'open') + '" data-p="' + p + '">' + (st.edit && m ? '✓ ' : '') + 'P. ' + S.kp(p) + '</button>';
       }).join('') + '</div>';
     });
     return h + '<div class="list">' + (rows || '<div class="empty">No surah matches.</div>') + '</div>';
@@ -149,7 +152,7 @@
 
   /* ---------------- Stats ---------------- */
   function stats() {
-    var mem = Object.keys(S.d.pages).filter(function (k) { return S.d.pages[k].m; }).map(Number).sort(function (a, b) { return a - b; });
+    var mem = Object.keys(S.d.pages).filter(function (k) { return S.d.pages[k].m; }).sort(byUnit);
     var m = S.month(), monthTotal = 0, all = 0, sumH = 0, months = {};
     Object.keys(S.d.pages).forEach(function (k) { var rv = S.d.pages[k].rv || {}; for (var mm in rv) { months[mm] = (months[mm] || 0) + rv[mm]; all += rv[mm]; if (mm === m) monthTotal += rv[mm]; } });
     mem.forEach(function (p) { sumH += S.health(p); });
@@ -161,9 +164,9 @@
       '<div class="card"><div class="v">' + monthTotal + '</div><div class="k">Reviews this month</div></div>' +
       '<div class="card"><div class="v">' + all + '</div><div class="k">Reviews in total</div></div></div>';
     if (st.month) {
-      var rowsM = Object.keys(S.d.pages).filter(function (k) { return (S.d.pages[k].rv || {})[st.month]; }).map(Number).sort(function (a, b) { return a - b; });
+      var rowsM = Object.keys(S.d.pages).filter(function (k) { return (S.d.pages[k].rv || {})[st.month]; }).sort(byUnit);
       h += '<div class="bar"><button class="btn sm" data-act="month" data-m="">' + '‹ All months</button><b style="align-self:center">' + st.month + '</b></div><div class="list">' +
-        (rowsM.map(function (p) { return '<div class="prow"><button class="pl" data-act="open" data-p="' + p + '">P. ' + p + '</button><div class="grow small">' + esc(pageTitle(p)) + '</div><b>' + S.d.pages[p].rv[st.month] + '×</b></div>'; }).join('') || '<div class="empty">No reviews.</div>') + '</div>';
+        (rowsM.map(function (p) { return '<div class="prow"><button class="pl" data-act="open" data-p="' + p + '">P. ' + S.kp(p) + '</button><div class="grow small">' + esc(unitTitle(p)) + '</div><b>' + S.d.pages[p].rv[st.month] + '×</b></div>'; }).join('') || '<div class="empty">No reviews.</div>') + '</div>';
       return h;
     }
     h += '<div class="seg">' + [['all', 'All'], ['low', 'Below 50%'], ['weak', 'Weakest first'], ['months', 'By month']].map(function (x) {
@@ -179,7 +182,7 @@
     h += '<div class="list">' + (list.map(function (p) {
       var hh = S.health(p), o = S.get(p), on = st.ssel[p];
       return '<div class="prow"><button class="tick ' + (on ? 'on' : '') + '" style="margin:0" data-act="ssel" data-p="' + p + '">' + (on ? ICON.check : '') + '</button>' +
-        '<div class="grow"><div style="display:flex;gap:8px;align-items:center"><button class="pl" data-act="open" data-p="' + p + '">P. ' + p + '</button><span class="small muted" style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">' + esc(pageTitle(p)) + (S.hasTag(p, 'review') ? ' · for review' : '') + '</span></div>' +
+        '<div class="grow"><div style="display:flex;gap:8px;align-items:center"><button class="pl" data-act="open" data-p="' + p + '">P. ' + S.kp(p) + '</button><span class="small muted" style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">' + esc(unitTitle(p)) + (S.hasTag(p, 'review') ? ' · for review' : '') + '</span></div>' +
         '<div class="hbar"><i style="width:' + hh + '%;background:' + hcol(hh) + '"></i></div></div>' +
         '<div style="text-align:right;font-size:12px"><b>' + hh + '%</b><br><span class="muted">' + ago(o.lr) + ' · ' + S.monthCount(p) + '×</span></div></div>';
     }).join('') || '<div class="empty">No pages.</div>') + '</div>';
@@ -288,21 +291,21 @@
     edit: function () { st.edit = !st.edit; App.render(); },
     tedit: function (el) { st.tedit = st.tedit ? null : el.dataset.t; App.render(); },
     tagS: function (el) {
-      var t = st.tedit, pg = sPages(+el.dataset.n).filter(function (p) { return S.isMem(p); }), all = pg.every(function (p) { return S.hasTag(p, t); });
+      var t = st.tedit, pg = units(+el.dataset.n).filter(function (p) { return S.isMem(p); }), all = pg.every(function (p) { return S.hasTag(p, t); });
       pg.forEach(function (p) { S.toggleTag(p, t, !all); }); App.render();
     },
-    tagP: function (el) { S.toggleTag(+el.dataset.p, st.tedit); App.render(); },
-    open: function (el) { closeSheet(); Reader.open(+el.dataset.p); },
+    tagP: function (el) { S.toggleTag(el.dataset.p, st.tedit); App.render(); },
+    open: function (el) { closeSheet(); var k = el.dataset.p; Reader.open(S.kp(k), S.kn(k)); },
     openS: function (el) {
-      var n = +el.dataset.n, pg = sPages(n);
+      var n = +el.dataset.n, pg = units(n);
       if (el.dataset.k === 'mem') { var f = pg.filter(memMatch); if (f.length) pg = f; }
-      Reader.open(pg[0]);
+      Reader.open(S.kp(pg[0]), n);
     },
     tickS: function (el) {
-      var pg = sPages(+el.dataset.n), all = pg.every(function (p) { return S.isMem(p); });
+      var pg = units(+el.dataset.n), all = pg.every(function (p) { return S.isMem(p); });
       pg.forEach(function (p) { S.setMem(p, !all); }); App.render(); App.precache();
     },
-    tickP: function (el) { var p = +el.dataset.p; S.setMem(p, !S.isMem(p)); App.render(); App.precache(); },
+    tickP: function (el) { var p = el.dataset.p; S.setMem(p, !S.isMem(p)); App.render(); App.precache(); },
     addPages: function (el) {
       var n = el.dataset.n; S.d.ui.tab = 'tom'; st.edit = true; st.q = ''; st.exp.tom = {}; st.exp.tom[n] = true; S.saveUi(); App.render();
       var r = document.getElementById('s' + n); if (r) r.scrollIntoView({ block: 'start' });
@@ -325,7 +328,7 @@
     },
     tagReview: function () {
       var ps = Object.keys(st.ssel).filter(function (k) { return st.ssel[k]; });
-      ps.forEach(function (p) { S.toggleTag(+p, 'review', true); });
+      ps.forEach(function (p) { S.toggleTag(p, 'review', true); });
       st.ssel = {}; App.toast(ps.length + ' page' + (ps.length === 1 ? '' : 's') + ' marked for review'); App.render();
     },
     settings: openSettings, closeSheet: closeSheet,

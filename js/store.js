@@ -12,8 +12,37 @@
     };
   }
 
+  /* Memorization units: a page shared by several surahs is a separate unit per surah ("312:19", "312:20");
+     any other page is just its page number ("305"). Page-level data (crop, masks) always lives under the page number. */
+  var SUR = QURAN.S, MF = ['m', 'tags', 'h', 'hd', 'lr', 'rv', 'rl'];
+  function onPage(p) { var o = []; SUR.forEach(function (s, i) { if (s[3] <= p && s[4] >= p) o.push(i + 1); }); return o; }
+  var SHARED = []; for (var sp = 1; sp <= 604; sp++) if (onPage(sp).length > 1) SHARED.push(sp);
+  function uk(p, n) { p = parseInt(p, 10); var ss = onPage(p); if (ss.length < 2) return String(p); if (ss.indexOf(n) < 0) n = ss[0]; return p + ':' + n; }
+  function kp(k) { return parseInt(k, 10); }
+  function kn(k) { k = String(k); var i = k.indexOf(':'); return i > 0 ? +k.slice(i + 1) : onPage(kp(k))[0]; }
+
   var S = {
     d: null, dirty: false,
+    uk: uk, kp: kp, kn: kn, onPage: onPage,
+    // Old data kept memorization state on the shared page itself; give it to the surah(s) it was really selected for.
+    migrateUnits: function () {
+      var P = this.d.pages, moved = false;
+      SHARED.forEach(function (p) {
+        var r = P[p]; if (!r || !MF.some(function (f) { return r[f] != null; })) return;
+        var ss = onPage(p), own = ss.filter(function (n) {
+          var s = SUR[n - 1];
+          for (var q = s[3]; q <= s[4]; q++) if (q !== p) { var o = P[uk(q, n)]; if (o && o.m) return true; }
+          return false;
+        });
+        (own.length ? own : ss).forEach(function (n) {
+          var k = uk(p, n); if (P[k]) return;
+          var c = {}; MF.forEach(function (f) { if (r[f] != null) c[f] = JSON.parse(JSON.stringify(r[f])); }); c.u = Date.now(); P[k] = c;
+        });
+        MF.forEach(function (f) { delete r[f]; }); r.u = Date.now(); moved = true;
+      });
+      if (moved) this.dirty = true;
+      return moved;
+    },
     today: today, month: month,
     load: function () {
       try { this.d = JSON.parse(localStorage.getItem(KEY)); } catch (e) { this.d = null; }
@@ -24,6 +53,8 @@
       this.d.tags = this.d.tags || [];
       this.d.pages = this.d.pages || {};
       this.d.time = this.d.time || {};
+      if (this.d.last && this.d.last.p && !this.d.last.k) this.d.last.k = uk(this.d.last.p);
+      if (this.migrateUnits()) this.persist();
     },
     reset: function (acct) { this.d = blank(); this.d.acct = acct; this.persist(); },
     persist: function () { try { localStorage.setItem(KEY, JSON.stringify(this.d)); } catch (e) { console.warn('save failed', e); } },
@@ -88,7 +119,7 @@
         if (on && i < 0) o.tags.push(t); if (!on && i >= 0) o.tags.splice(i, 1);
       });
     },
-    setLast: function (p) { this.d.last = { p: p, t: Date.now() }; this.persist(); },
+    setLast: function (p, k) { this.d.last = { p: p, k: k || uk(p), t: Date.now() }; this.persist(); },
     merge: function (r) {
       var L = this.d;
       Object.keys(r.pages || {}).forEach(function (k) { var rp = r.pages[k], lp = L.pages[k]; if (!lp || (rp.u || 0) > (lp.u || 0)) L.pages[k] = rp; });
@@ -103,6 +134,8 @@
         });
       });
       if (r.last && (!L.last || r.last.t > L.last.t)) L.last = r.last;
+      if (L.last && L.last.p && !L.last.k) L.last.k = uk(L.last.p);
+      this.migrateUnits();
       this.persist();
     },
     exportData: function () { var c = JSON.parse(JSON.stringify(this.d)); delete c.ui; return c; }

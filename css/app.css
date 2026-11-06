@@ -277,3 +277,8 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 .zchip button { width: 38px; height: 34px; color: inherit; font-size: 20px; line-height: 1; touch-action: manipulation; }
 .zchip button:disabled { opacity: .35; }
 @media (orientation: portrait) { .zchip { display: none; } }
+/* Shared page: pick which surah's part you are tracking */
+.sswitch { display: inline-flex; gap: 4px; vertical-align: middle; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.sswitch::-webkit-scrollbar { display: none; }
+.sswitch button { flex: none; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); color: var(--muted); font: inherit; font-size: 13px; font-weight: 700; }
+.sswitch button.on { background: var(--acc-soft); border-color: var(--acc); color: var(--acc); }

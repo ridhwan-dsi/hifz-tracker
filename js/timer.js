@@ -33,7 +33,7 @@
   function pageToday(p, md) { var q = day(S.today()).pages[p]; return q ? (md ? q[md] : q.r + q.n) : 0; }
 
   function credit(p, dt) {
-    var d = S.today(), md = modeOf(p), TM = S.d.time || (S.d.time = {});
+    var d = S.today(), md = modeOf(Reader.unit ? Reader.unit() : p), TM = S.d.time || (S.d.time = {});
     var D = TM[d] || (TM[d] = {}), v = D[dev] || (D[dev] = { r: {}, n: {} }), m = v[md] || (v[md] = {});
     m[p] = Math.round(((m[p] || 0) + dt) * 10) / 10;
     var k = d + '|' + md + '|' + p, cr = T.cr || (T.cr = {}); cr[k] = (cr[k] || 0) + dt;
@@ -63,10 +63,11 @@
     var dd = S.today();
     if (s.goalDay && T.hitD !== dd && day(dd).t >= s.goalDay * 60) { T.hitD = dd; changed = true; App.toast('Daily goal achieved · ' + s.goalDay + ' min'); buzz(); }
     // Auto-review: review pages only, once per day, after the set minutes on that page today.
-    if (md === 'r' && s.autoRev && S.get(p).lr !== dd && pageToday(p, 'r') >= s.autoRev * 60) {
-      var o = S.get(p), prev = { lr: o.lr, rv: JSON.parse(JSON.stringify(o.rv || {})), rl: (o.rl || []).slice(), h: o.h };
-      S.reviewed(p); changed = true;
-      App.toast('P. ' + p + ' auto-marked reviewed · ' + s.autoRev + ' min', function () { S.unreview(p, prev); Reader.refresh(); });
+    var u = Reader.unit ? Reader.unit() : p;
+    if (md === 'r' && s.autoRev && S.get(u).lr !== dd && pageToday(p, 'r') >= s.autoRev * 60) {
+      var o = S.get(u), prev = { lr: o.lr, rv: JSON.parse(JSON.stringify(o.rv || {})), rl: (o.rl || []).slice(), h: o.h };
+      S.reviewed(u); changed = true;
+      App.toast('P. ' + p + ' auto-marked reviewed · ' + s.autoRev + ' min', function () { S.unreview(u, prev); Reader.refresh(); });
     }
     if (changed) { keep(); Reader.refresh(); } else paint();
   }
