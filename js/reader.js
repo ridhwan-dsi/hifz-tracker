@@ -3,7 +3,7 @@
 (function () {
   var $ = function (s) { return document.querySelector(s); };
   var R = {
-    p: 1, panel: true, sub: null, edit: false, tool: 'box', sel: -1, imgs: {}, Hu: 1000, items: [], drag: null, tmp: null,
+    p: 1, oy: 0, panel: true, sub: null, edit: false, tool: 'box', sel: -1, imgs: {}, Hu: 1000, items: [], drag: null, tmp: null,
     draft: null, ph: -1, style: { c: '#ffd400', o: 0.45, b: false }
   };
   var COLORS = ['#ffd400', '#ffb020', '#ff7a1a', '#ff5a5a', '#ff5fa2', '#e040fb', '#b061ff', '#6b6bff', '#3d8bff', '#2ec4f0', '#19c2b0', '#3ccf7a', '#9bd13c', '#a0703c', '#8a8f98'];
@@ -34,7 +34,7 @@
   // Join belongs to a mask (so surahs sharing a page each keep their own joined view); None shows the plain page.
   function jnOf() { var am = activeMask(); return am && am.jn ? am.jn : null; }
   function setJn(fn) { var am = activeMask(); if (!am) return; saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) { var j = fn(m.jn ? JSON.parse(JSON.stringify(m.jn)) : {}); if (j) m.jn = j; else delete m.jn; } }); }); }
-  function joinOf(p) { var j = (p === R.p && jnOf()) || {}; return { prev: j.prev || 0, next: j.next || 0, trimT: j.trimT || 0, trimB: j.trimB || 0, prevCut: j.prevCut || 0, nextCut: j.nextCut || 0 }; }
+  function joinOf(p, raw) { var j = (p === R.p && jnOf()) || {}; if (j.off && !raw) j = {}; return { prev: j.prev || 0, next: j.next || 0, trimT: j.trimT || 0, trimB: j.trimB || 0, prevCut: j.prevCut || 0, nextCut: j.nextCut || 0 }; }
   function segsFor(p) {
     if (R.sub === 'crop') return [{ p: p, y0: 0, y1: 1, raw: true }];
     var j = joinOf(p), s = [];
@@ -57,11 +57,15 @@
     S.edit(p, function (o) { fn(ms, o); o.mk = ms; delete o.masks; delete o.sec; delete o.hb; });
   }
   function commitItems() {
-    var am = S.get(R.p).am, items = R.items.map(function (m) { var c = {}; for (var k in m) c[k] = typeof m[k] === 'number' ? r1(m[k]) : m[k]; return c; });
+    var am = S.get(R.p).am, items = shiftItems(R.items, -R.oy).map(function (m) { var c = {}; for (var k in m) c[k] = typeof m[k] === 'number' ? r1(m[k]) : m[k]; return c; });
     saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am) { m.items = items; if (m.sec > nDiv(items) + 1) m.sec = 0; } }); });
   }
   function nDiv(items) { return items.filter(function (m) { return m.k === 'div'; }).length; }
-  function loadItems() { var m = activeMask(); R.items = m ? JSON.parse(JSON.stringify(m.items || [])) : []; }
+  function loadItems() { var m = activeMask(); R.items = shiftItems(m ? m.items || [] : [], R.oy); }
+  // Boxes and lines are saved against the page itself, so joining or trimming never moves them off their words.
+  function shiftItems(list, d) {
+    return JSON.parse(JSON.stringify(list)).map(function (m) { if (m.k === 'box') m.y += d; else if (m.k === 'div') { m.y1 += d; m.y2 += d; } return m; });
+  }
 
   function img(q) {
     if (!R.imgs[q]) {
@@ -134,6 +138,11 @@
         html += '<div class="pseg' + (s.p !== p ? ' side' : '') + (R.sub === 'join' ? ' jseg' + (s.role === R.jt ? ' jt' : '') : '') + '" style="height:' + (d.u * W).toFixed(2) + 'px"><img src="' + d.im.src + '" alt="" style="width:' + (d.nw * k).toFixed(2) + 'px;transform:translate(' + (-sx * k).toFixed(2) + 'px,' + (-sy * k).toFixed(2) + 'px)"></div>';
       });
       R.Hu = U * 1000; R.U = U;
+      if (R.sub !== 'crop') {
+        var oy = 0;
+        for (var si = 0; si < segs.length; si++) { if (segs[si].role === 'this') { oy -= segs[si].y0 * 1000 * dims[si].ch / dims[si].cw; break; } oy += dims[si].u * 1000; }
+        if (Math.abs(oy - R.oy) > 0.01) { R.items = shiftItems(R.items, oy - R.oy); R.oy = oy; }
+      }
       var H = U * W, fit = fitPage() || R.sub === 'crop' || R.sub === 'join' || R.edit;
       sheet.style.width = W + 'px';
       sheet.style.marginTop = (fit ? Math.max(top, (innerHeight - R.ph - H) / 2) : 0) + 'px';
@@ -517,17 +526,19 @@
   // Compact Join panel (~25% of the screen): pick which part to edit, two shared sliders act on it,
   // and the whole joined page stays visible above, scaled to fit.
   function joinPanel() {
-    var p = R.p, j = joinOf(p), t = R.jt;
+    var p = R.p, j = joinOf(p, true), t = R.jt, off = !!(jnOf() || {}).off;
     if ((t === 'prev' && p <= 1) || (t === 'next' && p >= 604)) t = R.jt = 'this';
     var opt = [];
     if (p > 1) opt.push(['prev', IC.up + 'P. ' + (p - 1)]);
     opt.push(['this', 'This page']);
     if (p < 604) opt.push(['next', '<span class="jdn">' + IC.up + '</span>P. ' + (p + 1)]);
-    var x = '<div class="rrow jhead"><div class="seg jseg">' + opt.map(function (o) { return '<button class="' + (t === o[0] ? 'on' : '') + '" data-ract="jT" data-t="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div></div>';
+    var x = '<div class="rrow jhead' + (off ? ' joff' : '') + '"><div class="seg jseg">' + opt.map(function (o) { return '<button class="' + (t === o[0] ? 'on' : '') + '" data-ract="jT" data-t="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div></div>';
+    x += '<div class="jsl' + (off ? ' joff' : '') + '">';
     if (t === 'prev') x += slider('jn.prev', 'Show', j.prev, 60, 1) + slider('jn.prevCut', 'Cut bottom', j.prevCut, 30, 1);
     else if (t === 'next') x += slider('jn.next', 'Show', j.next, 60, 1) + slider('jn.nextCut', 'Cut top', j.nextCut, 30, 1);
     else x += slider('jn.trimT', 'Trim top', j.trimT, 60, 1) + slider('jn.trimB', 'Trim bottom', j.trimB, 60, 1);
-    return x + '<div class="rrow"><button class="btn sm" data-ract="joinReset">Reset</button><span style="flex:1"></span><button class="btn sm" data-ract="joinCancel">Cancel</button><button class="btn sm pri" data-ract="subDone">Done</button></div>';
+    x += '</div>';
+    return x + '<div class="rrow"><button class="jsw' + (off ? '' : ' on') + '" data-ract="joinOff" role="switch" aria-checked="' + !off + '"><i></i>Join ' + (off ? 'off' : 'on') + '</button><button class="btn sm" data-ract="joinReset">Reset</button><span style="flex:1"></span><button class="btn sm" data-ract="joinCancel">Cancel</button><button class="btn sm pri" data-ract="subDone">Done</button></div>';
   }
   function slider(key, label, val, max, step) {
     return '<div class="sl"><span>' + label + '</span><input type="range" min="0" max="' + max + '" step="' + step + '" value="' + (val * 100) + '" data-rin="' + key + '"><b>' + (Math.round(val * 1000) / 10) + '%</b></div>';
@@ -663,6 +674,7 @@
       if (sn && sn.p === R.p && JSON.stringify(jnOf()) !== sn.jn) { var jn = JSON.parse(sn.jn); setJn(function () { return jn; }); }
       R.jsnap = null; R.sub = null; renderPanel(); relayout();
     },
+    joinOff: function () { setJn(function (j) { if (j.off) delete j.off; else j.off = true; return j; }); renderPanel(); relayout(); },
     jT: function (el) { R.jt = el.dataset.t; renderPanel(); relayout(); },
     subDone: function () { var j = R.sub === 'join'; R.sub = null; renderPanel(); if (j) relayout(); },
     joinReset: function () { setJn(function () { return null; }); renderPanel(); relayout(); },

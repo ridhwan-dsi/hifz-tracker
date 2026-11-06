@@ -263,3 +263,8 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 .pbox .pbtns .btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .pbox .pbtns svg.i { width: 17px; height: 17px; }
 .pbox .pbtns .btn.pdel { flex: none; width: 52px; padding: 0; color: #d64545; }
+.jsl.joff, .jhead.joff { opacity: .35; pointer-events: none; }
+.jsw { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; color: var(--muted); margin-right: 6px; }
+.jsw i { width: 36px; height: 20px; border-radius: 99px; background: var(--line); position: relative; transition: background .15s; }
+.jsw i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: left .15s; }
+.jsw.on { color: var(--ink); } .jsw.on i { background: var(--acc); } .jsw.on i::after { left: 18px; }
