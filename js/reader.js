@@ -443,10 +443,8 @@
     var T = Timer.state(), s = S.d.settings, p = R.p, dd = Timer.day(S.today()), g = s.goalDay, ach = Timer.achieved();
     var md = Timer.modeOf(p) === 'r' ? 'review' : 'memorizing';
     var on = Timer.active(); // while running, the time and play/pause sit in the toolbar oval instead
-    // While a session is running, its time and play/pause sit in the toolbar oval; pausing opens the Resume/Save box.
-    var x = '<div class="rsub tsub">' + (on ? '' : '<div class="rrow"><span class="tbig' + (ach ? ' ach' : '') + '"><span class="tmr-t">' + Timer.fmt(T.secs) + '</span></span>' +
-      '<span class="small muted tmeta">' + md + ' · this page <span class="tmr-pg">' + Timer.fmt(Timer.pageToday(p)) + '</span></span><span style="flex:1"></span>' +
-      '<button class="tbtn pri" data-ract="tGo" aria-label="Start">' + IC.play + '</button></div>');
+    // The session time and play/pause always live in the toolbar oval; pausing opens the Resume/Save box.
+    var x = '<div class="rsub tsub">';
     var opts = [0, 10, 20, 30], cur = s.sessT || 0;
     if (opts.indexOf(cur) < 0) opts.push(cur);
     x += '<div class="rrow scroll"><span class="lbl">Target</span>' + opts.map(function (v) { return '<button class="chip' + (cur === v ? ' on' : '') + '" data-ract="tT" data-v="' + v + '">' + (v ? v + ' min' : 'None') + '</button>'; }).join('') +
@@ -525,7 +523,12 @@
       renderPanel();
     },
     tags: function () { leaveModes(); R.sub = R.sub === 'tags' ? null : 'tags'; renderPanel(); },
-    timer: function () { leaveModes(); R.sub = R.sub === 'timer' ? null : 'timer'; renderPanel(); },
+    timer: function () {
+      leaveModes();
+      // First tap starts the stopwatch straight away; after that Timer just opens/closes the target row.
+      if (!Timer.active()) { Timer.start(); R.sub = 'timer'; } else R.sub = R.sub === 'timer' ? null : 'timer';
+      renderPanel();
+    },
     tGo: function () {
       if (Timer.state().run) { Timer.pause(); pauseBox(); } else Timer.start();
       renderPanel();
