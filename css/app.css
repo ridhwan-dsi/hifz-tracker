@@ -253,6 +253,8 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 /* Edit oval, open: Edit shaded like Timer, tools in green (Clear stays red). */
 .egrp.open .edbtn { background: var(--acc-soft); color: var(--acc); }
 .egrp.open .tb:not(.danger):not(.edbtn) { color: var(--acc); }
+.egrp:not(.open):not(.tgrp) { border-color: transparent; padding: 0; }
+.egrp:not(.open):not(.tgrp) .edbtn { border-radius: 10px; }
 /* Pause box: session time with Resume / Save. */
 .pbox { max-width: 380px; text-align: center; }
 .pbox .pbt { font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--muted); }
