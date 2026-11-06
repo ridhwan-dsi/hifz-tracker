@@ -14,6 +14,8 @@
     var s = S.d.settings, r = (s.recentC || []).filter(function (c) { return c !== m.c; });
     r.unshift(m.c); s.recentC = r.slice(0, 3); s.boxC = m.c; s.boxO = m.o; s.boxB = !!m.b; S.saveSettings();
   }
+  // Opened from the home-screen icon: already full screen, so the button (and Chrome's exit message) isn't needed.
+  function installed() { return !!(window.matchMedia && (matchMedia('(display-mode: fullscreen)').matches || matchMedia('(display-mode: standalone)').matches)); }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
   function r1(v) { return Math.round(v * 10) / 10; }
   function r4(v) { return Math.round(v * 10000) / 10000; }
@@ -376,7 +378,7 @@
         '<div class="rrow"><button class="btn sm" data-ract="joinReset">Reset</button><span style="flex:1"></span><button class="btn sm pri" data-ract="subDone">Done</button></div></div>';
     }
     x += '<div class="rrow scroll tools">' + tb('crop', 'Crop', IC.crop, false) + tb('join', 'Join', IC.join, R.sub === 'join') +
-      tb('fit', fitPage() ? 'Fit page' : 'Fit width', fitPage() ? IC.fitp : IC.fitw, false) + tb('fs', 'Full screen', IC.full, false) + '</div>';
+      tb('fit', fitPage() ? 'Fit page' : 'Fit width', fitPage() ? IC.fitp : IC.fitw, false) + (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + '</div>';
     return x;
   }
   function editPanel() {
