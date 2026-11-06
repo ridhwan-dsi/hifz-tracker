@@ -326,7 +326,7 @@
     left: I('<path d="M15 18l-6-6 6-6"/>'), right: I('<path d="M9 18l6-6-6-6"/>'), check: I('<path d="M20 6L9 17l-5-5"/>'),
     pen: I('<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), up: I('<path d="M18 15l-6-6-6 6"/>'), trash: I('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>')
   };
-  function tb(id, label, icon, on) { return '<button class="tb' + (on ? ' on' : '') + '" data-ract="' + id + '">' + icon + label + '</button>'; }
+  function tb(id, label, icon, on, off) { return '<button class="tb' + (on ? ' on' : '') + '" data-ract="' + id + '"' + (off ? ' disabled' : '') + '>' + icon + label + '</button>'; }
   function navBtns(cls) {
     return '<button class="navb ' + cls + ' l" data-ract="next" aria-label="Next page"' + (R.p >= 604 ? ' disabled' : '') + '>' + IC.left + '</button>' +
       '<button class="navb ' + cls + ' r" data-ract="prev" aria-label="Previous page"' + (R.p <= 1 ? ' disabled' : '') + '>' + IC.right + '</button>';
@@ -358,8 +358,7 @@
     if (R.sub === 'tags') x += '<div class="rrow scroll">' + App.allTags().map(function (t) { return '<button class="chip' + (S.hasTag(p, t.id) ? ' on' : '') + '" data-ract="tag" data-t="' + App.esc(t.id) + '">' + App.esc(t.name) + '</button>'; }).join('') + '</div>';
     x += '<div class="rrow scroll"><span class="lbl">Masks</span><button class="chip' + (!am ? ' on' : '') + '" data-ract="mask" data-id="">None</button>' +
       ms.map(function (mm) { return '<button class="chip' + (am && am.id === mm.id ? ' on' : '') + '" data-ract="mask" data-id="' + mm.id + '">' + App.esc(mm.name) + '</button>'; }).join('') +
-      (am ? '<button class="chip" data-ract="editMask">' + IC.pen + 'Edit</button><button class="chip' + (R.sub === 'maskmenu' ? ' on' : '') + '" data-ract="maskMenu" aria-label="Mask options">⋯</button>' : '') + '<button class="chip add" data-ract="newMask">+ New</button></div>';
-    if (am && R.sub === 'maskmenu') x += '<div class="rrow"><button class="btn sm" data-ract="renameMask">Rename “' + App.esc(am.name) + '”</button><span style="flex:1"></span><button class="btn sm danger" data-ract="delMask">' + IC.trash + 'Delete mask</button></div>';
+      '<button class="chip add" data-ract="newMask">+ New</button></div>';
     if (am) {
       var nd = nDiv(R.items), hasBox = R.items.some(function (q) { return q.k === 'box'; });
       if (nd || hasBox) {
@@ -378,7 +377,7 @@
         '<div class="rrow"><button class="btn sm" data-ract="joinReset">Reset</button><span style="flex:1"></span><button class="btn sm pri" data-ract="subDone">Done</button></div></div>';
     }
     x += '<div class="rrow scroll tools">' + tb('crop', 'Crop', IC.crop, false) + tb('join', 'Join', IC.join, R.sub === 'join') +
-      tb('fit', fitPage() ? 'Fit page' : 'Fit width', fitPage() ? IC.fitp : IC.fitw, false) + (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + '</div>';
+      tb('fit', fitPage() ? 'Fit page' : 'Fit width', fitPage() ? IC.fitp : IC.fitw, false) + (installed() ? '' : tb('fs', 'Full screen', IC.full, false))  + '<span style="flex:1"></span>' + tb('editMask', 'Edit', IC.pen, false, !am) + tb('delMask', 'Delete', IC.trash, false, !am).replace('class="tb', 'class="tb danger')+ '</div>';
     return x;
   }
   function editPanel() {
@@ -430,7 +429,10 @@
     },
     tags: function () { R.sub = R.sub === 'tags' ? null : 'tags'; renderPanel(); },
     tag: function (el) { S.toggleTag(R.p, el.dataset.t); renderPanel(); },
-    mask: function (el) { setActive(el.dataset.id); draw(); renderPanel(); },
+    mask: function (el) {
+      var am = activeMask(); if (el.dataset.id && am && am.id === el.dataset.id) return RACT.renameMask(); // tap the selected mask again to rename it
+      setActive(el.dataset.id); draw(); renderPanel();
+    },
     newMask: function () {
       var id = 'm' + Date.now().toString(36), n = masksOf(R.p).length + 1;
       saveMasks(function (ms, o) { ms.push({ id: id, name: 'Mask ' + n, items: [], sec: 0 }); o.am = id; });
@@ -457,7 +459,6 @@
       if (y > R.Hu - 40) y = R.Hu / 2;
       R.items.push({ k: 'div', x: 500, y1: y, y2: y }); R.sel = R.items.length - 1; commitItems(); draw(); renderPanel();
     },
-    maskMenu: function () { R.sub = R.sub === 'maskmenu' ? null : 'maskmenu'; renderPanel(); },
     del: function () { if (R.sel < 0) return; R.items.splice(R.sel, 1); R.sel = -1; commitItems(); draw(); renderPanel(); },
     straight: function () { var m = R.items[R.sel]; if (!m) return; m.y2 = m.y1; m.x = 500; commitItems(); draw(); },
     sec: function (el) { var s = +el.dataset.s, am = activeMask(); saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) m.sec = s; }); }); draw(); renderPanel(); },

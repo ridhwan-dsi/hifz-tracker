@@ -152,7 +152,7 @@ svg.i { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-widt
 .rrow.scroll { overflow-x: auto; scrollbar-width: none; } .rrow.scroll::-webkit-scrollbar { display: none; }
 .rtitle { flex: 1; min-width: 0; text-align: center; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
 .plabel { display: inline-block; padding: 1px 9px; border: 1.5px solid var(--line); border-radius: 99px; font-size: 12.5px; font-weight: 700; color: var(--muted); margin-right: 4px; }
-.tb { flex: none; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; color: var(--muted); min-width: 52px; }
+.tb { flex: none; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 6px; border-radius: 10px; font-size: 11px; font-weight: 700; color: var(--muted); min-width: 46px; }
 .tb.on { background: var(--acc-soft); color: var(--acc); }
 .tb svg.i { width: 19px; height: 19px; }
 .pill { flex: none; padding: 6px 11px; border-radius: 99px; border: 1.5px solid var(--line); font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
@@ -186,3 +186,5 @@ svg.i { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-widt
 .icb.danger { color: #d64545; }
 .icb:disabled { opacity: .35; }
 .jgrp { font-size: 11.5px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); margin: 6px 0 0; }
+.tb:disabled { opacity: .35; }
+.tb.danger { color: #d64545; }
