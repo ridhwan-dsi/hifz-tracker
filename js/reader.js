@@ -31,7 +31,10 @@
     return { l: Math.max(0, a[0] - sp), t: Math.max(0, a[1] - pad), r: Math.max(0, a[2] - sp), b: Math.max(0, a[3] - pad) };
   }
   function cropOf(p) { var c = S.get(p).crop; return c ? { l: c.l || 0, t: c.t || 0, r: c.r || 0, b: c.b || 0 } : autoCrop(p); }
-  function joinOf(p) { var j = S.get(p).jn || {}; return { prev: j.prev || 0, next: j.next || 0, trimT: j.trimT || 0, trimB: j.trimB || 0, prevCut: j.prevCut || 0, nextCut: j.nextCut || 0 }; }
+  // Join belongs to a mask (so surahs sharing a page each keep their own joined view); None shows the plain page.
+  function jnOf() { var am = activeMask(); return am && am.jn ? am.jn : null; }
+  function setJn(fn) { var am = activeMask(); if (!am) return; saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) { var j = fn(m.jn ? JSON.parse(JSON.stringify(m.jn)) : {}); if (j) m.jn = j; else delete m.jn; } }); }); }
+  function joinOf(p) { var j = (p === R.p && jnOf()) || {}; return { prev: j.prev || 0, next: j.next || 0, trimT: j.trimT || 0, trimB: j.trimB || 0, prevCut: j.prevCut || 0, nextCut: j.nextCut || 0 }; }
   function segsFor(p) {
     if (R.sub === 'crop') return [{ p: p, y0: 0, y1: 1, raw: true }];
     var j = joinOf(p), s = [];
@@ -99,6 +102,7 @@
     if (p < 1 || p > 604) return;
     if (dir) buzz();
     R.p = p; R.sel = -1; R.drag = null; R.edit = false; R.draft = null;
+    if (S.get(p).am) setActive('');
     if (R.sub === 'crop' || R.sub === 'join') R.sub = null;
     loadItems();
     S.setLast(p);
@@ -448,7 +452,7 @@
     // Editing tools (Crop, Join, Box, Line, Clear) live behind one Edit button; opening it expands them inside the same oval.
     var busy = R.sub === 'crop' || R.sub === 'join' || R.edit, open = R.edOpen || busy;
     var grp = '<div class="egrp' + (open ? ' open' : '') + '">' + (open ?
-      tb('tCrop', 'Crop', IC.crop, R.sub === 'crop') + tb('join', 'Join', IC.join, R.sub === 'join') +
+      tb('tCrop', 'Crop', IC.crop, R.sub === 'crop') + tb('join', 'Join', IC.join, R.sub === 'join', !am) +
       tb('tBox', 'Box', IC.box, R.edit && R.etool === 'box', !am) + tb('tLine', 'Line', IC.line, R.edit && R.etool === 'line', !am) +
       tb('delMask', 'Clear', IC.trash, false, !am || !R.items.length).replace('class="tb', 'class="tb danger') : '') +
       tb('edGrp', 'Edit', open ? IC.x : IC.pen, false).replace('class="tb', 'class="tb edbtn') + '</div>';
@@ -555,6 +559,11 @@
     }
     return -1;
   }
+  function openOrAdd(k, add) {
+    var i = -1; R.items.forEach(function (q, n) { if (q.k === k) i = n; });
+    if (i < 0) { add(); return; }
+    if (!startEdit(i)) return; R.sel = i; draw(); renderPanel();
+  }
   function setActive(id) { saveMasks(function (ms, o) { o.am = id || ''; }); loadItems(); }
   var RACT = {
     home: function () { history.back(); },
@@ -599,13 +608,13 @@
     tag: function (el) { S.toggleTag(R.p, el.dataset.t); renderPanel(); },
     mask: function (el) {
       var k = el.dataset.slot;
-      if (k === '') { setActive(''); draw(); renderPanel(); return; }
+      if (k === '') { setActive(''); loadItems(); renderPanel(); layout(); return; }
       k = +k;
       saveMasks(function (ms, o) {
         while (ms.length <= k) { var n = ms.length + 1; ms.push({ id: 'm' + Date.now().toString(36) + n, name: 'Mask ' + n, items: [], sec: 0 }); }
         o.am = ms[k].id;
       });
-      loadItems(); draw(); renderPanel();
+      loadItems(); renderPanel(); layout();
     },
     editMask: function () { startEdit(-1); },
     doneEdit: function () { R.edit = false; R.sel = -1; R.tmp = null; R.snap = null; renderPanel(); layout(); },
@@ -643,21 +652,20 @@
     pal: function () { R.palOpen = !R.palOpen; renderPanel(); },
     bb: function () { var m = selBox(); m.b = !m.b; afterStyle(); },
     join: function () {
+      if (!activeMask() && R.sub !== 'join') return;
       leaveModes(); R.sub = R.sub === 'join' ? null : 'join';
       // Remember the page's join settings so Cancel can put them back.
-      if (R.sub === 'join') { R.jsnap = { p: R.p, jn: JSON.stringify(S.get(R.p).jn || null) }; R.jt = R.jt || (R.p < 604 ? 'next' : 'this'); }
+      if (R.sub === 'join') { R.jsnap = { p: R.p, jn: JSON.stringify(jnOf()) }; R.jt = R.jt || (R.p < 604 ? 'next' : 'this'); }
       renderPanel(); relayout();
     },
     joinCancel: function () {
       var sn = R.jsnap;
-      if (sn && sn.p === R.p && JSON.stringify(S.get(R.p).jn || null) !== sn.jn) {
-        var jn = JSON.parse(sn.jn); S.edit(R.p, function (o) { if (jn) o.jn = jn; else delete o.jn; });
-      }
+      if (sn && sn.p === R.p && JSON.stringify(jnOf()) !== sn.jn) { var jn = JSON.parse(sn.jn); setJn(function () { return jn; }); }
       R.jsnap = null; R.sub = null; renderPanel(); relayout();
     },
     jT: function (el) { R.jt = el.dataset.t; renderPanel(); relayout(); },
     subDone: function () { var j = R.sub === 'join'; R.sub = null; renderPanel(); if (j) relayout(); },
-    joinReset: function () { S.edit(R.p, function (o) { delete o.jn; }); renderPanel(); relayout(); },
+    joinReset: function () { setJn(function () { return null; }); renderPanel(); relayout(); },
     fit: function () { S.d.settings.fit = fitPage() ? 'width' : 'page'; S.saveSettings(); renderPanel(); layout(); },
     fs: function () {
       var d = document;
@@ -666,8 +674,8 @@
     },
     crop: function () { R.draft = cropOf(R.p); R.sub = 'crop'; R.edit = false; renderPanel(); layout(); },
     tCrop: function () { if (R.sub === 'crop') { RACT.cropApply(); return; } leaveModes(); RACT.crop(); },
-    tBox: function () { if (R.edit && R.etool === 'box') { RACT.doneEdit(); return; } if (R.sub === 'crop') RACT.cropApply(); R.etool = 'box'; RACT.addBox(); },
-    tLine: function () { if (R.edit && R.etool === 'line') { RACT.doneEdit(); return; } if (R.sub === 'crop') RACT.cropApply(); R.etool = 'line'; RACT.addLine(); },
+    tBox: function () { if (R.edit && R.etool === 'box') { RACT.doneEdit(); return; } if (R.sub === 'crop') RACT.cropApply(); R.etool = 'box'; openOrAdd('box', RACT.addBox); },
+    tLine: function () { if (R.edit && R.etool === 'line') { RACT.doneEdit(); return; } if (R.sub === 'crop') RACT.cropApply(); R.etool = 'line'; openOrAdd('div', RACT.addLine); },
     cropAuto: function () { R.draft = autoCrop(R.p); drawCrop(); },
     cropNone: function () { R.draft = { l: 0, t: 0, r: 0, b: 0 }; drawCrop(); },
     cropPrev: function () { R.draft = cropOf(R.p - 1); drawCrop(); },
@@ -687,6 +695,7 @@
     var k = e.target.dataset && e.target.dataset.rin; if (!k) return;
     var parts = k.split('.'), v = +e.target.value / 100;
     e.target.nextElementSibling.textContent = (Math.round(v * 1000) / 10) + '%';
+    if (parts[0] === 'jn') { setJn(function (j) { j[parts[1]] = v; if (/^trim/.test(parts[1]) && (j.trimT || 0) + (j.trimB || 0) > 0.8) j[parts[1]] = 0.8 - (parts[1] === 'trimT' ? (j.trimB || 0) : (j.trimT || 0)); return j; }); relayout(); return; }
     S.edit(R.p, function (o) {
       o[parts[0]] = o[parts[0]] || {}; o[parts[0]][parts[1]] = v;
       var j = o.jn; if (o.jn && /^trim/.test(parts[1]) && (j.trimT || 0) + (j.trimB || 0) > 0.8) j[parts[1]] = 0.8 - (parts[1] === 'trimT' ? (j.trimB || 0) : (j.trimT || 0));
