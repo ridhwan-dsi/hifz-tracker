@@ -291,7 +291,7 @@
         if (g !== g0 || g.ax || !$('#ov')) return;
         var i = hitItem(P(ev)); if (i < 0) return;
         g = null; if (navigator.vibrate) try { navigator.vibrate(15); } catch (x) {}
-        startEdit(i); R.sel = i; draw(); renderPanel();
+        R.etool = R.items[i].k === 'box' ? 'box' : 'line'; startEdit(i); R.sel = i; draw(); renderPanel();
       }, 480);
     });
     sc.addEventListener('pointermove', function (e) {
@@ -355,13 +355,18 @@
       host.innerHTML = x; afterPanel(); return;
     }
     x += '<div class="rpanel"><button class="grab" data-ract="collapse" aria-label="Hide controls"><i></i></button>';
-    if (R.sub === 'crop') x += cropPanel();
-    else if (R.edit) x += editPanel();
+    if (R.sub === 'crop') x += cropPanel() + toolsRow();
+    else if (R.edit) x += editPanel() + toolsRow();
     else x += mainPanel();
     x += '</div>';
     host.innerHTML = x; afterPanel();
   }
-  function afterPanel() { if (measurePanel()) relayout(); }
+  function afterPanel() {
+    // Keep the active tool visible when the toolbar is wider than the screen.
+    var on = document.querySelector('.rpanel .tools .tb.on'), row = on && on.parentNode;
+    if (on && (on.offsetLeft < row.scrollLeft || on.offsetLeft + on.offsetWidth > row.scrollLeft + row.clientWidth)) row.scrollLeft = on.offsetLeft - row.clientWidth / 2 + on.offsetWidth / 2;
+    if (measurePanel()) relayout();
+  }
 
   function mainPanel() {
     var p = R.p, o = S.get(p), m = S.isMem(p), h = S.health(p), mc = S.monthCount(p), revToday = o.lr === S.today();
@@ -395,12 +400,20 @@
     if (m && R.sub === 'health') x += '<div class="rsub hsub"><span class="lbl">Health</span><span class="hctl big"><button data-ract="hminus" aria-label="Lower health">−</button><span style="color:' + (h ? App.hcol(h) : 'var(--muted)') + '">' + h + '%</span><button data-ract="hplus" aria-label="Raise health">+</button></span></div>';
     if (m && R.sub === 'tags') x += '<div class="rrow scroll">' + App.allTags().map(function (t) { return '<button class="chip' + (S.hasTag(p, t.id) ? ' on' : '') + '" data-ract="tag" data-t="' + App.esc(t.id) + '">' + App.esc(t.name) + '</button>'; }).join('') + '</div>';
     if (R.sub === 'timer') x += timerPanel();
-    x += '<div class="rrow scroll tools">' + tb('crop', 'Crop', IC.crop, false) + tb('join', 'Join', IC.join, R.sub === 'join') +
+    return x + toolsRow();
+  }
+  // The bottom toolbar stays put in every mode; each tool opens its row above it and a second tap closes it.
+  function toolsRow() {
+    var p = R.p, m = S.isMem(p), h = S.health(p), am = activeMask();
+    return '<div class="rrow scroll tools">' + tb('tCrop', 'Crop', IC.crop, R.sub === 'crop') + tb('join', 'Join', IC.join, R.sub === 'join') +
       tb('health', m ? h + '%' : 'Health', IC.heart, R.sub === 'health', !m) + tb('tags', 'Tags', IC.tag, R.sub === 'tags', !m) +
       tb('timer', Timer.active() ? '<span class="tmr-t">' + Timer.fmt(Timer.state().secs) + '</span>' : 'Timer', IC.clock, R.sub === 'timer').replace('class="tb', 'class="tb' + (Timer.state().run ? ' live' : '')) +
-      (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + '<span style="flex:1"></span>' + tb('addBox', 'Box', IC.box, false, !am) + tb('addLine', 'Line', IC.line, false, !am) + tb('delMask', 'Clear', IC.trash, false, !am || !R.items.length).replace('class="tb', 'class="tb danger') + '</div>';
-    return x;
+      (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + '<span style="flex:1"></span>' +
+      tb('tBox', 'Box', IC.box, R.edit && R.etool === 'box', !am) + tb('tLine', 'Line', IC.line, R.edit && R.etool === 'line', !am) +
+      tb('delMask', 'Clear', IC.trash, false, !am || !R.items.length).replace('class="tb', 'class="tb danger') + '</div>';
   }
+  // Close crop (keeping the crop) or mask editing (keeping the shapes) before switching to another tool.
+  function leaveModes() { if (R.edit) RACT.doneEdit(); if (R.sub === 'crop') RACT.cropApply(); }
   function timerPanel() {
     var T = Timer.state(), s = S.d.settings, p = R.p, dd = Timer.day(S.today()), g = s.goalDay, ach = Timer.achieved();
     var md = Timer.modeOf(p) === 'r' ? 'review' : 'memorizing';
@@ -418,7 +431,7 @@
   function editPanel() {
     var am = activeMask(), m = R.items[R.sel], x = '';
     x += '<div class="rrow etop">' +
-      '<button class="pill soft" data-ract="addBox">' + IC.box + 'Box</button><button class="pill soft" data-ract="addLine">' + IC.line + 'Line</button>' +
+      '<button class="pill soft" data-ract="addBox">+ ' + IC.box + 'Box</button><button class="pill soft" data-ract="addLine">+ ' + IC.line + 'Line</button>' +
       '<button class="icb danger" data-ract="del" aria-label="Delete selected"' + (m ? '' : ' disabled') + '>' + IC.trash + '</button>' +
       '<button class="icb" data-ract="cancelEdit" aria-label="Cancel changes">' + IC.x + '</button>' +
       '<button class="icb pri" data-ract="doneEdit" aria-label="Save">' + IC.check + '</button></div>';
@@ -478,8 +491,8 @@
       S.reviewed(p); renderPanel();
       App.toast('Marked reviewed · ' + S.monthCount(p) + '× this month', function () { S.unreview(p, prev); if (R.p === p) renderPanel(); });
     },
-    tags: function () { R.sub = R.sub === 'tags' ? null : 'tags'; renderPanel(); },
-    timer: function () { R.sub = R.sub === 'timer' ? null : 'timer'; renderPanel(); },
+    tags: function () { leaveModes(); R.sub = R.sub === 'tags' ? null : 'tags'; renderPanel(); },
+    timer: function () { leaveModes(); R.sub = R.sub === 'timer' ? null : 'timer'; renderPanel(); },
     tGo: function () { Timer.toggle(); renderPanel(); },
     tStop: function () { Timer.stop(); renderPanel(); },
     tT: function (el) {
@@ -487,7 +500,7 @@
       if (v === 'custom') { v = parseInt(prompt('Session target in minutes', S.d.settings.sessT || 45), 10); if (!(v > 0)) return; }
       Timer.setTarget(+v); renderPanel();
     },
-    health: function () { R.sub = R.sub === 'health' ? null : 'health'; renderPanel(); },
+    health: function () { leaveModes(); R.sub = R.sub === 'health' ? null : 'health'; renderPanel(); },
     tag: function (el) { S.toggleTag(R.p, el.dataset.t); renderPanel(); },
     mask: function (el) {
       var k = el.dataset.slot;
@@ -535,7 +548,7 @@
     pal: function () { R.palOpen = !R.palOpen; renderPanel(); },
     bb: function () { var m = selBox(); m.b = !m.b; afterStyle(); },
     join: function () {
-      R.sub = R.sub === 'join' ? null : 'join';
+      leaveModes(); R.sub = R.sub === 'join' ? null : 'join';
       // Remember the page's join settings so Cancel can put them back.
       if (R.sub === 'join') R.jsnap = { p: R.p, jn: JSON.stringify(S.get(R.p).jn || null) };
       renderPanel();
@@ -556,6 +569,9 @@
       else App.toast('Install the app for full screen');
     },
     crop: function () { R.draft = cropOf(R.p); R.sub = 'crop'; R.edit = false; renderPanel(); layout(); },
+    tCrop: function () { if (R.sub === 'crop') { RACT.cropApply(); return; } leaveModes(); RACT.crop(); },
+    tBox: function () { if (R.edit && R.etool === 'box') { RACT.doneEdit(); return; } if (R.sub === 'crop') RACT.cropApply(); R.etool = 'box'; RACT.addBox(); },
+    tLine: function () { if (R.edit && R.etool === 'line') { RACT.doneEdit(); return; } if (R.sub === 'crop') RACT.cropApply(); R.etool = 'line'; RACT.addLine(); },
     cropAuto: function () { R.draft = autoCrop(R.p); drawCrop(); },
     cropNone: function () { R.draft = { l: 0, t: 0, r: 0, b: 0 }; drawCrop(); },
     cropPrev: function () { R.draft = cropOf(R.p - 1); drawCrop(); },
