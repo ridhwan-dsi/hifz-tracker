@@ -356,9 +356,10 @@
       '<button class="pill soft' + (R.sub === 'tags' ? ' on' : '') + '" data-ract="tags">' + IC.tag + 'Tags</button>';
     x += '</div>';
     if (R.sub === 'tags') x += '<div class="rrow scroll">' + App.allTags().map(function (t) { return '<button class="chip' + (S.hasTag(p, t.id) ? ' on' : '') + '" data-ract="tag" data-t="' + App.esc(t.id) + '">' + App.esc(t.name) + '</button>'; }).join('') + '</div>';
-    x += '<div class="rrow scroll"><span class="lbl">Masks</span><button class="chip' + (!am ? ' on' : '') + '" data-ract="mask" data-id="">None</button>' +
-      ms.map(function (mm) { return '<button class="chip' + (am && am.id === mm.id ? ' on' : '') + '" data-ract="mask" data-id="' + mm.id + '">' + App.esc(mm.name) + '</button>'; }).join('') +
-      '<button class="chip add" data-ract="newMask">+ New</button></div>';
+    // Three fixed mask slots per page; a slot's mask is created the first time it is opened.
+    x += '<div class="rrow scroll"><span class="lbl">Masks</span>' + [0, 1, 2].map(function (k) {
+      return '<button class="chip num' + (am && ms[k] && am.id === ms[k].id ? ' on' : '') + '" data-ract="mask" data-slot="' + k + '">' + (k + 1) + '</button>';
+    }).join('') + '<button class="chip' + (!am ? ' on' : '') + '" data-ract="mask" data-slot="">None</button></div>';
     if (am) {
       var nd = nDiv(R.items), hasBox = R.items.some(function (q) { return q.k === 'box'; });
       if (nd || hasBox) {
@@ -382,7 +383,7 @@
   }
   function editPanel() {
     var am = activeMask(), m = R.items[R.sel], x = '';
-    x += '<div class="rrow etop"><div class="rtitle" style="text-align:left"><b>' + App.esc(am ? am.name : '') + '</b></div>' +
+    x += '<div class="rrow etop"><div class="rtitle" style="text-align:left"><b>' + (am ? 'Mask ' + (masksOf(R.p).indexOf(am) + 1) : '') + '</b></div>' +
       '<button class="pill soft" data-ract="addBox">' + IC.box + 'Box</button><button class="pill soft" data-ract="addLine">' + IC.line + 'Line</button>' +
       '<button class="icb danger" data-ract="del" aria-label="Delete selected"' + (m ? '' : ' disabled') + '>' + IC.trash + '</button>' +
       '<button class="icb pri" data-ract="doneEdit" aria-label="Done">' + IC.check + '</button></div>';
@@ -430,24 +431,23 @@
     tags: function () { R.sub = R.sub === 'tags' ? null : 'tags'; renderPanel(); },
     tag: function (el) { S.toggleTag(R.p, el.dataset.t); renderPanel(); },
     mask: function (el) {
-      var am = activeMask(); if (el.dataset.id && am && am.id === el.dataset.id) return RACT.renameMask(); // tap the selected mask again to rename it
-      setActive(el.dataset.id); draw(); renderPanel();
-    },
-    newMask: function () {
-      var id = 'm' + Date.now().toString(36), n = masksOf(R.p).length + 1;
-      saveMasks(function (ms, o) { ms.push({ id: id, name: 'Mask ' + n, items: [], sec: 0 }); o.am = id; });
-      loadItems(); R.edit = true; R.sel = -1; R.sub = null; renderPanel(); layout();
+      var k = el.dataset.slot;
+      if (k === '') { setActive(''); draw(); renderPanel(); return; }
+      k = +k;
+      saveMasks(function (ms, o) {
+        while (ms.length <= k) { var n = ms.length + 1; ms.push({ id: 'm' + Date.now().toString(36) + n, name: 'Mask ' + n, items: [], sec: 0 }); }
+        o.am = ms[k].id;
+      });
+      loadItems(); draw(); renderPanel();
     },
     editMask: function () { if (!activeMask()) return; R.edit = true; R.sel = -1; R.sub = null; renderPanel(); layout(); },
     doneEdit: function () { R.edit = false; R.sel = -1; R.tmp = null; renderPanel(); layout(); },
-    renameMask: function () {
-      var am = activeMask(); if (!am) return; var n = (prompt('Mask name', am.name) || '').trim(); if (!n) return;
-      saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) m.name = n; }); }); renderPanel();
-    },
     delMask: function () {
-      var am = activeMask(); if (!am || !confirm('Delete “' + am.name + '”?')) return;
-      saveMasks(function (ms, o) { o.am = ''; ms.splice(0, ms.length, ...ms.filter(function (m) { return m.id !== am.id; })); });
-      loadItems(); R.edit = false; R.sel = -1; R.sub = null; renderPanel(); layout();
+      var am = activeMask(); if (!am) return;
+      var n = masksOf(R.p).indexOf(am) + 1;
+      if (!confirm('Clear everything on Mask ' + n + '? Its boxes and lines will be removed.')) return;
+      saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) { m.items = []; m.sec = 0; } }); });
+      loadItems(); R.edit = false; R.sel = -1; R.sub = null; draw(); renderPanel(); layout();
     },
     addBox: function () {
       var nb = R.items.filter(function (q) { return q.k === 'box'; }).length, off = (nb % 6) * 40;

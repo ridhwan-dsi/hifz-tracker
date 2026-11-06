@@ -188,3 +188,4 @@ svg.i { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-widt
 .jgrp { font-size: 11.5px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); margin: 6px 0 0; }
 .tb:disabled { opacity: .35; }
 .tb.danger { color: #d64545; }
+.chip.num { min-width: 40px; justify-content: center; text-align: center; }
