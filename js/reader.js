@@ -162,9 +162,10 @@
     if (R.edit) divs.forEach(function (x) {
       s += '<polyline class="div' + (R.sel === x.i ? ' sel' : '') + '" points="' + divPts(x.m) + '" style="pointer-events:none"/><polyline class="hit" data-i="' + x.i + '" points="' + divPts(x.m) + '"/>';
     });
+    else if (!sec) divs.forEach(function (x) { s += '<polyline class="div view" points="' + divPts(x.m) + '"/>'; });
     var m = R.items[R.sel];
     if (R.edit && m) {
-      if (m.k === 'box') s += '<circle class="hd" data-h="br" cx="' + r1(m.x + m.w) + '" cy="' + r1(m.y + m.h) + '" r="18"/>';
+      if (m.k === 'box') s += '<circle class="hd" data-h="tl" cx="' + r1(m.x) + '" cy="' + r1(m.y) + '" r="18"/><circle class="hd" data-h="br" cx="' + r1(m.x + m.w) + '" cy="' + r1(m.y + m.h) + '" r="18"/>';
       else s += '<circle class="hd" data-h="r" cx="' + r1((1000 + m.x) / 2) + '" cy="' + r1(m.y1) + '" r="18"/>' +
         '<circle class="hd" data-h="l" cx="' + r1(m.x / 2) + '" cy="' + r1(m.y2) + '" r="18"/>' +
         '<circle class="hd" data-h="s" cx="' + r1(m.x) + '" cy="' + r1((m.y1 + m.y2) / 2) + '" r="15"/>';
@@ -217,7 +218,6 @@
       if (ds.h != null && R.sel >= 0) { R.drag = { k: 'h', h: ds.h, i: R.sel }; return; }
       if (ds.i != null) { R.sel = +ds.i; R.drag = { k: 'move', i: +ds.i, pt: pt, orig: JSON.parse(JSON.stringify(R.items[+ds.i])) }; draw(); renderPanel(); return; }
       if (R.sel >= 0) { R.sel = -1; draw(); renderPanel(); }
-      R.drag = R.tool === 'box' ? { k: 'new', x0: pt.x, y0: pt.y } : { k: 'line', x0: pt.x, y0: pt.y };
     };
     ov.onpointermove = function (e) {
       var d = R.drag; if (!d) return;
@@ -242,6 +242,7 @@
       if (d.k === 'h') {
         m = R.items[d.i]; if (!m) return;
         if (d.h === 'br') { m.w = Math.max(12, pt.x - m.x); m.h = Math.max(12, pt.y - m.y); }
+        else if (d.h === 'tl') { var rx = m.x + m.w, by = m.y + m.h; m.x = Math.min(pt.x, rx - 12); m.y = Math.min(pt.y, by - 12); m.w = rx - m.x; m.h = by - m.y; }
         else if (d.h === 'r') m.y1 = clamp(pt.y, 0, R.Hu); else if (d.h === 'l') m.y2 = clamp(pt.y, 0, R.Hu); else if (d.h === 's') m.x = clamp(pt.x, 15, 985);
         draw();
       }
@@ -347,7 +348,8 @@
     if (R.sub === 'tags') x += '<div class="rrow scroll">' + App.allTags().map(function (t) { return '<button class="chip' + (S.hasTag(p, t.id) ? ' on' : '') + '" data-ract="tag" data-t="' + App.esc(t.id) + '">' + App.esc(t.name) + '</button>'; }).join('') + '</div>';
     x += '<div class="rrow scroll"><span class="lbl">Masks</span><button class="chip' + (!am ? ' on' : '') + '" data-ract="mask" data-id="">None</button>' +
       ms.map(function (mm) { return '<button class="chip' + (am && am.id === mm.id ? ' on' : '') + '" data-ract="mask" data-id="' + mm.id + '">' + App.esc(mm.name) + '</button>'; }).join('') +
-      (am ? '<button class="chip" data-ract="editMask">' + IC.pen + 'Edit</button>' : '') + '<button class="chip add" data-ract="newMask">+ New</button></div>';
+      (am ? '<button class="chip" data-ract="editMask">' + IC.pen + 'Edit</button><button class="chip' + (R.sub === 'maskmenu' ? ' on' : '') + '" data-ract="maskMenu" aria-label="Mask options">⋯</button>' : '') + '<button class="chip add" data-ract="newMask">+ New</button></div>';
+    if (am && R.sub === 'maskmenu') x += '<div class="rrow"><button class="btn sm" data-ract="renameMask">Rename “' + App.esc(am.name) + '”</button><span style="flex:1"></span><button class="btn sm danger" data-ract="delMask">' + IC.trash + 'Delete mask</button></div>';
     if (am) {
       var nd = nDiv(R.items), hasBox = R.items.some(function (q) { return q.k === 'box'; });
       if (nd || hasBox) {
@@ -370,14 +372,12 @@
   }
   function editPanel() {
     var am = activeMask(), m = R.items[R.sel], x = '';
-    x += '<div class="rrow"><div class="rtitle" style="text-align:left">Editing <b>' + App.esc(am ? am.name : '') + '</b></div><button class="btn sm" data-ract="renameMask">Rename</button><button class="btn sm" data-ract="delMask">' + IC.trash + '</button><button class="btn sm pri" data-ract="doneEdit">Done</button></div>';
-    x += '<div class="rrow scroll">' + tb('toolBox', 'Box', IC.box, R.tool === 'box') + tb('toolLine', 'Line', IC.line, R.tool === 'line');
-    if (m) x += '<span style="flex:1"></span>' + (m.k === 'div' ? '<button class="btn sm" data-ract="straight">Straighten</button>' : '') + '<button class="btn sm danger" data-ract="del">' + IC.trash + 'Delete</button>';
-    x += '</div>';
-    var showStyle = (m && m.k === 'box') || (!m && R.tool === 'box');
-    if (showStyle) x += boxStyle(m && m.k === 'box' ? m : R.style);
-    x += '<div class="hint">' + (m ? (m.k === 'box' ? 'Drag to move, drag the round handle to resize.' : 'Drag the side handles to make a step; the middle handle moves the step.')
-      : R.tool === 'box' ? 'Drag on the page to draw a box. Tap a box or line to select it.' : 'Tap on the page where a section ends. Tap a line to select it.') + '</div>';
+    x += '<div class="rrow"><div class="rtitle" style="text-align:left">Editing <b>' + App.esc(am ? am.name : '') + '</b></div><button class="btn sm pri" data-ract="doneEdit">Done</button></div>';
+    x += '<div class="rrow scroll"><button class="pill soft" data-ract="addBox">' + IC.box + '+ Box</button><button class="pill soft" data-ract="addLine">' + IC.line + '+ Line</button>' +
+      '<span style="flex:1"></span><button class="btn sm danger" data-ract="del"' + (m ? '' : ' disabled style="opacity:.4"') + '>' + IC.trash + 'Delete</button></div>';
+    if (m && m.k === 'box') x += boxStyle(m);
+    x += '<div class="hint">' + (m ? (m.k === 'box' ? 'Drag the box to move it; drag a round handle to resize.' + '' : 'Drag the line to move it. Drag a side handle to make a step; the middle handle moves the step.') + (m.k === 'div' ? ' <button class="addlink" data-ract="straight">Straighten</button>' : '')
+      : 'Tap + Box or + Line to add one. Tap a box or line to select it.') + '</div>';
     return x;
   }
   function cropPanel() {
@@ -429,10 +429,19 @@
     delMask: function () {
       var am = activeMask(); if (!am || !confirm('Delete “' + am.name + '”?')) return;
       saveMasks(function (ms, o) { o.am = ''; ms.splice(0, ms.length, ...ms.filter(function (m) { return m.id !== am.id; })); });
-      loadItems(); R.edit = false; R.sel = -1; renderPanel(); layout();
+      loadItems(); R.edit = false; R.sel = -1; R.sub = null; renderPanel(); layout();
     },
-    toolBox: function () { R.tool = 'box'; R.sel = -1; draw(); renderPanel(); },
-    toolLine: function () { R.tool = 'line'; R.sel = -1; draw(); renderPanel(); },
+    addBox: function () {
+      var nb = R.items.filter(function (q) { return q.k === 'box'; }).length, off = (nb % 6) * 40;
+      R.items.push({ k: 'box', x: 330 + off * 0.5, y: clamp(R.Hu * 0.3 + off, 0, R.Hu - 90), w: 340, h: 80, c: R.style.c, o: R.style.o, b: R.style.b });
+      R.sel = R.items.length - 1; commitItems(); draw(); renderPanel();
+    },
+    addLine: function () {
+      var ds = dividers(), last = ds.length ? ds[ds.length - 1].m : null, y = last ? Math.max(last.y1, last.y2) + 140 : R.Hu * 0.35;
+      if (y > R.Hu - 40) y = R.Hu / 2;
+      R.items.push({ k: 'div', x: 500, y1: y, y2: y }); R.sel = R.items.length - 1; commitItems(); draw(); renderPanel();
+    },
+    maskMenu: function () { R.sub = R.sub === 'maskmenu' ? null : 'maskmenu'; renderPanel(); },
     del: function () { if (R.sel < 0) return; R.items.splice(R.sel, 1); R.sel = -1; commitItems(); draw(); renderPanel(); },
     straight: function () { var m = R.items[R.sel]; if (!m) return; m.y2 = m.y1; m.x = 500; commitItems(); draw(); },
     sec: function (el) { var s = +el.dataset.s, am = activeMask(); saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) m.sec = s; }); }); draw(); renderPanel(); },

@@ -123,6 +123,7 @@ svg.i { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-widt
 #ov { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
 #ov .div { stroke: #e0662c; stroke-width: 4; fill: none; stroke-dasharray: 14 8; }
 #ov .div.sel { stroke: #1d6fe0; stroke-dasharray: none; }
+#ov .div.view { stroke: #e0662c; stroke-width: 2.5; stroke-dasharray: 10 7; opacity: .75; pointer-events: none; }
 #ov .hit { stroke: transparent; stroke-width: 34; fill: none; }
 #ov rect.sel { stroke: #1d6fe0 !important; stroke-width: 4 !important; stroke-dasharray: 10 6; }
 #ov .hd { fill: #fff; stroke: #1d6fe0; stroke-width: 4; }
