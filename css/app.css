@@ -174,3 +174,11 @@ svg.i { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-widt
 .sl b { width: 40px; text-align: right; font-size: 12.5px; }
 .sl input { flex: 1; accent-color: var(--acc); }
 .hint { font-size: 12px; color: var(--muted); padding: 2px 2px 4px; }
+
+.etop { gap: 6px; }
+.etop .pill { padding: 6px 9px; }
+.icb { flex: none; width: 36px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); background: var(--card); }
+.icb svg.i { width: 19px; height: 19px; }
+.icb.pri { background: var(--acc); border-color: var(--acc); color: var(--acc-ink); }
+.icb.danger { color: #d64545; }
+.icb:disabled { opacity: .35; }

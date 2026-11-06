@@ -380,8 +380,10 @@
   }
   function editPanel() {
     var am = activeMask(), m = R.items[R.sel], x = '';
-    x += '<div class="rrow"><div class="rtitle" style="text-align:left">Editing <b>' + App.esc(am ? am.name : '') + '</b></div><button class="btn sm danger" data-ract="del"' + (m ? '' : ' disabled style="opacity:.4"') + '>' + IC.trash + 'Delete</button><button class="btn sm pri" data-ract="doneEdit">Done</button></div>';
-    x += '<div class="rrow scroll"><button class="pill soft" data-ract="addBox">' + IC.box + '+ Box</button><button class="pill soft" data-ract="addLine">' + IC.line + '+ Line</button></div>';
+    x += '<div class="rrow etop"><div class="rtitle" style="text-align:left"><b>' + App.esc(am ? am.name : '') + '</b></div>' +
+      '<button class="pill soft" data-ract="addBox">' + IC.box + 'Box</button><button class="pill soft" data-ract="addLine">' + IC.line + 'Line</button>' +
+      '<button class="icb danger" data-ract="del" aria-label="Delete selected"' + (m ? '' : ' disabled') + '>' + IC.trash + '</button>' +
+      '<button class="icb pri" data-ract="doneEdit" aria-label="Done">' + IC.check + '</button></div>';
     if (m && m.k === 'box') x += boxStyle(m);
     x += '<div class="hint">' + (m ? (m.k === 'box' ? 'Drag the box to move it; drag a round handle to resize.' + '' : 'Drag the line to move it. Drag a side handle to make a step; the middle handle moves the step.') + (m.k === 'div' ? ' <button class="addlink" data-ract="straight">Straighten</button>' : '')
       : 'Tap + Box or + Line to add one. Tap a box or line to select it.') + '</div>';
