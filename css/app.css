@@ -289,7 +289,11 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 
 .rtitle.tcol { display: flex; flex-direction: column; align-items: stretch; gap: 6px; overflow: visible; }
 .rtitle.tcol .tname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
-.pstrip { display: flex; gap: 9px; align-items: center; overflow-x: auto; scroll-snap-type: x mandatory; padding: 5px 50%; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent); mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent); touch-action: pan-x; }
+
+.pswrap { position: relative; }
+.pring { position: absolute; left: 50%; top: 50%; width: 38px; height: 38px; margin: -19px 0 0 -19px; border-radius: 50%; background: var(--acc); box-shadow: 0 2px 6px rgba(0,0,0,.18); pointer-events: none; }
+.pstrip { position: relative; display: flex; gap: 10px; align-items: center; overflow-x: auto; scroll-snap-type: x mandatory; padding: 6px 0; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent); mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent); touch-action: pan-x; }
 .pstrip::-webkit-scrollbar { display: none; }
-.pc { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--line); color: var(--muted); font-size: 12px; font-weight: 700; display: grid; place-items: center; scroll-snap-align: center; transition: transform .12s, background .12s, color .12s; }
-.pc.cur { background: var(--acc); border-color: var(--acc); color: #fff; transform: scale(1.25); }
+.psp { flex: none; width: calc(50% - 25px); height: 1px; }
+.pc { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--line); color: var(--muted); font-size: 12px; font-weight: 700; display: grid; place-items: center; scroll-snap-align: center; background: transparent; transition: color .1s, font-size .1s, border-color .1s; }
+.pc.cur { border-color: transparent; color: #fff; font-size: 14px; }

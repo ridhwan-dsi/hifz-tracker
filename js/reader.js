@@ -414,24 +414,26 @@
     return a;
   }
   function pstrip() {
-    return '<div class="pstrip">' + stripKeys().map(function (k) {
+    // Right to left like the mushaf: later pages sit to the left. Spacers let the first/last page reach the centre.
+    return '<div class="pswrap"><i class="pring"></i><div class="pstrip"><i class="psp"></i>' + stripKeys().slice().reverse().map(function (k) {
       var q = S.kp(k); return '<button class="pc' + (q === R.p ? ' cur' : '') + '" data-ract="pgo" data-p="' + q + '" data-n="' + S.kn(k) + '">' + q + '</button>';
-    }).join('') + '</div>';
+    }).join('') + '<i class="psp"></i></div></div>';
   }
   function stripMid(ps) {
     var c = ps.scrollLeft + ps.clientWidth / 2, best = null, bd = 1e9;
-    [].forEach.call(ps.children, function (b) { var d = Math.abs(b.offsetLeft + b.offsetWidth / 2 - c); if (d < bd) { bd = d; best = b; } });
+    [].forEach.call(ps.querySelectorAll('.pc'), function (b) { var d = Math.abs(b.offsetLeft + b.offsetWidth / 2 - c); if (d < bd) { bd = d; best = b; } });
     return best;
   }
   function wireStrip() {
     var ps = document.querySelector('.rpanel .pstrip'); if (!ps) return;
     var cur = ps.querySelector('.cur');
-    if (cur) { R.stripSet = true; ps.scrollLeft = cur.offsetLeft + cur.offsetWidth / 2 - ps.clientWidth / 2; }
+    var centre = function () { if (cur) { R.stripSet = true; ps.scrollLeft = cur.offsetLeft + cur.offsetWidth / 2 - ps.clientWidth / 2; } };
+    centre(); requestAnimationFrame(centre);
     var t = null;
     ps.addEventListener('scroll', function () {
       if (R.stripSet) { R.stripSet = false; return; }
       var m = stripMid(ps);
-      [].forEach.call(ps.children, function (b) { b.classList.toggle('cur', b === m); });
+      [].forEach.call(ps.querySelectorAll('.pc'), function (b) { b.classList.toggle('cur', b === m); });
       clearTimeout(t);
       t = setTimeout(function () {
         var b = stripMid(ps); if (!b) return; var q = +b.dataset.p;
