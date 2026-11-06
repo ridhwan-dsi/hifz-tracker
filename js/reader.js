@@ -6,7 +6,7 @@
     p: 1, panel: true, sub: null, edit: false, tool: 'box', sel: -1, imgs: {}, Hu: 1000, items: [], drag: null, tmp: null,
     draft: null, ph: -1, style: { c: '#ffd400', o: 0.45, b: false }
   };
-  var COLORS = ['#ffd400', '#ff5a5a', '#3ccf7a', '#3d8bff', '#b061ff', '#111111', '#ffffff'];
+  var COLORS = ['#ffd400', '#ff5a5a', '#3ccf7a', '#3d8bff', '#b061ff'];
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
   function r1(v) { return Math.round(v * 10) / 10; }
   function r4(v) { return Math.round(v * 10000) / 10000; }
@@ -372,9 +372,8 @@
   }
   function editPanel() {
     var am = activeMask(), m = R.items[R.sel], x = '';
-    x += '<div class="rrow"><div class="rtitle" style="text-align:left">Editing <b>' + App.esc(am ? am.name : '') + '</b></div><button class="btn sm pri" data-ract="doneEdit">Done</button></div>';
-    x += '<div class="rrow scroll"><button class="pill soft" data-ract="addBox">' + IC.box + '+ Box</button><button class="pill soft" data-ract="addLine">' + IC.line + '+ Line</button>' +
-      '<span style="flex:1"></span><button class="btn sm danger" data-ract="del"' + (m ? '' : ' disabled style="opacity:.4"') + '>' + IC.trash + 'Delete</button></div>';
+    x += '<div class="rrow"><div class="rtitle" style="text-align:left">Editing <b>' + App.esc(am ? am.name : '') + '</b></div><button class="btn sm danger" data-ract="del"' + (m ? '' : ' disabled style="opacity:.4"') + '>' + IC.trash + 'Delete</button><button class="btn sm pri" data-ract="doneEdit">Done</button></div>';
+    x += '<div class="rrow scroll"><button class="pill soft" data-ract="addBox">' + IC.box + '+ Box</button><button class="pill soft" data-ract="addLine">' + IC.line + '+ Line</button></div>';
     if (m && m.k === 'box') x += boxStyle(m);
     x += '<div class="hint">' + (m ? (m.k === 'box' ? 'Drag the box to move it; drag a round handle to resize.' + '' : 'Drag the line to move it. Drag a side handle to make a step; the middle handle moves the step.') + (m.k === 'div' ? ' <button class="addlink" data-ract="straight">Straighten</button>' : '')
       : 'Tap + Box or + Line to add one. Tap a box or line to select it.') + '</div>';
@@ -392,7 +391,7 @@
   }
   function boxStyle(m) {
     return '<div class="rrow scroll">' + COLORS.map(function (c) { return '<button class="sw-c' + (m.c === c ? ' on' : '') + '" style="background:' + c + '" data-ract="bc" data-c="' + c + '" aria-label="Colour"></button>'; }).join('') +
-      '<span class="hctl" style="margin-left:4px">' + [0.25, 0.45, 0.7, 1].map(function (v) { return '<button style="width:auto;padding:0 8px;font-size:12.5px' + (Math.abs(m.o - v) < 0.01 ? ';color:var(--acc)' : '') + '" data-ract="bo" data-o="' + v + '">' + Math.round(v * 100) + '%</button>'; }).join('') + '</span>' +
+      '<span class="hctl" style="margin-left:4px">' + [0.12, 0.25, 0.45, 0.7, 1].map(function (v) { return '<button style="width:auto;padding:0 8px;font-size:12.5px' + (Math.abs(m.o - v) < 0.01 ? ';color:var(--acc)' : '') + '" data-ract="bo" data-o="' + v + '">' + Math.round(v * 100) + '%</button>'; }).join('') + '</span>' +
       '<button class="pill soft' + (m.b ? ' on' : '') + '" data-ract="bb">Border</button></div>';
   }
 
