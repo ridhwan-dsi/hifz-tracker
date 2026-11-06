@@ -21,6 +21,10 @@
   function r4(v) { return Math.round(v * 10000) / 10000; }
   function buzz() { try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} }
   function fitPage() { return S.d.settings.fit !== 'width'; }
+  // Landscape-only zoom out (40–100%), so a wide screen doesn't blow the page up too far.
+  function land() { return innerWidth > innerHeight; }
+  function lzoom() { var z = S.d.settings.lz; return land() && z ? clamp(z, 40, 100) / 100 : 1; }
+  function zoomChip() { var z = Math.round(lzoom() * 100); return '<div class="zchip"><button data-ract="zout" aria-label="Zoom out"' + (z <= 40 ? ' disabled' : '') + '>−</button><span>' + z + '%</span><button data-ract="zin" aria-label="Zoom in"' + (z >= 100 ? ' disabled' : '') + '>+</button></div>'; }
 
   /* ---------- crop / joins ---------- */
   function autoCrop(p) {
@@ -134,7 +138,7 @@
       var U = dims.reduce(function (a, d) { return a + d.u; }, 0);
       var vw = sc.clientWidth || innerWidth, top = 8, vh = innerHeight - R.ph - top * 2;
       var W = (fitPage() || R.sub === 'crop' || R.sub === 'join' || R.edit) ? Math.min(vw, vh / U) : Math.min(vw, 820);
-      W = Math.max(120, Math.floor(W));
+      W = Math.max(120, Math.floor(W * lzoom()));
       var html = '';
       segs.forEach(function (s, i) {
         var d = dims[i], k = W / d.cw, sx = d.c.l * d.nw, sy = d.c.t * d.nh + s.y0 * d.ch;
@@ -147,7 +151,7 @@
         if (Math.abs(oy - R.oy) > 0.01) { R.items = shiftItems(R.items, oy - R.oy); R.oy = oy; }
       }
       var H = U * W, fit = fitPage() || R.sub === 'crop' || R.sub === 'join' || R.edit;
-      sheet.style.width = W + 'px';
+      sheet.style.width = W + 'px'; sheet.style.marginLeft = sheet.style.marginRight = 'auto';
       sheet.style.marginTop = (fit ? Math.max(top, (innerHeight - R.ph - H) / 2) : 0) + 'px';
       sheet.style.transition = 'none'; sheet.style.transform = '';
       sheet.innerHTML = html + '<svg id="ov" viewBox="0 0 1000 ' + R.Hu.toFixed(1) + '" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>';
@@ -163,9 +167,10 @@
       if (seq === layoutSeq) $('#sheet').innerHTML = '<div style="padding:40px;text-align:center;color:#666;background:#fff">Couldn’t load this page. Check your connection.</div>';
     });
   }
+  function setZoom(d) { var s = S.d.settings; s.lz = clamp(Math.round(lzoom() * 100) + d, 40, 100); S.saveSettings(); afterPanel(); relayout(); }
   var rq = 0;
   function relayout() { cancelAnimationFrame(rq); rq = requestAnimationFrame(function () { layout(); }); }
-  window.addEventListener('resize', function () { if (Reader.isOpen()) { measurePanel(); relayout(); } });
+  window.addEventListener('resize', function () { if (Reader.isOpen()) { measurePanel(); afterPanel(); relayout(); } });
   function measurePanel() { var pn = $('.rpanel'); var h = R.panel && pn ? pn.offsetHeight : 0; var ch = h !== R.ph; R.ph = h; return ch; }
 
   /* ---------- mask drawing ---------- */
@@ -381,6 +386,7 @@
     host.innerHTML = x; afterPanel();
   }
   function afterPanel() {
+    var zc = $('#rui .zchip'); if (land()) { if (zc) zc.outerHTML = zoomChip(); else $('#rui').insertAdjacentHTML('beforeend', zoomChip()); } else if (zc) zc.remove();
     // Keep the active tool visible when the toolbar is wider than the screen.
     var on = document.querySelector('.rpanel .tools .tb.on'), row = on && on.parentNode;
     if (on && (on.offsetLeft < row.scrollLeft || on.offsetLeft + on.offsetWidth > row.scrollLeft + row.clientWidth)) row.scrollLeft = on.offsetLeft - row.clientWidth / 2 + on.offsetWidth / 2;
@@ -606,6 +612,8 @@
       R.sub = R.sub === 'timer' ? null : 'timer';
       renderPanel();
     },
+    zout: function () { setZoom(-10); },
+    zin: function () { setZoom(10); },
     tGo: function () {
       if (Timer.state().run) { Timer.pause(); pauseBox(); } else Timer.start();
       renderPanel();
