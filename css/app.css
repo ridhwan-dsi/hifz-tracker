@@ -175,9 +175,12 @@ svg.i { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-widt
 .sl input { flex: 1; accent-color: var(--acc); }
 .hint { font-size: 12px; color: var(--muted); padding: 2px 2px 4px; }
 
-.etop { gap: 6px; }
-.etop .pill { padding: 6px 9px; }
-.icb { flex: none; width: 36px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); background: var(--card); }
+.etop { gap: 8px; padding: 6px 0 8px; }
+.etop .rtitle { font-size: 15px; }
+.etop .pill { padding: 9px 13px; font-size: 14px; }
+.bstyle { padding: 4px 0 8px; }
+.rpanel .etop ~ .hint { padding: 2px 2px 8px; font-size: 12.5px; }
+.icb { flex: none; width: 42px; height: 40px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); background: var(--card); }
 .icb svg.i { width: 19px; height: 19px; }
 .icb.pri { background: var(--acc); border-color: var(--acc); color: var(--acc-ink); }
 .icb.danger { color: #d64545; }
