@@ -106,7 +106,10 @@
     if (p < 1 || p > 604) return;
     if (dir) buzz();
     R.p = p; R.sel = -1; R.drag = null; R.edit = false; R.draft = null;
-    if (S.get(p).am) setActive('');
+    // Every page opens on Mask 1 (created the first time it's needed).
+    var ms0 = masksOf(p);
+    if (!ms0.length) saveMasks(function (ms, o) { ms.push({ id: 'm' + Date.now().toString(36) + '1', name: 'Mask 1', items: [], sec: 0 }); o.am = ms[0].id; });
+    else if (S.get(p).am !== ms0[0].id) setActive(ms0[0].id);
     if (R.sub === 'crop' || R.sub === 'join') R.sub = null;
     loadItems();
     S.setLast(p);
