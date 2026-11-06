@@ -6,7 +6,14 @@
     p: 1, panel: true, sub: null, edit: false, tool: 'box', sel: -1, imgs: {}, Hu: 1000, items: [], drag: null, tmp: null,
     draft: null, ph: -1, style: { c: '#ffd400', o: 0.45, b: false }
   };
-  var COLORS = ['#ffd400', '#ff5a5a', '#3ccf7a', '#3d8bff', '#b061ff'];
+  var COLORS = ['#ffd400', '#ffb020', '#ff7a1a', '#ff5a5a', '#ff5fa2', '#e040fb', '#b061ff', '#6b6bff', '#3d8bff', '#2ec4f0', '#19c2b0', '#3ccf7a', '#9bd13c', '#a0703c', '#8a8f98'];
+  // Last-used box style (colour, opacity, border) and the 3 most recent colours, remembered across the app.
+  function boxDef() { var s = S.d.settings; return { c: s.boxC || '#ffd400', o: s.boxO != null ? s.boxO : 0.2, b: !!s.boxB }; }
+  function recentC() { var r = (S.d.settings.recentC || []).slice(0, 3); COLORS.forEach(function (c) { if (r.length < 3 && r.indexOf(c) < 0) r.push(c); }); return r; }
+  function rememberStyle(m) {
+    var s = S.d.settings, r = (s.recentC || []).filter(function (c) { return c !== m.c; });
+    r.unshift(m.c); s.recentC = r.slice(0, 3); s.boxC = m.c; s.boxO = m.o; s.boxB = !!m.b; S.saveSettings();
+  }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
   function r1(v) { return Math.round(v * 10) / 10; }
   function r4(v) { return Math.round(v * 10000) / 10000; }
@@ -67,6 +74,7 @@
   /* ---------- open / close ---------- */
   var Reader = {
     open: function (p) {
+      R.style = boxDef(); R.palOpen = false;
       p = clamp(p | 0, 1, 604);
       if (!Reader.isOpen()) history.pushState({ reader: 1 }, '', '#p' + p);
       $('#reader').classList.add('on'); document.body.style.overflow = 'hidden';
@@ -390,14 +398,18 @@
     return '<div class="sl"><span>' + label + '</span><input type="range" min="0" max="' + max + '" step="' + step + '" value="' + (val * 100) + '" data-rin="' + key + '"><b>' + (Math.round(val * 1000) / 10) + '%</b></div>';
   }
   function boxStyle(m) {
-    return '<div class="rrow scroll">' + COLORS.map(function (c) { return '<button class="sw-c' + (m.c === c ? ' on' : '') + '" style="background:' + c + '" data-ract="bc" data-c="' + c + '" aria-label="Colour"></button>'; }).join('') +
-      '<span class="hctl" style="margin-left:4px">' + [0.12, 0.25, 0.45, 0.7, 1].map(function (v) { return '<button style="width:auto;padding:0 8px;font-size:12.5px' + (Math.abs(m.o - v) < 0.01 ? ';color:var(--acc)' : '') + '" data-ract="bo" data-o="' + v + '">' + Math.round(v * 100) + '%</button>'; }).join('') + '</span>' +
+    var list = R.palOpen ? COLORS : recentC();
+    if (!R.palOpen && list.indexOf(m.c) < 0) list = [m.c].concat(list.slice(0, 2));
+    var more = '<button class="sw-more" data-ract="pal" aria-label="' + (R.palOpen ? 'Fewer colours' : 'More colours') + '">' + (R.palOpen ? '‹' : '+') + '</button>';
+    var sw = (R.palOpen ? more : '') + list.map(function (c) { return '<button class="sw-c' + (m.c === c ? ' on' : '') + '" style="background:' + c + '" data-ract="bc" data-c="' + c + '" aria-label="Colour"></button>'; }).join('') + (R.palOpen ? '' : more);
+    return '<div class="rrow bstyle"><div class="cscroll">' + sw + '</div>' +
+      '<span class="hctl"><button data-ract="bo" data-d="-1" aria-label="Lighter">−</button><span>' + Math.round(m.o * 100) + '%</span><button data-ract="bo" data-d="1" aria-label="Darker">+</button></span>' +
       '<button class="pill soft' + (m.b ? ' on' : '') + '" data-ract="bb">Border</button></div>';
   }
 
   /* ---------- actions ---------- */
   function selBox() { var m = R.items[R.sel]; return (R.edit && m && m.k === 'box') ? m : R.style; }
-  function afterStyle() { var m = selBox(); if (m !== R.style) { R.style.c = m.c; R.style.o = m.o; R.style.b = m.b; commitItems(); } draw(); renderPanel(); }
+  function afterStyle() { var m = selBox(); if (m !== R.style) { R.style.c = m.c; R.style.o = m.o; R.style.b = m.b; commitItems(); } rememberStyle(m); draw(); renderPanel(); }
   function setActive(id) { saveMasks(function (ms, o) { o.am = id || ''; }); loadItems(); }
   var RACT = {
     home: function () { history.back(); },
@@ -445,8 +457,9 @@
     straight: function () { var m = R.items[R.sel]; if (!m) return; m.y2 = m.y1; m.x = 500; commitItems(); draw(); },
     sec: function (el) { var s = +el.dataset.s, am = activeMask(); saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) m.sec = s; }); }); draw(); renderPanel(); },
     hb: function () { var am = activeMask(); saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) m.hb = !m.hb; }); }); draw(); renderPanel(); },
-    bc: function (el) { selBox().c = el.dataset.c; afterStyle(); },
-    bo: function (el) { selBox().o = +el.dataset.o; afterStyle(); },
+    bc: function (el) { selBox().c = el.dataset.c; R.palOpen = false; afterStyle(); },
+    bo: function (el) { var m = selBox(); m.o = clamp(Math.round(m.o * 20) / 20 + (+el.dataset.d) * 0.05, 0.05, 1); m.o = Math.round(m.o * 100) / 100; afterStyle(); },
+    pal: function () { R.palOpen = !R.palOpen; renderPanel(); },
     bb: function () { var m = selBox(); m.b = !m.b; afterStyle(); },
     join: function () { R.sub = R.sub === 'join' ? null : 'join'; renderPanel(); },
     subDone: function () { R.sub = null; renderPanel(); },

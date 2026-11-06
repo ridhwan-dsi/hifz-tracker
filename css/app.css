@@ -164,6 +164,10 @@ svg.i { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-widt
 .rsub { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 6px; }
 .rsub:empty { display: none; }
 .sw-c { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--line); flex: none; }
+.bstyle { gap: 8px; }
+.cscroll { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; overflow-x: auto; padding: 5px; scrollbar-width: none; }
+.cscroll::-webkit-scrollbar { display: none; }
+.sw-more { width: 26px; height: 26px; border-radius: 50%; border: 1.5px dashed var(--muted); color: var(--muted); font-weight: 800; font-size: 16px; line-height: 1; flex: none; }
 .sw-c.on { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--acc); }
 .sl { display: flex; align-items: center; gap: 10px; padding: 3px 0; font-size: 13px; }
 .sl span { width: 92px; flex: none; color: var(--muted); font-weight: 600; }
