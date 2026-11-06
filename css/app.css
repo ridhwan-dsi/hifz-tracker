@@ -196,3 +196,6 @@ svg.i { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-widt
 .rpanel .etitle{text-align:left;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rpanel .bstyle.off{opacity:.35;pointer-events:none}
 .rpanel .etop .pill{flex:1;justify-content:center}
+.hsub { display: flex; align-items: center; gap: 12px; }
+.hctl.big button { width: 44px; height: 40px; font-size: 22px; }
+.hctl.big span { min-width: 64px; font-size: 16px; }

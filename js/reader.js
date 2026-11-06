@@ -327,6 +327,7 @@
   var IC = {
     box: I('<rect x="3" y="6" width="18" height="12" rx="2"/>'), line: I('<path d="M3 9h10v6h8"/>'),
     crop: I('<path d="M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2"/>'), join: I('<path d="M4 4h16v5H4zM4 15h16v5H4zM12 9v6"/>'),
+    heart: I('<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21.2l8.8-8.8a5.5 5.5 0 0 0 0-7.8z"/>'),
     tag: I('<path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.5"/>'),
     full: I('<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>'),
     fitp: I('<rect x="6" y="3" width="12" height="18" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h4"/>'), fitw: I('<path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/>'),
@@ -358,11 +359,8 @@
     var ms = masksOf(p), am = activeMask(), x = '';
     x += '<div class="rrow nav">' + navBtns('in') + '<div class="rtitle"><span class="plabel">P. ' + p + '</span>' + App.esc(App.pageTitle(p)) + '</div></div>';
     x += '<div class="rrow scroll"><button class="pill' + (m ? ' on' : '') + '" data-ract="mem">' + (m ? IC.check + 'Memorizing' : '+ Memorize') + '</button>';
-    if (m) x += '<span class="hctl"><button data-ract="hminus" aria-label="Lower health">−</button><span style="color:' + (h ? App.hcol(h) : 'var(--muted)') + '">' + h + '%</span><button data-ract="hplus" aria-label="Raise health">+</button></span>' +
-      '<button class="pill soft' + (revToday ? ' on' : '') + '" data-ract="rev">' + IC.check + 'Reviewed' + (mc ? ' · ' + mc + '×' : '') + '</button>' +
-      '<button class="pill soft' + (R.sub === 'tags' ? ' on' : '') + '" data-ract="tags">' + IC.tag + 'Tags</button>';
+    if (m) x += '<button class="pill soft' + (revToday ? ' on' : '') + '" data-ract="rev">' + IC.check + 'Reviewed' + (mc ? ' · ' + mc + '×' : '') + '</button>';
     x += '</div>';
-    if (R.sub === 'tags') x += '<div class="rrow scroll">' + App.allTags().map(function (t) { return '<button class="chip' + (S.hasTag(p, t.id) ? ' on' : '') + '" data-ract="tag" data-t="' + App.esc(t.id) + '">' + App.esc(t.name) + '</button>'; }).join('') + '</div>';
     // Three fixed mask slots per page; a slot's mask is created the first time it is opened.
     x += '<div class="rrow scroll"><span class="lbl">Masks</span>' + [0, 1, 2].map(function (k) {
       return '<button class="chip num' + (am && ms[k] && am.id === ms[k].id ? ' on' : '') + '" data-ract="mask" data-slot="' + k + '">' + (k + 1) + '</button>';
@@ -384,7 +382,11 @@
         (p < 604 ? '<div class="jgrp">P. ' + (p + 1) + ' (below)</div>' + slider('jn.next', 'Show', j.next, 60, 2.5) + slider('jn.nextCut', 'Cut top', j.nextCut, 30, 1) : '') +
         '<div class="rrow"><button class="btn sm" data-ract="joinReset">Reset</button><span style="flex:1"></span><button class="btn sm pri" data-ract="subDone">Done</button></div></div>';
     }
+    // Health and Tags live in the bottom toolbar and expand their row just above it.
+    if (m && R.sub === 'health') x += '<div class="rsub hsub"><span class="lbl">Health</span><span class="hctl big"><button data-ract="hminus" aria-label="Lower health">−</button><span style="color:' + (h ? App.hcol(h) : 'var(--muted)') + '">' + h + '%</span><button data-ract="hplus" aria-label="Raise health">+</button></span></div>';
+    if (m && R.sub === 'tags') x += '<div class="rrow scroll">' + App.allTags().map(function (t) { return '<button class="chip' + (S.hasTag(p, t.id) ? ' on' : '') + '" data-ract="tag" data-t="' + App.esc(t.id) + '">' + App.esc(t.name) + '</button>'; }).join('') + '</div>';
     x += '<div class="rrow scroll tools">' + tb('crop', 'Crop', IC.crop, false) + tb('join', 'Join', IC.join, R.sub === 'join') +
+      tb('health', m ? h + '%' : 'Health', IC.heart, R.sub === 'health', !m) + tb('tags', 'Tags', IC.tag, R.sub === 'tags', !m) +
       (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + '<span style="flex:1"></span>' + tb('addBox', 'Box', IC.box, false, !am) + tb('addLine', 'Line', IC.line, false, !am) + tb('delMask', 'Clear', IC.trash, false, !am || !R.items.length).replace('class="tb', 'class="tb danger') + '</div>';
     return x;
   }
@@ -452,6 +454,7 @@
       App.toast('Marked reviewed · ' + S.monthCount(p) + '× this month', function () { S.unreview(p, prev); if (R.p === p) renderPanel(); });
     },
     tags: function () { R.sub = R.sub === 'tags' ? null : 'tags'; renderPanel(); },
+    health: function () { R.sub = R.sub === 'health' ? null : 'health'; renderPanel(); },
     tag: function (el) { S.toggleTag(R.p, el.dataset.t); renderPanel(); },
     mask: function (el) {
       var k = el.dataset.slot;
