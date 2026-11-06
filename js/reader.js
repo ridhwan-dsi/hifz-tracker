@@ -345,13 +345,13 @@
       '<button class="navb ' + cls + ' r" data-ract="prev" aria-label="Previous page"' + (R.p <= 1 ? ' disabled' : '') + '>' + IC.right + '</button>';
   }
   function renderPanel() {
-    var host = $('#rui'), p = R.p, x = '<button class="rback" data-ract="home" aria-label="Home">' + IC.left + '</button>';
+    var host = $('#rui'), p = R.p, x = '';
     if (!R.panel) {
       var ta = Timer.active(), tr = Timer.state().run;
       if (ta) x += '<button class="tchip' + (Timer.achieved() ? ' ach' : '') + (tr ? '' : ' paused') + '" data-ract="tGo" aria-label="' + (tr ? 'Pause' : 'Resume') + ' stopwatch">' +
         (Timer.achieved() ? IC.check + 'Achieved · ' : '<i class="tdot"></i>') + '<span class="tmr-t">' + Timer.fmt(Timer.state().secs) + '</span>' +
         (S.d.settings.sessT && !Timer.achieved() ? ' / ' + S.d.settings.sessT + ':00' : '') + (tr ? IC.pause : IC.play) + '</button>';
-      x += navBtns('float') + '<button class="fback" data-ract="home" aria-label="Back">' + IC.back + '</button>' + '<button class="rhandle" data-ract="expand" aria-label="Show controls">' + IC.up + '<span>P. ' + p + (ta ? ' · </span>' + IC.clock + '<span class="tmr-t">' + Timer.fmt(Timer.state().secs) + '</span>' : '</span>') + '</button>';
+      x += navBtns('float') + '<button class="rhandle" data-ract="expand" aria-label="Show controls">' + IC.up + '<span>P. ' + p + (ta ? ' · </span>' + IC.clock + '<span class="tmr-t">' + Timer.fmt(Timer.state().secs) + '</span>' : '</span>') + '</button>';
       host.innerHTML = x; afterPanel(); return;
     }
     x += '<div class="rpanel"><button class="grab" data-ract="collapse" aria-label="Hide controls"><i></i></button>';
@@ -407,10 +407,10 @@
       tb('tBox', 'Box', IC.box, R.edit && R.etool === 'box', !am) + tb('tLine', 'Line', IC.line, R.edit && R.etool === 'line', !am) +
       tb('delMask', 'Clear', IC.trash, false, !am || !R.items.length).replace('class="tb', 'class="tb danger') : '') +
       tb('edGrp', 'Edit', open ? IC.x : IC.pen, false).replace('class="tb', 'class="tb edbtn') + '</div>';
-    return '<div class="rrow scroll tools">' +
+    return '<div class="rrow scroll tools">' + tb('home', 'Back', IC.back, false) +
       tb('health', m ? h + '%' : 'Health', IC.heart, R.sub === 'health', !m) + tb('tags', 'Tags', IC.tag, R.sub === 'tags', !m) +
       timerTool() +
-      (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + '<span style="flex:1"></span>' + grp + tb('home', 'Back', IC.back, false).replace('class="tb', 'class="tb tback') + '</div>';
+      (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + '<span style="flex:1"></span>' + grp + '</div>';
   }
   // Once a session is running, Timer expands into an oval with the running time and play/pause beside it.
   function timerTool() {
