@@ -579,25 +579,21 @@
     var p = R.p, k = R.k, o = S.get(k), m = S.isMem(k), h = S.health(k);
     var ms = masksOf(p), am = activeMask(), x = '';
     x += '<div class="rrow nav">' + navBtns('in') + '<div class="rtitle tcol"><div class="tname">' + surahTitle(p) + '</div>' + pstrip() + '</div></div>';
-    x += '<div class="rrow scroll"><button class="pill' + (m ? ' on' : '') + '" data-ract="mem">' + (m ? IC.check + 'Memorizing' : '+ Memorize') + '</button>';
-    // Page stats are automatic (no Reviewed toggle): reads from the tally, stopwatch time, and days read (5 min or a tally that day).
+    // No Memorizing toggle here (pages are added/removed from the home tabs only, so nothing is removed by accident).
+    // Page stats are automatic: tally reads, stopwatch time, days read (5 min or a tally that day).
     var since = R.tag ? App.tagSince(R.tag) : null, prd = since ? function (d) { return d >= since; } : null;
-    var rd = S.tally(k, prd).page, tt = S.pageTime(p, prd), nd = S.activeDays(k, prd).length;
-    if (m || rd || tt >= 60) x += '<span class="rstat">' + rd + '× read · ' + Timer.mins(tt) + ' · ' + nd + ' day' + (nd === 1 ? '' : 's') + (since ? ' in ' + App.esc(R.tag.name) : '') + '</span>';
-    x += '</div>';
-    // Three fixed mask slots per page; a slot's mask is created the first time it is opened.
-    x += '<div class="rrow scroll"><span class="lbl">Masks</span>' + [0, 1, 2].map(function (k) {
+    var rd = S.tally(k, prd).page, tt = S.pageTime(p, prd), dn = S.activeDays(k, prd).length;
+    if (m || rd || tt >= 60) x += '<div class="rstat">' + rd + '× read · ' + Timer.mins(tt) + ' · ' + dn + ' day' + (dn === 1 ? '' : 's') + (since ? ' in ' + App.esc(R.tag.name) : '') + '</div>';
+    // One wrapping row: masks, then Boxes and section chips flow on after them, so there are no half-empty rows.
+    x += '<div class="rrow wrap"><span class="lbl">Masks</span>' + [0, 1, 2].map(function (k) {
       return '<button class="chip num' + (am && ms[k] && am.id === ms[k].id ? ' on' : '') + '" data-ract="mask" data-slot="' + k + '">' + (k + 1) + '</button>';
-    }).join('') + '<button class="chip' + (!am ? ' on' : '') + '" data-ract="mask" data-slot="">None</button></div>';
+    }).join('') + '<button class="chip' + (!am ? ' on' : '') + '" data-ract="mask" data-slot="">None</button>';
     if (am) {
       var nd = nDiv(R.items), hasBox = R.items.some(function (q) { return q.k === 'box'; });
-      if (nd || hasBox) {
-        x += '<div class="rrow scroll">';
-        if (nd) { x += '<button class="chip' + (!am.sec ? ' on' : '') + '" data-ract="sec" data-s="0">Whole page</button>'; for (var i = 1; i <= nd + 1; i++) x += '<button class="chip' + (am.sec === i ? ' on' : '') + '" data-ract="sec" data-s="' + i + '">Section ' + i + '</button>'; }
-        if (hasBox) x += '<button class="chip' + (!am.hb ? ' on' : '') + '" data-ract="hb">Boxes ' + (am.hb ? 'off' : 'on') + '</button>';
-        x += '</div>';
-      }
+      if (hasBox) x += '<button class="chip' + (!am.hb ? ' on' : '') + '" data-ract="hb">Boxes ' + (am.hb ? 'off' : 'on') + '</button>';
+      if (nd) { x += '<button class="chip' + (!am.sec ? ' on' : '') + '" data-ract="sec" data-s="0">Whole page</button>'; for (var i = 1; i <= nd + 1; i++) x += '<button class="chip' + (am.sec === i ? ' on' : '') + '" data-ract="sec" data-s="' + i + '">Section ' + i + '</button>'; }
     }
+    x += '</div>';
     // Health and Tags live in the bottom toolbar and expand their row just above it.
     if (m && R.sub === 'health') x += '<div class="rsub hsub"><span class="lbl">Health</span><span class="hctl big"><button data-ract="hminus" aria-label="Lower health">−</button><span style="color:' + (h ? App.hcol(h) : 'var(--muted)') + '">' + h + '%</span><button data-ract="hplus" aria-label="Raise health">+</button></span></div>';
     if (m && R.sub === 'tags') x += '<div class="rrow scroll subrow">' + App.allTags(R.k).map(function (t) { return '<button class="chip' + (S.hasTag(R.k, t.id) ? ' on' : '') + '" data-ract="tag" data-t="' + App.esc(t.id) + '">' + App.esc(t.name) + '</button>'; }).join('') + '</div>';
