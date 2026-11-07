@@ -20,12 +20,18 @@
     book: I('<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>'),
     check: I('<path d="M20 6L9 17l-5-5"/>'), play: I('<path d="M6 4l14 8-14 8z"/>')
   };
-  var BUILTIN = [{ id: 'new', name: 'New' }, { id: 'review', name: 'Selected for Review' }];
+  var BUILTIN = [{ id: 'new', name: 'New' }, { id: 'review', name: 'Review' }];
   function allTags() { return BUILTIN.concat(S.d.tags); }
   function tagBorn(t) { var n = parseInt(String(t.id).slice(1), 36); return isNaN(n) ? 0 : n; }
   function byOpened(a) { return a.slice().sort(function (x, y) { return (y.o || tagBorn(y)) - (x.o || tagBorn(x)); }); }
-  /* The custom tag the Memorizing tab is filtered to (null for New / Selected for Review / none). */
-  function ctag() { var c = S.d.ui.chips[0]; return c ? S.d.tags.filter(function (t) { return t.id === c; })[0] || null : null; }
+  /* The custom tag the Memorizing tab is filtered to (null for New / Review / All). */
+  function ctag() { var c = S.d.ui.ct; return c && c !== 'all' ? S.d.tags.filter(function (t) { return t.id === c; })[0] || null : null; }
+  /* Memorizing sub-tab: 'new' (tagged New) or 'review' (everything else). Old single-chip state carries over once. */
+  function sub() {
+    var u = S.d.ui;
+    if (!u.sub) { var c = (u.chips || [])[0]; u.sub = c === 'new' ? 'new' : 'review'; u.ct = c && c !== 'new' && c !== 'review' ? c : 'all'; }
+    return u.sub;
+  }
   /* Local date the tag was created; counts "in this tag" run from here. */
   function tagSince(t) { if (t.c) return t.c; var d = new Date(tagBorn(t)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 
@@ -81,24 +87,22 @@
 
   function memMatch(p) {
     var o = S.get(p); if (!o.m) return false;
-    var ch = S.d.ui.chips; if (!ch.length) return true;
-    return ch.some(function (t) { return o.tags && o.tags.indexOf(t) >= 0; });
+    if ((sub() === 'new') !== S.hasTag(p, 'new')) return false;
+    var ct = ctag(); return !ct || S.hasTag(p, ct.id);
   }
   function memTab() {
-    var cur = S.d.ui.chips[0];
-    // New / Selected for Review are sub-tabs; custom tags sit below as chips, most recently opened first.
+    var sb = sub(), ct = ctag();
+    // Sub-tabs New / Review; under them "All" (always first) then custom tags, most recently opened first.
     var h = '<nav class="subtabs">' + BUILTIN.map(function (t) {
-      return '<button class="' + (cur === t.id ? 'on' : '') + '" data-act="chip" data-t="' + t.id + '">' + esc(t.name) + '</button>';
+      return '<button class="' + (sb === t.id ? 'on' : '') + '" data-act="sub" data-t="' + t.id + '">' + esc(t.name) + '</button>';
     }).join('') + '</nav>';
-    h += '<div class="chips">' + byOpened(S.d.tags).map(function (t) {
-      return '<button class="chip ' + (cur === t.id ? 'on' : '') + '" data-act="chip" data-t="' + esc(t.id) + '">' + esc(t.name) + '</button>';
+    h += '<div class="chips"><button class="chip ' + (!ct ? 'on' : '') + '" data-act="chip" data-t="all">All</button>' + byOpened(S.d.tags).map(function (t) {
+      return '<button class="chip ' + (ct && ct.id === t.id ? 'on' : '') + '" data-act="chip" data-t="' + esc(t.id) + '">' + esc(t.name) + '</button>';
     }).join('') + '<button class="chip add" data-act="addTag">+ Tag</button></div>';
-    var ch = S.d.ui.chips, one = ch.length === 1 ? allTags().filter(function (t) { return t.id === ch[0]; })[0] : null;
-    if (!one) st.tedit = null;
-    if (one) {
-      var cnt = Object.keys(S.d.pages).filter(function (k) { return S.d.pages[k].m && S.hasTag(k, one.id); }).length;
-      h += '<div class="tagbar"><span><b>' + esc(one.name) + '</b> <span class="muted">· ' + cnt + ' page' + (cnt === 1 ? '' : 's') + '</span></span><button class="btn sm ' + (st.tedit ? 'pri' : '') + '" data-act="tedit" data-t="' + esc(one.id) + '">' + (st.tedit ? 'Done' : 'Edit') + '</button></div>';
-    }
+    var cnt = Object.keys(S.d.pages).filter(memMatch).length, pgs = ' <span class="muted">· ' + cnt + ' page' + (cnt === 1 ? '' : 's') + '</span>';
+    if (!ct) st.tedit = null;
+    if (ct) h += '<div class="tagbar"><span><b>' + esc(ct.name) + '</b>' + pgs + '</span><button class="btn sm ' + (st.tedit ? 'pri' : '') + '" data-act="tedit" data-t="' + esc(ct.id) + '">' + (st.tedit ? 'Done' : 'Edit') + '</button></div>';
+    else if (sb === 'new' && cnt) h += '<div class="tagbar"><span><b>New</b>' + pgs + '</span><button class="btn sm" data-act="allToReview">Move all to Review</button></div>';
     if (st.tedit) return h + tagEditList(st.tedit);
     var rows = '';
     SUR.forEach(function (s, i) {
@@ -114,7 +118,7 @@
     });
     if (!rows) {
       var any = Object.keys(S.d.pages).some(function (k) { return S.d.pages[k].m; });
-      return h + '<div class="list"><div class="empty">' + (any ? 'No pages with the selected tags.' : 'Nothing here yet.<br>Open <b>To Memorize</b>, tap <b>Edit</b> and tick surahs or pages.') + '</div></div>';
+      return h + '<div class="list"><div class="empty">' + (any ? 'No pages here.' : 'Nothing here yet.<br>Open <b>To Memorize</b>, tap <b>Edit</b> and tick surahs or pages.') + '</div></div>';
     }
     return h + '<div class="list">' + rows + '</div>';
   }
@@ -317,14 +321,21 @@
   var ACT = {
     tab: function (el) { st.tedit = null; S.d.ui.tab = el.dataset.t; S.saveUi(); App.render(); window.scrollTo(0, 0); },
     chip: function (el) { // one tag at a time; opening a custom tag moves it to the front
-      st.tedit = null; var t = el.dataset.t, off = S.d.ui.chips.indexOf(t) >= 0; S.d.ui.chips = off ? [] : [t];
-      var ct = !off && ctag(); if (ct) { ct.o = Date.now(); S.saveSettings(); } else S.saveUi(); App.render();
+      st.tedit = null; sub(); S.d.ui.ct = el.dataset.t;
+      var ct = ctag(); if (ct) { ct.o = Date.now(); S.saveSettings(); } else S.saveUi(); App.render();
+    },
+    sub: function (el) { st.tedit = null; sub(); S.d.ui.sub = el.dataset.t; S.saveUi(); App.render(); },
+    allToReview: function () {
+      var ks = Object.keys(S.d.pages).filter(function (k) { return S.d.pages[k].m && S.hasTag(k, 'new'); });
+      if (!ks.length || !confirm('Move all ' + ks.length + ' New pages to Review?')) return;
+      ks.forEach(function (k) { S.toggleTag(k, 'new', false); S.toggleTag(k, 'review', true); });
+      S.d.ui.sub = 'review'; S.saveUi(); App.render(); App.toast('Moved ' + ks.length + ' pages to Review');
     },
     addTag: function () {
       var name = (prompt('New tag name') || '').trim(); if (!name) return;
       var id = 't' + Date.now().toString(36); S.d.tags.push({ id: id, name: name, c: S.today(), o: Date.now() }); S.saveSettings(); App.render();
     },
-    delTag: function (el) { S.d.tags = S.d.tags.filter(function (t) { return t.id !== el.dataset.t; }); S.d.ui.chips = S.d.ui.chips.filter(function (c) { return c !== el.dataset.t; }); S.saveSettings(); openSettings(); App.render(); },
+    delTag: function (el) { S.d.tags = S.d.tags.filter(function (t) { return t.id !== el.dataset.t; }); if (S.d.ui.ct === el.dataset.t) S.d.ui.ct = 'all'; S.saveSettings(); openSettings(); App.render(); },
     exp: function (el) { var k = el.dataset.k, n = el.dataset.n; st.exp[k][n] = !st.exp[k][n]; App.render(); },
     edit: function () { st.edit = !st.edit; App.render(); },
     tedit: function (el) { st.tedit = st.tedit ? null : el.dataset.t; App.render(); },
