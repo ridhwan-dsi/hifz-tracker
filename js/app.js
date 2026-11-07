@@ -21,15 +21,21 @@
     check: I('<path d="M20 6L9 17l-5-5"/>'), play: I('<path d="M6 4l14 8-14 8z"/>')
   };
   var BUILTIN = [{ id: 'new', name: 'New' }, { id: 'review', name: 'Review' }];
-  function allTags() { return BUILTIN.concat(S.d.tags); }
+  /* Each custom tag belongs to one sub-tab (t.s); older tags without one sit under Review. */
+  function tagSub(t) { return t.s === 'new' ? 'new' : 'review'; }
+  function subOf(k) { return S.hasTag(k, 'new') ? 'new' : 'review'; }
+  function subTags(sb) { return S.d.tags.filter(function (t) { return tagSub(t) === sb; }); }
+  /* Tags offered for a page: New, Review, then the custom tags of that page's sub-tab (all of them if no page). */
+  function allTags(k) { return BUILTIN.concat(k ? subTags(subOf(k)) : S.d.tags); }
   function tagBorn(t) { var n = parseInt(String(t.id).slice(1), 36); return isNaN(n) ? 0 : n; }
   function byOpened(a) { return a.slice().sort(function (x, y) { return (y.o || tagBorn(y)) - (x.o || tagBorn(x)); }); }
   /* The custom tag the Memorizing tab is filtered to (null for New / Review / All). */
-  function ctag() { var c = S.d.ui.ct; return c && c !== 'all' ? S.d.tags.filter(function (t) { return t.id === c; })[0] || null : null; }
+  function ctag() { var sb = sub(), c = (S.d.ui.cts || {})[sb]; return c && c !== 'all' ? subTags(sb).filter(function (t) { return t.id === c; })[0] || null : null; }
   /* Memorizing sub-tab: 'new' (tagged New) or 'review' (everything else). Old single-chip state carries over once. */
   function sub() {
     var u = S.d.ui;
-    if (!u.sub) { var c = (u.chips || [])[0]; u.sub = c === 'new' ? 'new' : 'review'; u.ct = c && c !== 'new' && c !== 'review' ? c : 'all'; }
+    if (!u.sub) { var c = (u.chips || [])[0]; u.sub = c === 'new' ? 'new' : 'review'; u.cts = { new: 'all', review: c && c !== 'new' && c !== 'review' ? c : 'all' }; }
+    if (!u.cts) u.cts = { new: 'all', review: u.ct || 'all' };
     return u.sub;
   }
   /* Local date the tag was created; counts "in this tag" run from here. */
@@ -96,7 +102,7 @@
     var h = '<nav class="subtabs">' + BUILTIN.map(function (t) {
       return '<button class="' + (sb === t.id ? 'on' : '') + '" data-act="sub" data-t="' + t.id + '">' + esc(t.name) + '</button>';
     }).join('') + '</nav>';
-    h += '<div class="chips"><button class="chip ' + (!ct ? 'on' : '') + '" data-act="chip" data-t="all">All</button>' + byOpened(S.d.tags).map(function (t) {
+    h += '<div class="chips"><button class="chip ' + (!ct ? 'on' : '') + '" data-act="chip" data-t="all">All</button>' + byOpened(subTags(sb)).map(function (t) {
       return '<button class="chip ' + (ct && ct.id === t.id ? 'on' : '') + '" data-act="chip" data-t="' + esc(t.id) + '">' + esc(t.name) + '</button>';
     }).join('') + '<button class="chip add" data-act="addTag">+ Tag</button></div>';
     var cnt = Object.keys(S.d.pages).filter(memMatch).length, pgs = ' <span class="muted">· ' + cnt + ' page' + (cnt === 1 ? '' : 's') + '</span>';
@@ -125,9 +131,9 @@
 
   /* Tag edit mode: every Memorizing surah/page, ticked if it carries the tag. */
   function tagEditList(t) {
-    var rows = '';
+    var rows = '', sb = sub();
     SUR.forEach(function (s, i) {
-      var n = i + 1, pg = units(n).filter(function (p) { return S.isMem(p); });
+      var n = i + 1, pg = units(n).filter(function (p) { return S.isMem(p) && subOf(p) === sb; });
       if (!pg.length) return;
       var sel = pg.filter(function (p) { return S.hasTag(p, t); }).length, all = sel === pg.length, open = st.exp.mem[n];
       rows += '<div class="srow"><button class="tick ' + (all ? 'on' : sel ? 'part' : '') + '" data-act="tagS" data-n="' + n + '" aria-label="Tag surah">' + (all ? ICON.check : '') + '</button>' +
@@ -321,7 +327,7 @@
   var ACT = {
     tab: function (el) { st.tedit = null; S.d.ui.tab = el.dataset.t; S.saveUi(); App.render(); window.scrollTo(0, 0); },
     chip: function (el) { // one tag at a time; opening a custom tag moves it to the front
-      st.tedit = null; sub(); S.d.ui.ct = el.dataset.t;
+      st.tedit = null; var b = sub(); S.d.ui.cts[b] = el.dataset.t;
       var ct = ctag(); if (ct) { ct.o = Date.now(); S.saveSettings(); } else S.saveUi(); App.render();
     },
     sub: function (el) { st.tedit = null; sub(); S.d.ui.sub = el.dataset.t; S.saveUi(); App.render(); },
@@ -329,18 +335,19 @@
       var ks = Object.keys(S.d.pages).filter(function (k) { return S.d.pages[k].m && S.hasTag(k, 'new'); });
       if (!ks.length || !confirm('Move all ' + ks.length + ' New pages to Review?')) return;
       ks.forEach(function (k) { S.toggleTag(k, 'new', false); S.toggleTag(k, 'review', true); });
+      S.d.tags.forEach(function (t) { if (t.s === 'new') t.s = 'review'; }); S.saveSettings(); // New is empty now, so its tags follow
       S.d.ui.sub = 'review'; S.saveUi(); App.render(); App.toast('Moved ' + ks.length + ' pages to Review');
     },
     addTag: function () {
       var name = (prompt('New tag name') || '').trim(); if (!name) return;
-      var id = 't' + Date.now().toString(36); S.d.tags.push({ id: id, name: name, c: S.today(), o: Date.now() }); S.saveSettings(); App.render();
+      var id = 't' + Date.now().toString(36); S.d.tags.push({ id: id, name: name, s: sub(), c: S.today(), o: Date.now() }); S.saveSettings(); App.render();
     },
-    delTag: function (el) { S.d.tags = S.d.tags.filter(function (t) { return t.id !== el.dataset.t; }); if (S.d.ui.ct === el.dataset.t) S.d.ui.ct = 'all'; S.saveSettings(); openSettings(); App.render(); },
+    delTag: function (el) { S.d.tags = S.d.tags.filter(function (t) { return t.id !== el.dataset.t; }); var cts = S.d.ui.cts || {}; Object.keys(cts).forEach(function (b) { if (cts[b] === el.dataset.t) cts[b] = 'all'; }); S.saveSettings(); openSettings(); App.render(); },
     exp: function (el) { var k = el.dataset.k, n = el.dataset.n; st.exp[k][n] = !st.exp[k][n]; App.render(); },
     edit: function () { st.edit = !st.edit; App.render(); },
     tedit: function (el) { st.tedit = st.tedit ? null : el.dataset.t; App.render(); },
     tagS: function (el) {
-      var t = st.tedit, pg = units(+el.dataset.n).filter(function (p) { return S.isMem(p); }), all = pg.every(function (p) { return S.hasTag(p, t); });
+      var t = st.tedit, sb = sub(), pg = units(+el.dataset.n).filter(function (p) { return S.isMem(p) && subOf(p) === sb; }), all = pg.every(function (p) { return S.hasTag(p, t); });
       pg.forEach(function (p) { S.toggleTag(p, t, !all); }); App.render();
     },
     tagP: function (el) { S.toggleTag(el.dataset.p, st.tedit); App.render(); },

@@ -555,7 +555,7 @@
     }
     // Health and Tags live in the bottom toolbar and expand their row just above it.
     if (m && R.sub === 'health') x += '<div class="rsub hsub"><span class="lbl">Health</span><span class="hctl big"><button data-ract="hminus" aria-label="Lower health">−</button><span style="color:' + (h ? App.hcol(h) : 'var(--muted)') + '">' + h + '%</span><button data-ract="hplus" aria-label="Raise health">+</button></span></div>';
-    if (m && R.sub === 'tags') x += '<div class="rrow scroll subrow">' + App.allTags().map(function (t) { return '<button class="chip' + (S.hasTag(R.k, t.id) ? ' on' : '') + '" data-ract="tag" data-t="' + App.esc(t.id) + '">' + App.esc(t.name) + '</button>'; }).join('') + '</div>';
+    if (m && R.sub === 'tags') x += '<div class="rrow scroll subrow">' + App.allTags(R.k).map(function (t) { return '<button class="chip' + (S.hasTag(R.k, t.id) ? ' on' : '') + '" data-ract="tag" data-t="' + App.esc(t.id) + '">' + App.esc(t.name) + '</button>'; }).join('') + '</div>';
     if (R.sub === 'timer') x += timerPanel();
     if (R.sub === 'tally') x += tallyPanel();
     return x + toolsRow();
