@@ -163,7 +163,7 @@
     var p = S.kp(k), n = S.kn(k);
     if (n !== R.n) {
       var ok = S.d.settings.swipeSur !== false && Math.abs(n - R.n) === 1 && Math.abs(p - R.p) <= 1;
-      if (!ok) { if (say) App.toast('End of ' + (QURAN.S[R.n - 1] ? QURAN.S[R.n - 1][0] : 'surah') + ' · tap a page number to jump'); return null; }
+      if (!ok) { if (say) App.toast('End of ' + (QURAN.S[R.n - 1] ? QURAN.S[R.n - 1][0] : 'surah')); return null; }
     }
     return { p: p, n: n };
   }
