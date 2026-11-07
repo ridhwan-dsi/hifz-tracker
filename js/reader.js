@@ -371,8 +371,11 @@
         if (dy < -50 && !R.panel) togglePanel(true); else if (dy > 50 && R.panel && fitPage()) togglePanel(false);
         return;
       }
-      // Tap hides the drawer; it comes back from the page number, or by tapping the page too if that's switched on in Settings.
-      if (!ax && dt < 350) { if (R.panel) togglePanel(false); else if (S.d.settings.tapShow) togglePanel(true); }
+      // Single tap hides the drawer (page number brings it back), or with the Settings switch on, double-tap toggles it.
+      if (!ax && dt < 350) {
+        if (!S.d.settings.tapShow) { if (R.panel) togglePanel(false); return; }
+        var now = Date.now(); if (now - (R.lastTap || 0) < 320) { R.lastTap = 0; togglePanel(!R.panel); } else R.lastTap = now;
+      }
     });
     sc.addEventListener('pointercancel', function (e) { if (g && e.pointerId === g.id) { g = null; var sh = $('#sheet'); sh.style.transition = 'transform .18s'; sh.style.transform = ''; } });
     document.addEventListener('keydown', function (e) {

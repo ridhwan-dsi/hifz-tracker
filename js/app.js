@@ -279,7 +279,7 @@
       '<h4>Page display</h4><div class="frow"><label>Show pages</label><select data-in="fit"><option value="page"' + (s.fit !== 'width' ? ' selected' : '') + '>Whole page on screen</option><option value="width"' + (s.fit === 'width' ? ' selected' : '') + '>Fit width (scroll)</option></select></div>' +
       '<div class="frow"><label>Auto-trim margins<br><span class="small muted">Measured separately for every page. Your own crops override it.</span></label><select data-in="trim"><option value="full"' + (s.trim === 'full' ? ' selected' : '') + '>Keep header &amp; page no.</option><option value="frame"' + (s.trim === 'frame' ? ' selected' : '') + '>Frame only</option><option value="off"' + (s.trim === 'off' ? ' selected' : '') + '>Off</option></select></div>' +
       '<div class="frow"><label>Extra margin</label><select data-in="trimPad">' + [0, 0.01, 0.02, 0.03].map(function (v) { return '<option value="' + v + '"' + (Math.abs((s.trimPad == null ? 0.01 : s.trimPad) - v) < 0.001 ? ' selected' : '') + '>' + (v * 100) + '%</option>'; }).join('') + '</select></div>' +
-      '<div class="frow"><label>Tap page to show the drawer<br><span class="small muted">Tapping the page always hides it. When on, tapping again brings it back (otherwise use the page number).</span></label><button class="sw ' + (s.tapShow ? 'on' : '') + '" data-act="tapShow"></button></div>' +
+      '<div class="frow"><label>Double-tap page for the drawer<br><span class="small muted">On: double-tap the page to hide or bring back the drawer. Off: a single tap hides it and the page number brings it back.</span></label><button class="sw ' + (s.tapShow ? 'on' : '') + '" data-act="tapShow"></button></div>' +
       '<h4>Health decay</h4><div class="frow"><label>Lose health when not reviewed</label><button class="sw ' + (s.decayOn ? 'on' : '') + '" data-act="decayOn"></button></div>' +
       '<div class="frow"><label>Start after</label><select data-in="decayAfter">' + [7, 10, 14, 21, 30].map(function (v) { return '<option value="' + v + '"' + (s.decayAfter === v ? ' selected' : '') + '>' + v + ' days</option>'; }).join('') + '</select></div>' +
       '<div class="frow"><label>Then lose</label><select data-in="decayPct">' + [5, 10, 15].map(function (v) { return '<option value="' + v + '"' + (s.decayPct === v ? ' selected' : '') + '>' + v + '% per week</option>'; }).join('') + '</select></div>' +
@@ -305,7 +305,7 @@
   /* ---------------- Actions ---------------- */
   var ACT = {
     tab: function (el) { st.tedit = null; S.d.ui.tab = el.dataset.t; S.saveUi(); App.render(); window.scrollTo(0, 0); },
-    chip: function (el) { st.tedit = null; var c = S.d.ui.chips, t = el.dataset.t, i = c.indexOf(t); if (i >= 0) c.splice(i, 1); else c.push(t); S.saveUi(); App.render(); },
+    chip: function (el) { st.tedit = null; var t = el.dataset.t; S.d.ui.chips = S.d.ui.chips.indexOf(t) >= 0 ? [] : [t]; S.saveUi(); App.render(); }, // one tag at a time
     addTag: function () {
       var name = (prompt('New tag name') || '').trim(); if (!name) return;
       var id = 't' + Date.now().toString(36); S.d.tags.push({ id: id, name: name }); S.saveSettings(); App.render();
