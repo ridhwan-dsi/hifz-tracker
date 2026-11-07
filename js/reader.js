@@ -516,7 +516,8 @@
   /* Page strip under the surah name: the listed pages (Memorizing) or the surah's pages, current one centred.
      Scroll or drag the strip; whichever number settles in the centre opens. Tap a number to jump to it. */
   function stripKeys() {
-    if (R.range) return R.range;
+    // Memorizing: only this surah's listed pages — the strip, like swiping, never shows another surah's pages.
+    if (R.range) { var m = R.range.filter(function (u) { return S.kn(u) === R.n; }); return m.length ? m : [R.k]; }
     var s = QURAN.S[R.n - 1], a = []; if (!s) return [String(R.p)];
     for (var q = s[3]; q <= s[4]; q++) a.push(S.uk(q, R.n));
     return a;
