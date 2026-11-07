@@ -67,7 +67,8 @@
     setMem: function (p, on) {
       if (!!on === this.isMem(p)) return;
       this.edit(p, function (o) {
-        if (on) { o.m = 1; o.tags = o.tags || []; if (o.tags.indexOf('new') < 0) o.tags.push('new'); if (o.h == null) o.h = 0; }
+        // A page added for the first time starts in New; a page removed and added back returns to the tab and tags it had.
+        if (on) { var back = o.m === 0; o.m = 1; o.tags = o.tags || []; if (!back && o.tags.indexOf('new') < 0) o.tags.push('new'); if (o.h == null) o.h = 0; }
         else { o.m = 0; }
       });
     },

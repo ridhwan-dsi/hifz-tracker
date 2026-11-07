@@ -116,7 +116,9 @@
     }).join('') + '<button class="chip add" data-act="addTag">+ Tag</button></div>';
     var cnt = Object.keys(S.d.pages).filter(memMatch).length, pgs = ' <span class="muted">· ' + cnt + ' page' + (cnt === 1 ? '' : 's') + '</span>';
     if (!ct) st.tedit = null;
-    if (ct) h += '<div class="tagbar"><span><b>' + esc(ct.name) + '</b>' + pgs + '</span><button class="btn sm ' + (st.tedit ? 'pri' : '') + '" data-act="tedit" data-t="' + esc(ct.id) + '">' + (st.tedit ? 'Done' : 'Edit') + '</button></div>';
+    if (ct) h += '<div class="tagbar"><span><b>' + esc(ct.name) + '</b>' + pgs + '</span><span class="tbtns">' +
+      (st.tedit ? '' : '<button class="btn sm" data-act="renTag" data-t="' + esc(ct.id) + '">Rename</button><button class="btn sm" data-act="delTag" data-t="' + esc(ct.id) + '">Delete</button>') +
+      '<button class="btn sm ' + (st.tedit ? 'pri' : '') + '" data-act="tedit" data-t="' + esc(ct.id) + '">' + (st.tedit ? 'Done' : 'Edit pages') + '</button></span></div>';
     else if (sb === 'new' && cnt) h += '<div class="tagbar"><span><b>New</b>' + pgs + '</span><button class="btn sm" data-act="allToReview">Move all to Review</button></div>';
     if (st.tedit) return h + tagEditList(st.tedit);
     var rows = '';
@@ -179,6 +181,29 @@
     });
     return h + '<div class="list">' + (rows || '<div class="empty">No surah matches.</div>') + '</div>';
   }
+
+  /* Small in-app dialog on the scrim: optional text input, Cancel + one action. cb(value) runs on the action. */
+  var dlg = null;
+  function dialog(o, cb) {
+    var sc = document.getElementById('scrim'); dlg = cb;
+    sc.innerHTML = '<div class="sheetm pbox"><div class="pbt">' + esc(o.title) + '</div>' + (o.msg ? '<p class="small">' + o.msg + '</p>' : '') +
+      (o.input != null ? '<input class="dinp" id="dinp" maxlength="40" value="' + esc(o.input) + '" autocomplete="off">' : '') +
+      '<div class="pbtns"><button class="btn" data-dg="x">Cancel</button><button class="btn ' + (o.danger ? 'danger' : 'pri') + '" data-dg="ok">' + esc(o.ok) + '</button></div></div>';
+    sc.style.display = 'flex';
+    var inp = document.getElementById('dinp');
+    if (inp) { setTimeout(function () { inp.focus(); inp.select(); }, 30); inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); endDlg(true); } }); }
+  }
+  function endDlg(ok) {
+    var sc = document.getElementById('scrim'), inp = document.getElementById('dinp'), v = inp ? inp.value : null, cb = dlg;
+    dlg = null; sc.style.display = 'none'; sc.innerHTML = '';
+    if (ok && cb) cb(v);
+  }
+  document.addEventListener('click', function (e) {
+    if (!dlg) return;
+    var b = e.target.closest && e.target.closest('[data-dg]');
+    if (b) { e.stopPropagation(); endDlg(b.dataset.dg === 'ok'); }
+    else if (e.target.id === 'scrim') { e.stopPropagation(); endDlg(false); }
+  }, true);
 
   /* ---------------- Stats ---------------- */
   function stats() {
@@ -395,7 +420,7 @@
       '<div class="frow"><label>Raise health every</label>' + '<select data-in="tRuleN">' + [0, 5, 10, 20, 30, 50, 100].map(function (v) { return '<option value="' + v + '"' + (+s.tRuleN === v ? ' selected' : '') + '>' + (v ? v + ' reads' : 'Off') + '</option>'; }).join('') + '</select>' + '</div>' +
       (s.tRuleN ? '<div class="frow"><label>By</label>' + '<select data-in="tRulePct">' + [5, 10, 15, 20].map(function (v) { return '<option value="' + v + '"' + (+s.tRulePct === v ? ' selected' : '') + '>' + '+' + v + '%' + '</option>'; }).join('') + '</select>' + '</div>' : '') +
       '<h4>Section hiding colour</h4><div class="rrow">' + [['#ffffff', 'White'], ['#fbf6e9', 'Cream'], ['#e9ecea', 'Grey']].map(function (c) { return '<button class="sw-c ' + (s.cover === c[0] ? 'on' : '') + '" style="background:' + c[0] + '" data-act="cover" data-c="' + c[0] + '" aria-label="' + c[1] + '"></button>'; }).join('') + '</div>' +
-      '<h4>Custom tags</h4>' + (S.d.tags.length ? S.d.tags.map(function (t) { return '<div class="frow"><label>' + esc(t.name) + '</label><button class="btn sm" data-act="delTag" data-t="' + esc(t.id) + '">Remove</button></div>'; }).join('') : '<p class="small muted">None yet — add one with “+ Tag” on the Memorizing tab.</p>') +
+      '<h4>Custom tags</h4><p class="small muted">' + (S.d.tags.length ? S.d.tags.length + ' tag' + (S.d.tags.length === 1 ? '' : 's') + '. ' : '') + 'Create, rename or delete a tag from the tag row on the Memorizing tab: tap the tag, then Rename or Delete.</p>' +
       '<h4>Account &amp; sync</h4>' + acct +
       '<h4>Offline</h4><button class="btn sm" data-act="precache">Save my Memorizing pages for offline</button>' +
       '<h4>Share</h4><div class="frow"><label>Share the app<br><span class="small muted">Copies the app link. Each person signs in with their own Google account, so your data stays yours.</span></label><button class="btn sm" data-act="shareApp">Copy link</button></div>' +
@@ -422,11 +447,31 @@
       S.d.tags.forEach(function (t) { if (t.s === 'new') t.s = 'review'; }); S.saveSettings(); // New is empty now, so its tags follow
       S.d.ui.sub = 'review'; S.saveUi(); App.render(); App.toast('Moved ' + ks.length + ' pages to Review');
     },
+    // Tag name entry uses an in-app dialog (the browser's prompt() can be blocked in an installed app).
     addTag: function () {
-      var name = (prompt('New tag name') || '').trim(); if (!name) return;
-      var id = 't' + Date.now().toString(36); S.d.tags.push({ id: id, name: name, s: sub(), c: S.today(), o: Date.now() }); S.saveSettings(); App.render();
+      dialog({ title: 'New tag', input: '', ok: 'Create' }, function (name) {
+        name = (name || '').trim(); if (!name) return;
+        var id = 't' + Date.now().toString(36), sb = sub(); S.d.tags.push({ id: id, name: name, s: sb, c: S.today(), o: Date.now() });
+        S.d.ui.cts = S.d.ui.cts || {}; S.d.ui.cts[sb] = id; st.tedit = id; // open the new tag, ready to pick its pages
+        S.saveSettings(); App.render(); App.toast('Tag created · tick the pages for it');
+      });
     },
-    delTag: function (el) { S.d.tags = S.d.tags.filter(function (t) { return t.id !== el.dataset.t; }); var cts = S.d.ui.cts || {}; Object.keys(cts).forEach(function (b) { if (cts[b] === el.dataset.t) cts[b] = 'all'; }); S.saveSettings(); openSettings(); App.render(); },
+    renTag: function (el) {
+      var t = S.d.tags.filter(function (x) { return x.id === el.dataset.t; })[0]; if (!t) return;
+      dialog({ title: 'Rename tag', input: t.name, ok: 'Save' }, function (name) {
+        name = (name || '').trim(); if (!name || name === t.name) return;
+        t.name = name; S.saveSettings(); App.render();
+      });
+    },
+    delTag: function (el) {
+      var id = el.dataset.t, t = S.d.tags.filter(function (x) { return x.id === id; })[0]; if (!t) return;
+      dialog({ title: 'Delete tag', msg: 'Delete “' + esc(t.name) + '”? Its pages stay in Memorizing.', ok: 'Delete', danger: true }, function () {
+        S.d.tags = S.d.tags.filter(function (x) { return x.id !== id; });
+        Object.keys(S.d.pages).forEach(function (k) { if (S.hasTag(k, id)) S.toggleTag(k, id, false); });
+        var cts = S.d.ui.cts || {}; Object.keys(cts).forEach(function (b) { if (cts[b] === id) cts[b] = 'all'; });
+        st.tedit = null; S.saveSettings(); App.render(); App.toast('Tag deleted');
+      });
+    },
     exp: function (el) { var k = el.dataset.k, n = el.dataset.n; st.exp[k][n] = !st.exp[k][n]; App.render(); },
     edit: function () { st.edit = !st.edit; App.render(); },
     tedit: function (el) { st.tedit = st.tedit ? null : el.dataset.t; App.render(); },
