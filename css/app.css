@@ -315,3 +315,15 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 /* Toolbar icons spread evenly across the bar; the spacing tightens as an oval opens, scrolling only if still too wide. */
 .rrow.tools { justify-content: space-between; }
 .rrow.tools > * { flex: none; }
+/* v66 report + reader stat line */
+.rstat { font-size: 13px; color: var(--muted); align-self: center; white-space: nowrap; padding: 0 4px; }
+.rbars { display: flex; gap: 4px; align-items: stretch; height: 150px; margin: 10px 0 4px; }
+.rbars .rb { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; background: none; border: 0; padding: 0; color: var(--muted); font: inherit; }
+.rbars .rb i { display: block; width: 100%; max-width: 28px; border-radius: 4px 4px 0 0; background: var(--line); }
+.rbars .rb.on i { background: var(--acc); }
+.rbars .rbv { font-size: 10px; min-height: 13px; }
+.rbars .rbl { font-size: 10px; margin-top: 3px; }
+.rbars.dense { gap: 2px; }
+.rbars.dense .rbv { display: none; }
+.rbars.dense .rbl { font-size: 8px; }
+.rbars .rb:disabled { opacity: .35; }

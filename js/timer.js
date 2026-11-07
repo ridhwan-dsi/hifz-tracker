@@ -1,4 +1,4 @@
-/* Stopwatch: counts time on the page open in the reader, credits it per day/page, checks targets and the auto-review rule. */
+/* Stopwatch: counts time on the page open in the reader, credits it per day/page, checks targets. */
 (function () {
   var LK = 'hifz.timer', DK = 'hifz.dev';
   var dev = localStorage.getItem(DK);
@@ -62,13 +62,6 @@
     }
     var dd = S.today();
     if (s.goalDay && T.hitD !== dd && day(dd).t >= s.goalDay * 60) { T.hitD = dd; changed = true; App.toast('Daily goal achieved · ' + s.goalDay + ' min'); buzz(); }
-    // Auto-review: review pages only, once per day, after the set minutes on that page today.
-    var u = Reader.unit ? Reader.unit() : p;
-    if (md === 'r' && s.autoRev && S.get(u).lr !== dd && pageToday(p, 'r') >= s.autoRev * 60) {
-      var o = S.get(u), prev = { lr: o.lr, rv: JSON.parse(JSON.stringify(o.rv || {})), rl: (o.rl || []).slice(), h: o.h };
-      S.reviewed(u); changed = true;
-      App.toast('P. ' + p + ' auto-marked reviewed · ' + s.autoRev + ' min', function () { S.unreview(u, prev); Reader.refresh(); });
-    }
     if (changed) { keep(); Reader.refresh(); } else paint();
   }
   function takeBack(cr) {

@@ -576,12 +576,14 @@
     return '<span class="sswitch">' + ss.map(function (n) { return '<button class="' + (n === R.n ? 'on' : '') + '" data-ract="surah" data-n="' + n + '">' + App.esc(QURAN.S[n - 1][0]) + '</button>'; }).join('') + '</span>';
   }
   function mainPanel() {
-    var p = R.p, k = R.k, o = S.get(k), m = S.isMem(k), h = S.health(k), mc = R.tag ? revSince(k) : S.monthCount(k), revToday = o.lr === S.today();
+    var p = R.p, k = R.k, o = S.get(k), m = S.isMem(k), h = S.health(k);
     var ms = masksOf(p), am = activeMask(), x = '';
     x += '<div class="rrow nav">' + navBtns('in') + '<div class="rtitle tcol"><div class="tname">' + surahTitle(p) + '</div>' + pstrip() + '</div></div>';
     x += '<div class="rrow scroll"><button class="pill' + (m ? ' on' : '') + '" data-ract="mem">' + (m ? IC.check + 'Memorizing' : '+ Memorize') + '</button>';
-    if (m) x += '<button class="pill soft' + (revToday ? ' on' : '') + '" data-ract="rev">' + IC.check + 'Reviewed' + (mc ? ' · ' + mc + '×' : '') + '</button>' +
-''; // Reviewed is a once-a-day toggle
+    // Page stats are automatic (no Reviewed toggle): reads from the tally, stopwatch time, and days read (5 min or a tally that day).
+    var since = R.tag ? App.tagSince(R.tag) : null, prd = since ? function (d) { return d >= since; } : null;
+    var rd = S.tally(k, prd).page, tt = S.pageTime(p, prd), nd = S.activeDays(k, prd).length;
+    if (m || rd || tt >= 60) x += '<span class="rstat">' + rd + '× read · ' + Timer.mins(tt) + ' · ' + nd + ' day' + (nd === 1 ? '' : 's') + (since ? ' in ' + App.esc(R.tag.name) : '') + '</span>';
     x += '</div>';
     // Three fixed mask slots per page; a slot's mask is created the first time it is opened.
     x += '<div class="rrow scroll"><span class="lbl">Masks</span>' + [0, 1, 2].map(function (k) {

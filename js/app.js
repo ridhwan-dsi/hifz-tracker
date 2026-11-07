@@ -41,7 +41,7 @@
   /* Local date the tag was created; counts "in this tag" run from here. */
   function tagSince(t) { if (t.c) return t.c; var d = new Date(tagBorn(t)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 
-  var st = { view: 'home', exp: { mem: {}, tom: {} }, edit: false, tedit: null, q: '', sf: 'all', srt: 'page', sdir: 0, sprd: 'all', ssel: {}, month: null, stab: 'prog', cal: null, cday: null, sper: 'all' };
+  var st = { view: 'home', exp: { mem: {}, tom: {} }, edit: false, tedit: null, q: '', sf: 'all', srt: 'page', sdir: 0, sprd: 'all', ssel: {}, month: null, stab: 'rep', rp: 'day', ra: null, cal: null, cday: null, sper: 'all' };
 
   var App = {
     esc: esc, ICON: ICON, tagSince: tagSince, sPages: sPages, onPage: onPage, pageTitle: pageTitle, hcol: hcol, allTags: allTags,
@@ -178,19 +178,19 @@
     Object.keys(S.d.pages).forEach(function (k) { var rv = S.d.pages[k].rv || {}; for (var mm in rv) { months[mm] = (months[mm] || 0) + rv[mm]; all += rv[mm]; if (mm === m) monthTotal += rv[mm]; } });
     mem.forEach(function (p) { sumH += S.health(p); });
     var h = '<header class="top"><button class="ib" data-act="home" aria-label="Back">' + ICON.back + '</button><div class="brand">Stats</div></header>';
-    h += '<div class="seg"><button class="' + (st.stab !== 'time' ? 'on' : '') + '" data-act="stab" data-t="prog">Progress</button><button class="' + (st.stab === 'time' ? 'on' : '') + '" data-act="stab" data-t="time">Time</button></div>';
+    h += '<div class="seg">' + [['rep', 'Report'], ['prog', 'Progress'], ['time', 'Calendar']].map(function (x) { return '<button class="' + (st.stab === x[0] ? 'on' : '') + '" data-act="stab" data-t="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
     if (st.stab === 'time') return h + timeStats();
+    if (st.stab === 'rep') return h + report();
     h += '<div class="cards"><div class="card"><div class="v">' + mem.length + '</div><div class="k">Pages memorizing</div></div>' +
       '<div class="card"><div class="v">' + (mem.length ? Math.round(sumH / mem.length) : 0) + '%</div><div class="k">Average health</div></div>' +
-      '<div class="card"><div class="v">' + monthTotal + '</div><div class="k">Reviews this month</div></div>' +
-      '<div class="card"><div class="v">' + all + '</div><div class="k">Reviews in total</div></div></div>';
+      '</div>';
     if (st.month) {
       var rowsM = Object.keys(S.d.pages).filter(function (k) { return (S.d.pages[k].rv || {})[st.month]; }).sort(byUnit);
       h += '<div class="bar"><button class="btn sm" data-act="month" data-m="">' + '‹ All months</button><b style="align-self:center">' + st.month + '</b></div><div class="list">' +
         (rowsM.map(function (p) { return '<div class="prow"><button class="pl" data-act="open" data-p="' + p + '">P. ' + S.kp(p) + '</button><div class="grow small">' + esc(unitTitle(p)) + '</div><b>' + S.d.pages[p].rv[st.month] + '×</b></div>'; }).join('') || '<div class="empty">No reviews.</div>') + '</div>';
       return h;
     }
-    h += '<div class="seg">' + [['all', 'All'], ['low', 'Below 50%'], ['months', 'By month']].map(function (x) {
+    h += '<div class="seg">' + [['all', 'All'], ['low', 'Below 50%']].map(function (x) {
       return '<button class="' + (st.sf === x[0] ? 'on' : '') + '" data-act="sf" data-f="' + x[0] + '">' + x[1] + '</button>';
     }).join('') + '</div>';
     if (st.sf === 'months') {
@@ -208,10 +208,10 @@
     for (var mm2 in months) pms[mm2] = 1; pms[m] = 1;
     var tOf = function (p) { return tmap[S.kp(p)] || 0; };
     var rdOf = function (p) { return S.tally(p, prd === 'all' ? null : function (d) { return d.slice(0, 7) === prd; }).page; };
-    var rOf = function (p) { var rv = S.get(p).rv || {}, t = 0; if (prd !== 'all') return rv[prd] || 0; for (var x in rv) t += rv[x]; return t; };
+    var rOf = function (p) { return S.activeDays(p, prd === 'all' ? null : function (d) { return d.slice(0, 7) === prd; }).length; };
     var SRT = { page: ['Page', 'Mushaf order', 'Reversed', null], health: ['Health', 'Best first', 'Worst first', function (p) { return S.health(p); }],
-      time: ['Time spent', 'Most first', 'Least first', tOf], reads: ['Times read (tally)', 'Most first', 'Least first', rdOf], revs: ['Times reviewed', 'Most first', 'Least first', rOf],
-      last: ['Last reviewed', 'Most recent first', 'Longest ago first', function (p) { var d = S.get(p).lr; return d ? new Date(d + 'T00:00:00').getTime() : 0; }] };
+      time: ['Time spent', 'Most first', 'Least first', tOf], reads: ['Times read (tally)', 'Most first', 'Least first', rdOf], revs: ['Days read', 'Most first', 'Least first', rOf],
+      last: ['Last read', 'Most recent first', 'Longest ago first', function (p) { var d = S.lastActive(p); return d ? new Date(d + 'T00:00:00').getTime() : 0; }] };
     var sk = SRT[st.srt] || SRT.page, kf = sk[3], dn = st.sdir ? -1 : 1;
     list.sort(function (a, b) { var c = kf ? kf(b) - kf(a) : 0; return (c || byUnit(a, b)) * (kf ? (c ? dn : 1) : dn); });
     h += '<div class="sortbar"><select data-in="srt" aria-label="Sort by">' + Object.keys(SRT).map(function (k) { return '<option value="' + k + '"' + (st.srt === k ? ' selected' : '') + '>' + SRT[k][0] + '</option>'; }).join('') + '</select>' +
@@ -222,10 +222,82 @@
       return '<div class="prow"><button class="tick ' + (on ? 'on' : '') + '" style="margin:0" data-act="ssel" data-p="' + p + '">' + (on ? ICON.check : '') + '</button>' +
         '<div class="grow"><div style="display:flex;gap:8px;align-items:center"><button class="pl" data-act="open" data-p="' + p + '">P. ' + S.kp(p) + '</button><span class="small muted" style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">' + esc(unitTitle(p)) + (S.hasTag(p, 'review') ? ' · for review' : '') + '</span></div>' +
         '<div class="hbar"><i style="width:' + hh + '%;background:' + hcol(hh) + '"></i></div></div>' +
-        '<div style="text-align:right;font-size:12px"><b>' + hh + '%</b><br><span class="muted">' + ago(o.lr) + ' · ' + rOf(p) + '×' + (tOf(p) >= 30 ? ' · ' + Timer.mins(tOf(p)) : '') + (rdOf(p) ? ' · ' + rdOf(p) + ' reads' : '') + '</span></div></div>';
+        '<div style="text-align:right;font-size:12px"><b>' + hh + '%</b><br><span class="muted">' + ago(S.lastActive(p)) + ' · ' + rOf(p) + 'd' + (tOf(p) >= 30 ? ' · ' + Timer.mins(tOf(p)) : '') + (rdOf(p) ? ' · ' + rdOf(p) + ' reads' : '') + '</span></div></div>';
     }).join('') || '<div class="empty">No pages.</div>') + '</div>';
     var nsel = Object.keys(st.ssel).filter(function (k) { return st.ssel[k]; }).length;
     if (list.length) h += '<div class="actbar"><button class="btn" data-act="sselAll">' + (nsel ? 'Clear (' + nsel + ')' : 'Select all') + '</button><button class="btn pri" data-act="tagReview" ' + (nsel ? '' : 'disabled style="opacity:.5"') + '>Mark for review</button></div>';
+    return h;
+  }
+
+  /* ---------------- Report: day / week / month / year ----------------
+     A page counts as read on a day with 5+ min of stopwatch time or a saved tally (S.activeDays); a day is
+     practised when any page counts. Weeks start on Saturday. */
+  function addD(k, n) { var d = new Date(k + 'T00:00:00'); d.setDate(d.getDate() + n); return dkey(d); }
+  function repRange(pd, a) {
+    var d = new Date(a + 'T00:00:00'), s, e;
+    if (pd === 'day') s = e = a;
+    else if (pd === 'week') { s = addD(a, -((d.getDay() + 1) % 7)); e = addD(s, 6); }
+    else if (pd === 'month') { s = a.slice(0, 7) + '-01'; e = dkey(new Date(d.getFullYear(), d.getMonth() + 1, 0)); }
+    else { s = a.slice(0, 4) + '-01-01'; e = a.slice(0, 4) + '-12-31'; }
+    return [s, e];
+  }
+  function repLabel(pd, r) {
+    var f = function (k, o) { return new Date(k + 'T00:00:00').toLocaleDateString(undefined, o); };
+    if (pd === 'day') return r[0] === S.today() ? 'Today' : f(r[0], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    if (pd === 'week') return f(r[0], { day: 'numeric', month: 'short' }) + ' – ' + f(r[1], { day: 'numeric', month: 'short' });
+    if (pd === 'month') return f(r[0], { month: 'long', year: 'numeric' });
+    return r[0].slice(0, 4);
+  }
+  function report() {
+    var pd = st.rp, td = S.today(), a = st.ra || td, r = repRange(pd, a), s0 = r[0], s1 = r[1];
+    var inR = function (d) { return d >= s0 && d <= s1; };
+    // Per page number: time, reads (tally; shared pages add their surah parts), active days.
+    var P = {}, get = function (p) { return P[p] || (P[p] = { t: 0, rd: 0, days: {} }); };
+    Object.keys(S.d.time || {}).forEach(function (d) {
+      if (!inR(d)) return; var pg = Timer.day(d).pages;
+      for (var p in pg) { var v = pg[p].r + pg[p].n; if (v >= 1) { var q = get(p); q.t += v; if (v >= S.ACT_SECS) q.days[d] = 1; } }
+    });
+    Object.keys(S.d.pages).forEach(function (k) {
+      var o = S.d.pages[k], hit = (o.tl || []).some(function (e) { return inR(e[0]); }) || (o.rl || []).some(inR);
+      if (!hit) return;
+      var q = get(S.kp(k)); q.rd += S.tally(k, inR).page;
+      S.activeDays(k, inR).forEach(function (d) { q.days[d] = 1; });
+    });
+    var ps = Object.keys(P).map(Number), T = 0, RD = 0, DAYS = {}, act = 0;
+    ps.forEach(function (p) { var q = P[p]; T += q.t; RD += q.rd; var n = Object.keys(q.days).length; if (n) act++; for (var d in q.days) DAYS[d] = 1; });
+    var nDays = Object.keys(DAYS).length;
+    var h = '<div class="seg mini" style="margin-top:4px">' + [['day', 'Daily'], ['week', 'Weekly'], ['month', 'Monthly'], ['year', 'Yearly']].map(function (x) { return '<button class="' + (pd === x[0] ? 'on' : '') + '" data-act="rp" data-p="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
+    var nxt = addD(s1, 1);
+    h += '<div class="calhd"><button class="ib" data-act="ra" data-d="' + addD(s0, -1) + '" aria-label="Previous">' + ICON.back + '</button><b>' + repLabel(pd, r) + '</b><button class="ib" data-act="ra" data-d="' + nxt + '" aria-label="Next"' + (nxt > td ? ' disabled style="opacity:.3"' : '') + '>' + ICON.fwd + '</button></div>';
+    h += '<div class="cards">' +
+      '<div class="card"><div class="v">' + Timer.mins(T) + '</div><div class="k">Total time</div></div>' +
+      '<div class="card"><div class="v">' + RD + '</div><div class="k">Page reads (tally)</div></div>' +
+      '<div class="card"><div class="v">' + act + '</div><div class="k">Pages read</div></div>' +
+      (pd === 'day' ? '<div class="card"><div class="v">' + (nDays ? '✓' : '–') + '</div><div class="k">' + (nDays ? 'Day counted' : 'Not counted yet') + '</div></div>'
+        : '<div class="card"><div class="v">' + nDays + '</div><div class="k">Days practised</div></div>') + '</div>';
+    // Bars: days of the week/month, months of the year (minutes). Tap to drill in.
+    if (pd !== 'day') {
+      var B = [];
+      if (pd === 'year') for (var mi = 0; mi < 12; mi++) B.push({ k: s0.slice(0, 4) + '-' + String(mi + 1).padStart(2, '0'), l: 'JFMAMJJASOND'[mi], t: 0, on: 0 });
+      else for (var d = s0; d <= s1; d = addD(d, 1)) B.push({ k: d, l: pd === 'week' ? new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'narrow' }) : String(+d.slice(8)), t: 0, on: 0 });
+      Object.keys(S.d.time || {}).forEach(function (d) { if (!inR(d)) return; var b = B.filter(function (x) { return d.indexOf(x.k) === 0; })[0]; if (b) b.t += Timer.day(d).t; });
+      Object.keys(DAYS).forEach(function (d) { var b = B.filter(function (x) { return d.indexOf(x.k) === 0; })[0]; if (b) b.on++; });
+      var mx = Math.max.apply(null, B.map(function (b) { return b.t; }).concat([60]));
+      h += '<div class="rbars' + (B.length > 12 ? ' dense' : '') + '">' + B.map(function (b) {
+        var fut = (pd === 'year' ? b.k + '-01' : b.k) > td;
+        return '<button class="rb' + (b.on ? ' on' : '') + '"' + (fut ? ' disabled' : ' data-act="rdrill" data-k="' + b.k + '"') + '><span class="rbv">' + (b.t >= 60 ? Math.round(b.t / 60) : '') + '</span><i style="height:' + (b.t || b.on ? Math.max(4, b.t / mx * 100) : 0) + '%"></i><span class="rbl">' + b.l + '</span></button>';
+      }).join('') + '</div><div class="small muted callg">Minutes · green = day counted (5 min or a tally on a page)</div>';
+    }
+    // Pages and their stats for the period
+    var srt = st.rsrt || 't';
+    ps.sort(function (x, y) { var A = P[x], Bq = P[y]; return srt === 'p' ? x - y : srt === 'r' ? (Bq.rd - A.rd) || (Bq.t - A.t) : (Bq.t - A.t) || (Bq.rd - A.rd); });
+    h += '<div class="bar" style="margin-top:14px"><b style="align-self:center">Pages</b><span style="flex:1"></span><div class="seg mini">' + [['t', 'Time'], ['r', 'Reads'], ['p', 'Page']].map(function (x) { return '<button class="' + (srt === x[0] ? 'on' : '') + '" data-act="rsrt" data-s="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div></div>';
+    h += '<div class="list">' + (ps.map(function (p) {
+      var q = P[p], nd = Object.keys(q.days).length;
+      return '<div class="prow"><button class="pl" data-act="open" data-p="' + S.uk(p) + '">P. ' + p + '</button><div class="grow small">' + esc(pageTitle(p)) +
+        (pd !== 'day' ? '<br><span class="muted">' + nd + ' day' + (nd === 1 ? '' : 's') + '</span>' : (nd ? '<br><span class="muted">counted</span>' : '')) + '</div>' +
+        '<div style="text-align:right;font-size:12px"><b>' + Timer.mins(q.t) + '</b><br><span class="muted">' + q.rd + '× read</span></div></div>';
+    }).join('') || '<div class="empty">Nothing read in this period.</div>') + '</div>';
     return h;
   }
 
@@ -309,7 +381,6 @@
       '<div class="frow"><label>Start after</label><select data-in="decayAfter">' + [7, 10, 14, 21, 30].map(function (v) { return '<option value="' + v + '"' + (s.decayAfter === v ? ' selected' : '') + '>' + v + ' days</option>'; }).join('') + '</select></div>' +
       '<div class="frow"><label>Then lose</label><select data-in="decayPct">' + [5, 10, 15].map(function (v) { return '<option value="' + v + '"' + (s.decayPct === v ? ' selected' : '') + '>' + v + '% per week</option>'; }).join('') + '</select></div>' +
       '<h4>Stopwatch</h4><div class="frow"><label>Daily goal</label><select data-in="goalDay">' + [0, 10, 15, 20, 30, 45, 60, 90].map(function (v) { return '<option value="' + v + '"' + (s.goalDay === v ? ' selected' : '') + '>' + (v ? v + ' min' : 'Off') + '</option>'; }).join('') + '</select></div>' +
-      '<div class="frow"><label>Auto-mark reviewed<br><span class="small muted">After this much stopwatch time on a review page in a day. Pages tagged New are left alone.</span></label><select data-in="autoRev">' + [0, 3, 5, 10, 15, 20].map(function (v) { return '<option value="' + v + '"' + (s.autoRev === v ? ' selected' : '') + '>' + (v ? v + ' min' : 'Off') + '</option>'; }).join('') + '</select></div>' +
       '<h4>Tally</h4><div class="frow"><label>Hold to count<br><span class="small muted">How long to hold the counter until the ring closes.</span></label>' + '<select data-in="tHold">' + [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1, 1.2, 1.5].map(function (v) { return '<option value="' + v + '"' + (+s.tHold === v ? ' selected' : '') + '>' + v + ' s' + '</option>'; }).join('') + '</select>' + '</div>' +
       '<div class="frow"><label>Daily target<br><span class="small muted">Page reads a day (a page counts once all its sections are read).</span></label>' + '<select data-in="tDay">' + [0, 1, 2, 3, 5, 10, 20, 30].map(function (v) { return '<option value="' + v + '"' + (+s.tDay === v ? ' selected' : '') + '>' + (v ? v + ' reads' : 'Off') + '</option>'; }).join('') + '</select>' + '</div>' +
       '<div class="frow"><label>Raise health every</label>' + '<select data-in="tRuleN">' + [0, 5, 10, 20, 30, 50, 100].map(function (v) { return '<option value="' + v + '"' + (+s.tRuleN === v ? ' selected' : '') + '>' + (v ? v + ' reads' : 'Off') + '</option>'; }).join('') + '</select>' + '</div>' +
@@ -383,6 +454,10 @@
     cal: function (el) { st.cal = el.dataset.m; App.render(); },
     cday: function (el) { st.cday = el.dataset.d || null; App.render(); window.scrollTo(0, 0); },
     sper: function (el) { st.sper = el.dataset.p; App.render(); },
+    rp: function (el) { st.rp = el.dataset.p; App.render(); },
+    ra: function (el) { st.ra = el.dataset.d; App.render(); },
+    rsrt: function (el) { st.rsrt = el.dataset.s; App.render(); },
+    rdrill: function (el) { var k = el.dataset.k; st.rp = k.length === 7 ? 'month' : 'day'; st.ra = k.length === 7 ? k + '-01' : k; App.render(); window.scrollTo(0, 0); },
     month: function (el) { st.month = el.dataset.m || null; App.render(); },
     ssel: function (el) { st.ssel[el.dataset.p] = !st.ssel[el.dataset.p]; App.render(); },
     sselAll: function () {

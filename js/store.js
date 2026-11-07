@@ -74,7 +74,7 @@
     // Effective health after the decay rule. Decay counts from the later of last review / last manual health set.
     health: function (p) {
       var o = this.get(p), h = o.h || 0, s = this.d.settings;
-      var from = [o.lr, o.hd].filter(Boolean).sort().pop();
+      var from = [this.lastActive(p), o.hd].filter(Boolean).sort().pop();
       if (s.decayOn && from && h > 0) {
         var days = Math.floor((Date.now() - new Date(from + 'T00:00:00').getTime()) / 864e5);
         if (days > s.decayAfter) h -= Math.ceil((days - s.decayAfter) / 7) * s.decayPct;
@@ -160,6 +160,23 @@
       this.edit(k, function (o) { o.tl = o.tl || []; o.tl.push([today(), from || 0, to || 0, n]); });
       return { before: before, after: this.tally(k).page };
     },
+    /* Activity is automatic: a page counts as read on a day when it got at least 5 min of stopwatch time
+       or at least one saved tally that day (older manual "Reviewed" days still count). */
+    ACT_SECS: 300,
+    pageSecs: function (d, p) {
+      var D = (this.d.time || {})[d] || {}, t = 0;
+      for (var dv in D) ['r', 'n'].forEach(function (md) { t += ((D[dv][md] || {})[p]) || 0; });
+      return t;
+    },
+    pageTime: function (p, pred) { var t = 0; for (var d in (this.d.time || {})) if (!pred || pred(d)) t += this.pageSecs(d, p); return t; },
+    activeDays: function (k, pred) {
+      var o = this.get(k), p = kp(k), set = {}, self = this;
+      for (var d in (this.d.time || {})) if ((!pred || pred(d)) && this.pageSecs(d, p) >= this.ACT_SECS) set[d] = 1;
+      (o.tl || []).forEach(function (e) { if (e[3] > 0 && (!pred || pred(e[0]))) set[e[0]] = 1; });
+      (o.rl || []).forEach(function (d) { if (!pred || pred(d)) set[d] = 1; });
+      return Object.keys(set).sort();
+    },
+    lastActive: function (k) { var a = this.activeDays(k); return a.length ? a[a.length - 1] : this.get(k).lr || null; },
     exportData: function () { var c = JSON.parse(JSON.stringify(this.d)); delete c.ui; return c; }
   };
   window.S = S;
