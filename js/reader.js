@@ -270,13 +270,11 @@
     else if (!sec) divs.forEach(function (x) { s += '<polyline class="div view" points="' + divPts(x.m) + '"/>'; });
     var m = R.items[R.sel];
     if (R.edit && m) {
-      if (m.k === 'box') { // height locked (default): handles sit mid-edge and only change the width
-        var lk = hLock(), hy = lk ? m.y + m.h / 2 : null;
-        s += '<circle class="hd" data-h="tl" cx="' + r1(m.x) + '" cy="' + r1(lk ? hy : m.y) + '" r="18"/><circle class="hd" data-h="br" cx="' + r1(m.x + m.w) + '" cy="' + r1(lk ? hy : m.y + m.h) + '" r="18"/>';
-      }
-      else s += '<circle class="hd" data-h="r" cx="' + r1((1000 + m.x) / 2) + '" cy="' + r1(m.y1) + '" r="18"/>' +
-        '<circle class="hd" data-h="l" cx="' + r1(m.x / 2) + '" cy="' + r1(m.y2) + '" r="18"/>' +
-        '<circle class="hd" data-h="s" cx="' + r1(m.x) + '" cy="' + r1((m.y1 + m.y2) / 2) + '" r="15"/>';
+      // Handles are sized in screen pixels (not page units) so they stay easy to hold on a phone.
+      var hr = r1(HD_R * pxU()), ad = R.drag && R.drag.k === 'h' ? R.drag.h : '';
+      handlesOf(m).forEach(function (h) {
+        s += '<circle class="hd' + (ad === h.h ? ' on' : '') + '" data-h="' + h.h + '" cx="' + r1(h.x) + '" cy="' + r1(h.y) + '" r="' + (h.h === 's' ? r1(hr * 0.85) : hr) + '"/>';
+      });
     }
     s += tint;
     if (R.tmp) s += '<rect x="' + r1(R.tmp.x) + '" y="' + r1(R.tmp.y) + '" width="' + r1(R.tmp.w) + '" height="' + r1(R.tmp.h) + '" fill="' + R.style.c + '" fill-opacity="' + R.style.o + '" stroke="#1d6fe0" stroke-width="3" stroke-dasharray="8 6"/>';
@@ -324,7 +322,9 @@
         R.drag = { k: 'crop', ed: ed, move: !Object.keys(ed).length, pt: pt, orig: JSON.parse(JSON.stringify(d)) };
         return;
       }
-      if (ds.h != null && R.sel >= 0) { R.drag = { k: 'h', h: ds.h, i: R.sel }; return; }
+      // A touch anywhere near a handle of the selected shape grabs that handle (nearest wins), before the line or box itself.
+      var nh = R.sel >= 0 ? nearHandle(R.items[R.sel], pt) : null;
+      if (nh) { R.drag = { k: 'h', h: nh, i: R.sel }; draw(); return; }
       if (ds.i != null) { R.sel = +ds.i; R.drag = { k: 'move', i: +ds.i, pt: pt, orig: JSON.parse(JSON.stringify(R.items[+ds.i])) }; draw(); renderPanel(); return; }
       if (R.sel >= 0) { R.sel = -1; draw(); renderPanel(); }
     };
@@ -377,6 +377,21 @@
     };
   }
 
+  var HD_R = 13, HD_GRAB = 30; // handle radius and grab radius, in screen px
+  function pxU() { var ov = $('#ov'), w = ov ? ov.getBoundingClientRect().width : 0; return w ? 1000 / w : 2.5; } // page units per screen px
+  function handlesOf(m) {
+    if (!m) return [];
+    if (m.k === 'box') { // height locked (default): handles sit mid-edge and only change the width
+      var lk = hLock(), hy = m.y + m.h / 2;
+      return [{ h: 'tl', x: m.x, y: lk ? hy : m.y }, { h: 'br', x: m.x + m.w, y: lk ? hy : m.y + m.h }];
+    }
+    return [{ h: 'r', x: (1000 + m.x) / 2, y: m.y1 }, { h: 'l', x: m.x / 2, y: m.y2 }, { h: 's', x: m.x, y: (m.y1 + m.y2) / 2 }];
+  }
+  function nearHandle(m, pt) {
+    var best = null, bd = HD_GRAB * pxU();
+    handlesOf(m).forEach(function (h) { var d = Math.hypot(pt.x - h.x, pt.y - h.y); if (d <= bd) { bd = d; best = h.h; } });
+    return best;
+  }
   function hLock() { return S.d.settings.boxHLock !== false; } // Settings → Lock box height (on by default)
 
   /* ---------- page gestures (read mode) ---------- */
