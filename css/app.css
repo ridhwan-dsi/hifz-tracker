@@ -335,3 +335,6 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 .tagbar { flex-wrap: wrap; row-gap: 8px; } .tagbar .tbtns { display: flex; gap: 6px; flex-wrap: nowrap; margin-left: auto; }
 .subtabs .cnt { font-size: .78em; font-weight: 600; opacity: .7; }
 [data-long] { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+#ov .grip rect { fill: #1d6fe0; filter: drop-shadow(0 1px 3px rgba(0,0,0,.35)); }
+#ov .grip path { fill: none; stroke: #fff; stroke-width: 2.5px; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+#ov .grip.on rect { fill: #154fa3; }

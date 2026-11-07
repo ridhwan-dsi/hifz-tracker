@@ -273,6 +273,12 @@
       // Handles are sized in screen pixels (not page units) so they stay easy to hold on a phone.
       var hr = r1(HD_R * pxU()), ad = R.drag && R.drag.k === 'h' ? R.drag.h : '';
       handlesOf(m).forEach(function (h) {
+        if (h.h === 'g') { // up/down grip at the right end: the only place that moves a line
+          var u = pxU(), gw = GRIP_W * u, gh = GRIP_H * u, gx = h.x - gw / 2, gy = h.y - gh / 2, a = 5 * u;
+          s += '<g class="grip' + (ad === 'g' ? ' on' : '') + '"><rect x="' + r1(gx) + '" y="' + r1(gy) + '" width="' + r1(gw) + '" height="' + r1(gh) + '" rx="' + r1(gw / 2) + '"/>' +
+            '<path d="M' + r1(h.x - a) + ' ' + r1(h.y - 5 * u) + 'L' + r1(h.x) + ' ' + r1(h.y - 12 * u) + 'L' + r1(h.x + a) + ' ' + r1(h.y - 5 * u) + 'M' + r1(h.x - a) + ' ' + r1(h.y + 5 * u) + 'L' + r1(h.x) + ' ' + r1(h.y + 12 * u) + 'L' + r1(h.x + a) + ' ' + r1(h.y + 5 * u) + '"/></g>';
+          return;
+        }
         s += '<circle class="hd' + (ad === h.h ? ' on' : '') + '" data-h="' + h.h + '" cx="' + r1(h.x) + '" cy="' + r1(h.y) + '" r="' + (h.h === 's' ? r1(hr * 0.85) : hr) + '"/>';
       });
     }
@@ -324,7 +330,8 @@
       }
       // A touch anywhere near a handle of the selected shape grabs that handle (nearest wins), before the line or box itself.
       var nh = R.sel >= 0 ? nearHandle(R.items[R.sel], pt) : null;
-      if (nh) { R.drag = { k: 'h', h: nh, i: R.sel }; draw(); return; }
+      if (nh) { R.drag = { k: 'h', h: nh, i: R.sel, pt: pt, orig: JSON.parse(JSON.stringify(R.items[R.sel])) }; draw(); return; }
+      if (ds.i != null && R.items[+ds.i].k === 'div') { R.sel = +ds.i; draw(); renderPanel(); return; } // touching a line only selects it
       if (ds.i != null) { R.sel = +ds.i; R.drag = { k: 'move', i: +ds.i, pt: pt, orig: JSON.parse(JSON.stringify(R.items[+ds.i])) }; draw(); renderPanel(); return; }
       if (R.sel >= 0) { R.sel = -1; draw(); renderPanel(); }
     };
@@ -353,6 +360,7 @@
         var lk = hLock();
         if (d.h === 'br') { m.w = Math.max(12, pt.x - m.x); if (!lk) m.h = Math.max(12, pt.y - m.y); }
         else if (d.h === 'tl') { var rx = m.x + m.w, by = m.y + m.h; m.x = Math.min(pt.x, rx - 12); m.w = rx - m.x; if (!lk) { m.y = Math.min(pt.y, by - 12); m.h = by - m.y; } }
+        else if (d.h === 'g') { var dy = pt.y - d.pt.y, lo = -Math.min(d.orig.y1, d.orig.y2), hi = R.Hu - Math.max(d.orig.y1, d.orig.y2); dy = clamp(dy, lo, hi); m.y1 = d.orig.y1 + dy; m.y2 = d.orig.y2 + dy; }
         else if (d.h === 'r') m.y1 = clamp(pt.y, 0, R.Hu); else if (d.h === 'l') m.y2 = clamp(pt.y, 0, R.Hu); else if (d.h === 's') m.x = clamp(pt.x, 15, 985);
         draw();
       }
@@ -377,7 +385,7 @@
     };
   }
 
-  var HD_R = 13, HD_GRAB = 30; // handle radius and grab radius, in screen px
+  var HD_R = 13, HD_GRAB = 60, GRIP_W = 24, GRIP_H = 40; // handle radius and grab radius, in screen px
   function pxU() { var ov = $('#ov'), w = ov ? ov.getBoundingClientRect().width : 0; return w ? 1000 / w : 2.5; } // page units per screen px
   function handlesOf(m) {
     if (!m) return [];
@@ -385,7 +393,8 @@
       var lk = hLock(), hy = m.y + m.h / 2;
       return [{ h: 'tl', x: m.x, y: lk ? hy : m.y }, { h: 'br', x: m.x + m.w, y: lk ? hy : m.y + m.h }];
     }
-    return [{ h: 'r', x: (1000 + m.x) / 2, y: m.y1 }, { h: 'l', x: m.x / 2, y: m.y2 }, { h: 's', x: m.x, y: (m.y1 + m.y2) / 2 }];
+    var gx = 1000 - (GRIP_W / 2 + 4) * pxU(); // grip hugs the right edge of the page, on the right-hand part of the line
+    return [{ h: 'r', x: (1000 + m.x) / 2, y: m.y1 }, { h: 'l', x: m.x / 2, y: m.y2 }, { h: 's', x: m.x, y: (m.y1 + m.y2) / 2 }, { h: 'g', x: gx, y: m.y1 }];
   }
   function nearHandle(m, pt) {
     var best = null, bd = HD_GRAB * pxU();
@@ -703,7 +712,7 @@
       '<button class="icb pri" data-ract="doneEdit" aria-label="Save">' + IC.check + '</button></div>';
     // The style row is always shown so the drawer keeps one height; with no box selected it sets the style for the next box.
     x += boxStyle(m && m.k === 'box' ? m : R.style, m && m.k === 'div');
-    x += '<div class="hint ehint"><b>' + (am ? 'Mask ' + (masksOf(R.p).indexOf(am) + 1) : '') + '</b> · ' + (m ? (m.k === 'box' ? (hLock() ? 'Drag the box to move it; drag a round handle to change its width.' : 'Drag the box to move it; drag a round handle to resize.') + '' : 'Drag to move. Side handles make a step; the middle one moves it.') + (m.k === 'div' ? ' <button class="addlink" data-ract="straight">Straighten</button>' : '')
+    x += '<div class="hint ehint"><b>' + (am ? 'Mask ' + (masksOf(R.p).indexOf(am) + 1) : '') + '</b> · ' + (m ? (m.k === 'box' ? (hLock() ? 'Drag the box to move it; drag a round handle to change its width.' : 'Drag the box to move it; drag a round handle to resize.') + '' : 'Drag the ⇕ grip on the right to move the line. Side dots make a step; the middle dot moves the step.') + (m.k === 'div' ? ' <button class="addlink" data-ract="straight">Straighten</button>' : '')
       : 'Tap Box or Line to add one, or tap a shape to select it. Tip: long-press a shape while reading to edit it.') + '</div>';
     return x;
   }
