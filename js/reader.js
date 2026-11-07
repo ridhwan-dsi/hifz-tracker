@@ -570,10 +570,10 @@
       tb('tBox', 'Box', IC.box, R.edit && R.etool === 'box', !am) + tb('tLine', 'Line', IC.line, R.edit && R.etool === 'line', !am) +
       tb('delMask', 'Clear', IC.trash, false, !am || !R.items.length).replace('class="tb', 'class="tb danger') : '') +
       tb('edGrp', 'Edit', open ? IC.x : IC.pen, false).replace('class="tb', 'class="tb edbtn') + '</div>';
-    return '<div class="rrow scroll tools">' + tb('home', 'Back', IC.back, false) +
+    return '<div class="rrow scroll tools">' +
       tb('health', m ? h + '%' : 'Health', IC.heart, R.sub === 'health', !m) + tb('tags', 'Tags', IC.tag, R.sub === 'tags', !m) +
       timerTool() + tb('tally', 'Tally', IC.tally, R.sub === 'tally') +
-      (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + grp + '</div>';
+      (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + grp + tb('home', 'Back', IC.back, false) + '</div>';
   }
   // Once a session is running, Timer expands into an oval with the running time and play/pause beside it.
   function timerTool() {
