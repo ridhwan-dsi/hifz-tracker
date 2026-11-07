@@ -340,8 +340,8 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 #ov .grip.on rect { fill: #154fa3; }
 
 /* v77 select mode on the Memorizing sub-tabs */
-.tagbar .ib.pen { width: 38px; height: 38px; color: var(--acc); }
-.tagbar .ib.pen svg.i { width: 20px; height: 20px; }
+.ib.pen { width: 38px; height: 38px; flex: none; color: var(--acc); }
+.ib.pen svg.i { width: 20px; height: 20px; }
 .selbar { flex-wrap: nowrap; } .selbar .tick { margin-left: 4px; } .selbar .grow { flex: 1; }
 .btn[disabled] { opacity: .45; pointer-events: none; }
 .pbox .pbtns.col { flex-direction: column; max-height: 60vh; overflow-y: auto; }

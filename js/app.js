@@ -116,7 +116,6 @@
       return '<button class="chip ' + (ct && ct.id === t.id ? 'on' : '') + '" data-act="chip" data-long="tag" data-t="' + esc(t.id) + '">' + esc(t.name) + '</button>';
     }).join('') + '<button class="chip add" data-act="addTag">+ Tag</button></div>';
     var cnt = Object.keys(S.d.pages).filter(memMatch).length, pgs = ' <span class="muted">· ' + cnt + ' page' + (cnt === 1 ? '' : 's') + '</span>';
-    if (!ct) st.tedit = null;
     if (st.tedit && (ct ? st.tedit !== ct.id : st.tedit !== 'all')) st.tedit = null;
     if (st.tedit) {
       var pool = subPool(), ns = pool.filter(function (k) { return st.sel[k]; }).length, every = pool.length && ns === pool.length;
@@ -175,7 +174,7 @@
 
   function tomTab() {
     var q = st.q.trim().toLowerCase(), rows = '', lastJ = 0;
-    var h = '<div class="bar"><input type="search" placeholder="Search surah, number or page" value="' + esc(st.q) + '" data-in="q"><button class="btn ' + (st.edit ? 'pri' : '') + '" data-act="edit">' + (st.edit ? 'Done' : 'Edit') + '</button></div>';
+    var h = '<div class="bar"><input type="search" placeholder="Search surah, number or page" value="' + esc(st.q) + '" data-in="q">' + (st.edit ? '<button class="btn pri" data-act="edit">Done</button>' : '<button class="ib pen" data-act="edit" aria-label="Edit">' + ICON.pen + '</button>') + '</div>';
     h += '<div class="legend"><span><i style="background:var(--line)"></i>Not started</span><span><i style="background:var(--mid)"></i>Partly</span><span><i style="background:var(--acc)"></i>All pages</span></div>';
     SUR.forEach(function (s, i) {
       var n = i + 1;
