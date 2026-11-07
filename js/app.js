@@ -96,6 +96,15 @@
     if ((sub() === 'new') !== S.hasTag(p, 'new')) return false;
     var ct = ctag(); return !ct || S.hasTag(p, ct.id);
   }
+  /* Swipe scope for a Memorizing page, wherever the reader is opened from (tab, Continue, Stats, reload):
+     the active tag's pages if the page is in it, else every Memorizing page of its sub-tab (New / Review).
+     Pages not in Memorizing (To Memorize) swipe freely. */
+  function scope(k) {
+    if (!k || !S.isMem(k)) return null;
+    var keys = Object.keys(S.d.pages), ct = ctag(), sb = subOf(k);
+    if (sb === sub() && ct && S.hasTag(k, ct.id)) return { rg: keys.filter(memMatch), tag: ct };
+    return { rg: keys.filter(function (u) { return S.isMem(u) && subOf(u) === sb; }), tag: null };
+  }
   function memTab() {
     var sb = sub(), ct = ctag();
     // Sub-tabs New / Review; under them "All" (always first) then custom tags, most recently opened first.
@@ -165,7 +174,7 @@
         '<button class="exp ' + (open ? 'open' : '') + '" data-act="exp" data-k="tom" data-n="' + n + '" aria-label="Pages">' + ICON.chev + '</button></div>';
       if (open) rows += '<div class="pages">' + pg.map(function (p) {
         var m = S.isMem(p);
-        return '<button class="pl ' + (m ? 'mem' : '') + '" data-act="' + (st.edit ? 'tickP' : 'open') + '" data-p="' + p + '">' + (st.edit && m ? '✓ ' : '') + 'P. ' + S.kp(p) + '</button>';
+        return '<button class="pl ' + (m ? 'mem' : '') + '" data-act="' + (st.edit ? 'tickP' : 'open') + '" data-k="tom" data-p="' + p + '">' + (st.edit && m ? '✓ ' : '') + 'P. ' + S.kp(p) + '</button>';
       }).join('') + '</div>';
     });
     return h + '<div class="list">' + (rows || '<div class="empty">No surah matches.</div>') + '</div>';
@@ -427,14 +436,13 @@
     },
     tagP: function (el) { S.toggleTag(el.dataset.p, st.tedit); App.render(); },
     open: function (el) {
-      closeSheet(); var k = el.dataset.p, rg = null;
-      if (el.dataset.k === 'mem') rg = units(S.kn(k)).filter(memMatch);
-      Reader.open(S.kp(k), S.kn(k), rg, rg && ctag());
+      closeSheet(); var k = el.dataset.p, sc = el.dataset.k === 'tom' ? null : scope(k);
+      Reader.open(S.kp(k), S.kn(k), sc && sc.rg, sc && sc.tag);
     },
     openS: function (el) {
-      var n = +el.dataset.n, pg = units(n), rg = null;
-      if (el.dataset.k === 'mem') { var f = pg.filter(memMatch); if (f.length) pg = rg = f; }
-      Reader.open(S.kp(pg[0]), n, rg, rg && ctag());
+      var n = +el.dataset.n, pg = units(n), sc = null;
+      if (el.dataset.k === 'mem') { var f = pg.filter(memMatch); if (f.length) { pg = f; sc = scope(f[0]); } }
+      Reader.open(S.kp(pg[0]), n, sc && sc.rg, sc && sc.tag);
     },
     tickS: function (el) {
       var pg = units(+el.dataset.n), all = pg.every(function (p) { return S.isMem(p); });
@@ -520,7 +528,11 @@
   S.load();
   App.render();
   Sync.init();
-  if (location.hash.match(/^#p\d+$/)) { var p0 = +location.hash.slice(2); history.replaceState(null, '', location.pathname); Reader.open(p0); }
+  // Reopen the page after a reload (e.g. Update app) with the same swipe scope as before, not the free mushaf.
+  if (location.hash.match(/^#p\d+$/)) {
+    var p0 = +location.hash.slice(2), lk = S.d.last && S.kp(S.d.last.k) === p0 ? S.d.last.k : S.uk(p0), sc0 = scope(lk);
+    history.replaceState(null, '', location.pathname); Reader.open(p0, S.kn(lk), sc0 && sc0.rg, sc0 && sc0.tag);
+  }
   if ('serviceWorker' in navigator) {
     var hadSW = !!navigator.serviceWorker.controller, reloaded = false;
     // When a newer build takes over, reload once so the new code is used straight away.
