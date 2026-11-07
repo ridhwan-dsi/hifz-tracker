@@ -87,8 +87,8 @@
   /* ---------- open / close ---------- */
   var Reader = {
     // range: optional list of unit keys (from the Memorizing tab) — swiping/arrows then stay within those pages.
-    open: function (p, n, range) {
-      R.style = boxDef(); R.palOpen = false;
+    open: function (p, n, range, tag) {
+      R.style = boxDef(); R.palOpen = false; R.tag = tag || null; // custom tag: counts shown for the tag, not the month
       p = clamp(p | 0, 1, 604); R.n = n || 0;
       R.range = range && range.length ? range.slice().sort(function (a, b) { return S.kp(a) - S.kp(b); }) : null;
       if (!Reader.isOpen()) history.pushState({ reader: 1 }, '', '#p' + p);
@@ -533,7 +533,7 @@
     return '<span class="sswitch">' + ss.map(function (n) { return '<button class="' + (n === R.n ? 'on' : '') + '" data-ract="surah" data-n="' + n + '">' + App.esc(QURAN.S[n - 1][0]) + '</button>'; }).join('') + '</span>';
   }
   function mainPanel() {
-    var p = R.p, k = R.k, o = S.get(k), m = S.isMem(k), h = S.health(k), mc = S.monthCount(k), revToday = o.lr === S.today();
+    var p = R.p, k = R.k, o = S.get(k), m = S.isMem(k), h = S.health(k), mc = R.tag ? revSince(k) : S.monthCount(k), revToday = o.lr === S.today();
     var ms = masksOf(p), am = activeMask(), x = '';
     x += '<div class="rrow nav">' + navBtns('in') + '<div class="rtitle tcol"><div class="tname">' + surahTitle(p) + '</div>' + pstrip() + '</div></div>';
     x += '<div class="rrow scroll"><button class="pill' + (m ? ' on' : '') + '" data-ract="mem">' + (m ? IC.check + 'Memorizing' : '+ Memorize') + '</button>';
@@ -608,6 +608,8 @@
     if (g) x += '<div class="rrow"><span class="small muted" style="white-space:nowrap">Today <span class="tmr-day">' + Math.floor(dd.t / 60) + '</span> / ' + g + ' min' + (dd.t >= g * 60 ? ' ✓' : '') + '</span><div class="hbar" style="flex:1;margin:0"><i class="tmr-bar" style="width:' + Math.min(100, dd.t / (g * 60) * 100) + '%;background:var(--acc)"></i></div></div>';
     return x + '</div>';
   }
+  function revSince(k) { var sn = App.tagSince(R.tag); return (S.get(k).rl || []).filter(function (d) { return d >= sn; }).length; }
+  function periodTxt(raw) { return R.tag ? 'in ' + (raw ? R.tag.name : App.esc(R.tag.name)) : 'this month'; }
   /* Tally row: sections from Mask 1's lines (tap one, then another to take a range), the live count with Edit/Save,
      and this page's reads per section (the page counts as read as many times as its least-read section). */
   function tallyPanel() {
@@ -621,8 +623,8 @@
       '<button class="btn sm" data-ract="tlyEdit">Edit</button><button class="btn sm pri" data-ract="tlySave"' + (T.n ? '' : ' disabled') + '>Save</button>' +
       '<button class="icb" data-ract="tlyHide" aria-label="Hide counter">' + IC.x + '</button></div>';
     var parts = ns > 1 ? t.sec.map(function (v, j) { return 'S' + (j + 1) + ' ' + v; }).join(' · ') + ' · ' : '';
-    var mo = S.month(), tm = S.tally(R.k, function (d) { return d.slice(0, 7) === mo; }).page;
-    x += '<div class="small muted" style="padding:0 4px 4px">' + parts + 'Page read <b>' + tm + '×</b> this month · <b>' + t.page + '×</b> lifetime';
+    var mo = S.month(), sn = R.tag && App.tagSince(R.tag), tm = S.tally(R.k, function (d) { return sn ? d >= sn : d.slice(0, 7) === mo; }).page;
+    x += '<div class="small muted" style="padding:0 4px 4px">' + parts + 'Page read <b>' + tm + '×</b> ' + periodTxt() + ' · <b>' + t.page + '×</b> lifetime';
     var g = S.d.settings.tDay;
     if (g) { var td = S.today(), dr = Tally.dayReads(function (d) { return d === td; }); x += ' · today ' + dr + ' / ' + g + (dr >= g ? ' ✓' : ''); }
     return x + '</div></div>';
@@ -740,7 +742,7 @@
       var p = R.k;
       if (S.get(p).lr === S.today()) { S.unreviewToday(p); renderPanel(); App.toast('Review for today removed'); return; }
       S.reviewed(p); renderPanel();
-      App.toast('Marked reviewed · ' + S.monthCount(p) + '× this month');
+      App.toast('Marked reviewed · ' + (R.tag ? revSince(p) : S.monthCount(p)) + '× ' + periodTxt(1));
     },
     edGrp: function () {
       if (R.edOpen || R.sub === 'crop' || R.sub === 'join' || R.edit) {

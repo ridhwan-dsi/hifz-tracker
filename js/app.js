@@ -22,11 +22,17 @@
   };
   var BUILTIN = [{ id: 'new', name: 'New' }, { id: 'review', name: 'Selected for review' }];
   function allTags() { return BUILTIN.concat(S.d.tags); }
+  function tagBorn(t) { var n = parseInt(String(t.id).slice(1), 36); return isNaN(n) ? 0 : n; }
+  function byOpened(a) { return a.slice().sort(function (x, y) { return (y.o || tagBorn(y)) - (x.o || tagBorn(x)); }); }
+  /* The custom tag the Memorizing tab is filtered to (null for New / Selected for review / none). */
+  function ctag() { var c = S.d.ui.chips[0]; return c ? S.d.tags.filter(function (t) { return t.id === c; })[0] || null : null; }
+  /* Local date the tag was created; counts "in this tag" run from here. */
+  function tagSince(t) { if (t.c) return t.c; var d = new Date(tagBorn(t)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 
   var st = { view: 'home', exp: { mem: {}, tom: {} }, edit: false, tedit: null, q: '', sf: 'all', srt: 'page', sdir: 0, sprd: 'all', ssel: {}, month: null, stab: 'prog', cal: null, cday: null, sper: 'all' };
 
   var App = {
-    esc: esc, ICON: ICON, sPages: sPages, onPage: onPage, pageTitle: pageTitle, hcol: hcol, allTags: allTags,
+    esc: esc, ICON: ICON, tagSince: tagSince, sPages: sPages, onPage: onPage, pageTitle: pageTitle, hcol: hcol, allTags: allTags,
     render: function () {
       document.documentElement.dataset.theme = S.d.settings.theme;
       var meta = document.querySelector('meta[name=theme-color]');
@@ -79,8 +85,13 @@
     return ch.some(function (t) { return o.tags && o.tags.indexOf(t) >= 0; });
   }
   function memTab() {
-    var h = '<div class="chips">' + allTags().map(function (t) {
-      return '<button class="chip ' + (S.d.ui.chips.indexOf(t.id) >= 0 ? 'on' : '') + '" data-act="chip" data-t="' + esc(t.id) + '">' + esc(t.name) + '</button>';
+    var cur = S.d.ui.chips[0];
+    // New / Selected for review are sub-tabs; custom tags sit below as chips, most recently opened first.
+    var h = '<nav class="subtabs">' + BUILTIN.map(function (t) {
+      return '<button class="' + (cur === t.id ? 'on' : '') + '" data-act="chip" data-t="' + t.id + '">' + esc(t.name) + '</button>';
+    }).join('') + '</nav>';
+    h += '<div class="chips">' + byOpened(S.d.tags).map(function (t) {
+      return '<button class="chip ' + (cur === t.id ? 'on' : '') + '" data-act="chip" data-t="' + esc(t.id) + '">' + esc(t.name) + '</button>';
     }).join('') + '<button class="chip add" data-act="addTag">+ Tag</button></div>';
     var ch = S.d.ui.chips, one = ch.length === 1 ? allTags().filter(function (t) { return t.id === ch[0]; })[0] : null;
     if (!one) st.tedit = null;
@@ -305,10 +316,13 @@
   /* ---------------- Actions ---------------- */
   var ACT = {
     tab: function (el) { st.tedit = null; S.d.ui.tab = el.dataset.t; S.saveUi(); App.render(); window.scrollTo(0, 0); },
-    chip: function (el) { st.tedit = null; var t = el.dataset.t; S.d.ui.chips = S.d.ui.chips.indexOf(t) >= 0 ? [] : [t]; S.saveUi(); App.render(); }, // one tag at a time
+    chip: function (el) { // one tag at a time; opening a custom tag moves it to the front
+      st.tedit = null; var t = el.dataset.t, off = S.d.ui.chips.indexOf(t) >= 0; S.d.ui.chips = off ? [] : [t];
+      var ct = !off && ctag(); if (ct) { ct.o = Date.now(); S.saveSettings(); } else S.saveUi(); App.render();
+    },
     addTag: function () {
       var name = (prompt('New tag name') || '').trim(); if (!name) return;
-      var id = 't' + Date.now().toString(36); S.d.tags.push({ id: id, name: name }); S.saveSettings(); App.render();
+      var id = 't' + Date.now().toString(36); S.d.tags.push({ id: id, name: name, c: S.today(), o: Date.now() }); S.saveSettings(); App.render();
     },
     delTag: function (el) { S.d.tags = S.d.tags.filter(function (t) { return t.id !== el.dataset.t; }); S.d.ui.chips = S.d.ui.chips.filter(function (c) { return c !== el.dataset.t; }); S.saveSettings(); openSettings(); App.render(); },
     exp: function (el) { var k = el.dataset.k, n = el.dataset.n; st.exp[k][n] = !st.exp[k][n]; App.render(); },
@@ -322,12 +336,12 @@
     open: function (el) {
       closeSheet(); var k = el.dataset.p, rg = null;
       if (el.dataset.k === 'mem') rg = units(S.kn(k)).filter(memMatch);
-      Reader.open(S.kp(k), S.kn(k), rg);
+      Reader.open(S.kp(k), S.kn(k), rg, rg && ctag());
     },
     openS: function (el) {
       var n = +el.dataset.n, pg = units(n), rg = null;
       if (el.dataset.k === 'mem') { var f = pg.filter(memMatch); if (f.length) pg = rg = f; }
-      Reader.open(S.kp(pg[0]), n, rg);
+      Reader.open(S.kp(pg[0]), n, rg, rg && ctag());
     },
     tickS: function (el) {
       var pg = units(+el.dataset.n), all = pg.every(function (p) { return S.isMem(p); });
