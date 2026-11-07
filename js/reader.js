@@ -27,12 +27,20 @@
   function zoomChip() { var z = Math.round(lzoom() * 100); return '<div class="zchip"><button data-ract="zout" aria-label="Zoom out"' + (z <= 40 ? ' disabled' : '') + '>−</button><span>' + z + '%</span><button data-ract="zin" aria-label="Zoom in"' + (z >= 100 ? ' disabled' : '') + '>+</button></div>'; }
 
   /* ---------- crop / joins ---------- */
-  function autoCrop(p) {
+  function baseCrop(p) {
     var s = S.d.settings, mode = s.trim || 'full';
     if (mode === 'off' || !window.AUTOCROP) return { l: 0, t: 0, r: 0, b: 0 };
     var a = AUTOCROP[mode === 'frame' ? 'frame' : 'full'][p - 1], pad = s.trimPad == null ? 0.01 : s.trimPad;
     var sp = mode === 'frame' ? pad : 0; // sides are cut at the frame so margin markers (hizb/rub') never show
     return { l: Math.max(0, a[0] - sp), t: Math.max(0, a[1] - pad), r: Math.max(0, a[2] - sp), b: Math.max(0, a[3] - pad) };
+  }
+  /* Default crop profile (Settings): saved from one page as edge offsets relative to that page's auto-trim,
+     then laid over every page's own auto-trim, so odd/even page differences still line up. "Auto" = this. */
+  function autoCrop(p) {
+    var a = baseCrop(p), d = S.d.settings.cropDef; if (!d) return a;
+    var o = { l: a.l + d.l, t: a.t + d.t, r: a.r + d.r, b: a.b + d.b };
+    ['l', 't', 'r', 'b'].forEach(function (k) { o[k] = clamp(o[k], 0, 0.4); });
+    return o;
   }
   function cropOf(p) { var c = S.get(p).crop; return c ? { l: c.l || 0, t: c.t || 0, r: c.r || 0, b: c.b || 0 } : autoCrop(p); }
   // Join belongs to a mask (so surahs sharing a page each keep their own joined view); None shows the plain page.
@@ -662,6 +670,7 @@
       '<div class="hint">Drag the edges or corners. Drag inside to move.</div>' +
       '<div class="rrow scroll"><button class="btn sm" data-ract="cropAuto">Auto</button><button class="btn sm" data-ract="cropNone">Whole page</button>' +
       (R.p > 1 ? '<button class="btn sm" data-ract="cropPrev">Same as P. ' + (R.p - 1) + '</button>' : '') +
+      '<button class="btn sm" data-ract="cropDef">Set as default</button>' +
       '<span style="flex:1"></span><button class="btn sm" data-ract="cropCancel">Cancel</button><button class="btn sm pri" data-ract="cropApply">Apply</button></div>';
   }
   // Compact Join panel (~25% of the screen): pick which part to edit, two shared sliders act on it,
@@ -856,6 +865,13 @@
     cropNone: function () { R.draft = { l: 0, t: 0, r: 0, b: 0 }; drawCrop(); },
     cropPrev: function () { R.draft = cropOf(R.p - 1); drawCrop(); },
     cropCancel: function () { R.sub = null; R.draft = null; renderPanel(); layout(); },
+    cropDef: function () {
+      if (!confirm('Use this crop as the default for every page? Pages you have cropped yourself keep their own crop.')) return;
+      var d = R.draft, a = baseCrop(R.p);
+      S.d.settings.cropDef = { l: r4(d.l - a.l), t: r4(d.t - a.t), r: r4(d.r - a.r), b: r4(d.b - a.b), p: R.p }; S.saveSettings();
+      S.edit(R.p, function (o) { delete o.crop; }); // this page now follows the default too
+      R.sub = null; R.draft = null; renderPanel(); layout(); App.toast('Default crop set from P. ' + R.p);
+    },
     cropApply: function () {
       var d = R.draft, a = autoCrop(R.p), same = ['l', 't', 'r', 'b'].every(function (k) { return Math.abs(d[k] - a[k]) < 0.0005; });
       S.edit(R.p, function (o) { if (same) delete o.crop; else o.crop = { l: r4(d.l), t: r4(d.t), r: r4(d.r), b: r4(d.b) }; });
