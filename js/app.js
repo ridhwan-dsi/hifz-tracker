@@ -109,16 +109,15 @@
     var sb = sub(), ct = ctag();
     // Sub-tabs New / Review; under them "All" (always first) then custom tags, most recently opened first.
     var h = '<nav class="subtabs">' + BUILTIN.map(function (t) {
-      return '<button class="' + (sb === t.id ? 'on' : '') + '" data-act="sub" data-t="' + t.id + '">' + esc(t.name) + '</button>';
+      var nc = Object.keys(S.d.pages).filter(function (k) { return S.isMem(k) && subOf(k) === t.id; }).length;
+      return '<button class="' + (sb === t.id ? 'on' : '') + '" data-act="sub" data-t="' + t.id + '">' + esc(t.name) + ' <span class="cnt">' + nc + '</span></button>';
     }).join('') + '</nav>';
     h += '<div class="chips"><button class="chip ' + (!ct ? 'on' : '') + '" data-act="chip" data-t="all">All</button>' + byOpened(subTags(sb)).map(function (t) {
-      return '<button class="chip ' + (ct && ct.id === t.id ? 'on' : '') + '" data-act="chip" data-t="' + esc(t.id) + '">' + esc(t.name) + '</button>';
+      return '<button class="chip ' + (ct && ct.id === t.id ? 'on' : '') + '" data-act="chip" data-long="tag" data-t="' + esc(t.id) + '">' + esc(t.name) + '</button>';
     }).join('') + '<button class="chip add" data-act="addTag">+ Tag</button></div>';
     var cnt = Object.keys(S.d.pages).filter(memMatch).length, pgs = ' <span class="muted">· ' + cnt + ' page' + (cnt === 1 ? '' : 's') + '</span>';
     if (!ct) st.tedit = null;
-    if (ct) h += '<div class="tagbar"><span><b>' + esc(ct.name) + '</b>' + pgs + '</span><span class="tbtns">' +
-      (st.tedit ? '' : '<button class="btn sm" data-act="renTag" data-t="' + esc(ct.id) + '">Rename</button><button class="btn sm" data-act="delTag" data-t="' + esc(ct.id) + '">Delete</button>') +
-      '<button class="btn sm ' + (st.tedit ? 'pri' : '') + '" data-act="tedit" data-t="' + esc(ct.id) + '">' + (st.tedit ? 'Done' : 'Edit pages') + '</button></span></div>';
+    if (ct) h += '<div class="tagbar"><span><b>' + esc(ct.name) + '</b>' + pgs + '</span><button class="btn sm ' + (st.tedit ? 'pri' : '') + '" data-act="tedit" data-t="' + esc(ct.id) + '">' + (st.tedit ? 'Done' : 'Edit') + '</button></div>';
     else if (sb === 'new' && cnt) h += '<div class="tagbar"><span><b>New</b>' + pgs + '</span><button class="btn sm" data-act="allToReview">Move all to Review</button></div>';
     if (st.tedit) return h + tagEditList(st.tedit);
     var rows = '';
@@ -188,22 +187,41 @@
     var sc = document.getElementById('scrim'); dlg = cb;
     sc.innerHTML = '<div class="sheetm pbox"><div class="pbt">' + esc(o.title) + '</div>' + (o.msg ? '<p class="small">' + o.msg + '</p>' : '') +
       (o.input != null ? '<input class="dinp" id="dinp" maxlength="40" value="' + esc(o.input) + '" autocomplete="off">' : '') +
-      '<div class="pbtns"><button class="btn" data-dg="x">Cancel</button><button class="btn ' + (o.danger ? 'danger' : 'pri') + '" data-dg="ok">' + esc(o.ok) + '</button></div></div>';
+      '<div class="pbtns">' + (o.btns ? o.btns.map(function (b) { return '<button class="btn ' + (b[2] || '') + '" data-dg="' + b[0] + '">' + esc(b[1]) + '</button>'; }).join('') :
+        '<button class="btn" data-dg="x">Cancel</button><button class="btn ' + (o.danger ? 'danger' : 'pri') + '" data-dg="ok">' + esc(o.ok) + '</button>') + '</div></div>';
     sc.style.display = 'flex';
     var inp = document.getElementById('dinp');
     if (inp) { setTimeout(function () { inp.focus(); inp.select(); }, 30); inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); endDlg(true); } }); }
   }
-  function endDlg(ok) {
+  function endDlg(ok, id) {
     var sc = document.getElementById('scrim'), inp = document.getElementById('dinp'), v = inp ? inp.value : null, cb = dlg;
     dlg = null; sc.style.display = 'none'; sc.innerHTML = '';
-    if (ok && cb) cb(v);
+    if (ok && cb) cb(v, id);
   }
   document.addEventListener('click', function (e) {
     if (!dlg) return;
     var b = e.target.closest && e.target.closest('[data-dg]');
-    if (b) { e.stopPropagation(); endDlg(b.dataset.dg === 'ok'); }
+    if (b) { e.stopPropagation(); endDlg(b.dataset.dg !== 'x', b.dataset.dg); }
     else if (e.target.id === 'scrim') { e.stopPropagation(); endDlg(false); }
   }, true);
+
+  /* Long-press a custom tag chip: Rename / Delete menu. The click that ends the press is swallowed. */
+  var lp = null, lpFired = 0;
+  document.addEventListener('pointerdown', function (e) {
+    var c = e.target.closest && e.target.closest('[data-long=tag]'); if (!c) return;
+    var x = e.clientX, y = e.clientY;
+    lp = { c: c, x: x, y: y, t: setTimeout(function () {
+      lp = null; lpFired = Date.now(); try { navigator.vibrate && navigator.vibrate(25); } catch (er) {}
+      var id = c.dataset.t, t = S.d.tags.filter(function (q) { return q.id === id; })[0]; if (!t) return;
+      dialog({ title: t.name, btns: [['x', 'Cancel'], ['del', 'Delete', 'danger'], ['ren', 'Rename', 'pri']] }, function (v, w) {
+        if (w === 'ren') ACT.renTag(c); else if (w === 'del') ACT.delTag(c);
+      });
+    }, 550) };
+  }, true);
+  ['pointerup', 'pointercancel'].forEach(function (ev) { document.addEventListener(ev, function () { if (lp) { clearTimeout(lp.t); lp = null; } }, true); });
+  document.addEventListener('pointermove', function (e) { if (lp && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 10) { clearTimeout(lp.t); lp = null; } }, true);
+  document.addEventListener('click', function (e) { if (Date.now() - lpFired < 700 && e.target.closest && e.target.closest('[data-long]')) { e.stopPropagation(); e.preventDefault(); } }, true);
+  document.addEventListener('contextmenu', function (e) { if (e.target.closest && e.target.closest('[data-long]')) e.preventDefault(); }, true);
 
   /* ---------------- Stats ---------------- */
   function stats() {
@@ -420,7 +438,7 @@
       '<div class="frow"><label>Raise health every</label>' + '<select data-in="tRuleN">' + [0, 5, 10, 20, 30, 50, 100].map(function (v) { return '<option value="' + v + '"' + (+s.tRuleN === v ? ' selected' : '') + '>' + (v ? v + ' reads' : 'Off') + '</option>'; }).join('') + '</select>' + '</div>' +
       (s.tRuleN ? '<div class="frow"><label>By</label>' + '<select data-in="tRulePct">' + [5, 10, 15, 20].map(function (v) { return '<option value="' + v + '"' + (+s.tRulePct === v ? ' selected' : '') + '>' + '+' + v + '%' + '</option>'; }).join('') + '</select>' + '</div>' : '') +
       '<h4>Section hiding colour</h4><div class="rrow">' + [['#ffffff', 'White'], ['#fbf6e9', 'Cream'], ['#e9ecea', 'Grey']].map(function (c) { return '<button class="sw-c ' + (s.cover === c[0] ? 'on' : '') + '" style="background:' + c[0] + '" data-act="cover" data-c="' + c[0] + '" aria-label="' + c[1] + '"></button>'; }).join('') + '</div>' +
-      '<h4>Custom tags</h4><p class="small muted">' + (S.d.tags.length ? S.d.tags.length + ' tag' + (S.d.tags.length === 1 ? '' : 's') + '. ' : '') + 'Create, rename or delete a tag from the tag row on the Memorizing tab: tap the tag, then Rename or Delete.</p>' +
+      '<h4>Custom tags</h4><p class="small muted">' + (S.d.tags.length ? S.d.tags.length + ' tag' + (S.d.tags.length === 1 ? '' : 's') + '. ' : '') + 'Create tags with + Tag on the Memorizing tab; long-press a tag to rename or delete it.</p>' +
       '<h4>Account &amp; sync</h4>' + acct +
       '<h4>Offline</h4><button class="btn sm" data-act="precache">Save my Memorizing pages for offline</button>' +
       '<h4>Share</h4><div class="frow"><label>Share the app<br><span class="small muted">Copies the app link. Each person signs in with their own Google account, so your data stays yours.</span></label><button class="btn sm" data-act="shareApp">Copy link</button></div>' +

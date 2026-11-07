@@ -332,3 +332,5 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 /* v69 dialog + tag bar buttons */
 .dinp { width: 100%; box-sizing: border-box; margin-top: 12px; padding: 11px 12px; font: inherit; font-size: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--fg, inherit); }
 .tagbar { flex-wrap: wrap; row-gap: 8px; } .tagbar .tbtns { display: flex; gap: 6px; flex-wrap: nowrap; margin-left: auto; }
+.subtabs .cnt { font-size: .78em; font-weight: 600; opacity: .7; }
+[data-long] { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
