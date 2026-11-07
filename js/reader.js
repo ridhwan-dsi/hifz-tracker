@@ -807,7 +807,8 @@
     addBox: function () {
       if (!startEdit(-1)) return;
       var nb = R.items.filter(function (q) { return q.k === 'box'; }).length, off = (nb % 6) * 40;
-      R.items.push({ k: 'box', x: 330 + off * 0.5, y: clamp(R.Hu * 0.3 + off, 0, R.Hu - 90), w: 340, h: 80, c: R.style.c, o: R.style.o, b: R.style.b });
+      var bw = (+S.d.settings.boxW || 11) * 10; // Settings → New box width, % of the page width
+      R.items.push({ k: 'box', x: clamp(500 - bw / 2 + off * 0.5, 0, 1000 - bw), y: clamp(R.Hu * 0.3 + off, 0, R.Hu - 90), w: bw, h: 80, c: R.style.c, o: R.style.o, b: R.style.b });
       R.sel = R.items.length - 1; commitItems(); draw(); renderPanel();
     },
     addLine: function () {
