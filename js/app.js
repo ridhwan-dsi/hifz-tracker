@@ -18,7 +18,7 @@
     chev: I('<path d="M6 9l6 6 6-6"/>'), back: I('<path d="M15 18l-6-6 6-6"/>'), fwd: I('<path d="M9 18l6-6-6-6"/>'),
     stats: I('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'), gear: I('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
     book: I('<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>'),
-    check: I('<path d="M20 6L9 17l-5-5"/>'), play: I('<path d="M6 4l14 8-14 8z"/>')
+    check: I('<path d="M20 6L9 17l-5-5"/>'), pen: I('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), play: I('<path d="M6 4l14 8-14 8z"/>')
   };
   var BUILTIN = [{ id: 'new', name: 'New' }, { id: 'review', name: 'Review' }];
   /* Each custom tag belongs to one sub-tab (t.s); older tags without one sit under Review. */
@@ -41,7 +41,7 @@
   /* Local date the tag was created; counts "in this tag" run from here. */
   function tagSince(t) { if (t.c) return t.c; var d = new Date(tagBorn(t)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 
-  var st = { view: 'home', exp: { mem: {}, tom: {} }, edit: false, tedit: null, q: '', sf: 'all', srt: 'page', sdir: 0, sprd: 'all', ssel: {}, month: null, stab: 'rep', rp: 'day', ra: null, cal: null, cday: null, sper: 'all' };
+  var st = { view: 'home', exp: { mem: {}, tom: {} }, edit: false, tedit: null, sel: {}, q: '', sf: 'all', srt: 'page', sdir: 0, sprd: 'all', ssel: {}, month: null, stab: 'rep', rp: 'day', ra: null, cal: null, cday: null, sper: 'all' };
 
   var App = {
     esc: esc, ICON: ICON, tagSince: tagSince, sPages: sPages, onPage: onPage, pageTitle: pageTitle, hcol: hcol, allTags: allTags,
@@ -117,9 +117,14 @@
     }).join('') + '<button class="chip add" data-act="addTag">+ Tag</button></div>';
     var cnt = Object.keys(S.d.pages).filter(memMatch).length, pgs = ' <span class="muted">· ' + cnt + ' page' + (cnt === 1 ? '' : 's') + '</span>';
     if (!ct) st.tedit = null;
-    if (ct) h += '<div class="tagbar"><span><b>' + esc(ct.name) + '</b>' + pgs + '</span><button class="btn sm ' + (st.tedit ? 'pri' : '') + '" data-act="tedit" data-t="' + esc(ct.id) + '">' + (st.tedit ? 'Done' : 'Edit') + '</button></div>';
-    else if (sb === 'new' && cnt) h += '<div class="tagbar"><span><b>New</b>' + pgs + '</span><button class="btn sm" data-act="allToReview">Move all to Review</button></div>';
-    if (st.tedit) return h + tagEditList(st.tedit);
+    if (st.tedit && (ct ? st.tedit !== ct.id : st.tedit !== 'all')) st.tedit = null;
+    if (st.tedit) {
+      var pool = subPool(), ns = pool.filter(function (k) { return st.sel[k]; }).length, every = pool.length && ns === pool.length;
+      h += '<div class="tagbar selbar"><button class="tick ' + (every ? 'on' : ns ? 'part' : '') + '" data-act="selAll" aria-label="Select all">' + (every ? ICON.check : '') + '</button>' +
+        '<span class="grow"><b>' + ns + '</b> <span class="muted">selected</span></span><span class="tbtns"><button class="btn sm" data-act="selMove"' + (ns ? '' : ' disabled') + '>Move</button><button class="btn sm pri" data-act="selDone">Done</button></span></div>';
+      return h + selList();
+    }
+    if (ct || cnt) h += '<div class="tagbar"><span><b>' + esc(ct ? ct.name : (sb === 'new' ? 'New' : 'Review')) + '</b>' + pgs + '</span><button class="ib pen" data-act="selStart" aria-label="Select">' + ICON.pen + '</button></div>';
     var rows = '';
     SUR.forEach(function (s, i) {
       var n = i + 1, pg = units(n).filter(memMatch);
@@ -139,22 +144,33 @@
     return h + '<div class="list">' + rows + '</div>';
   }
 
-  /* Tag edit mode: every Memorizing surah/page, ticked if it carries the tag. */
-  function tagEditList(t) {
+  /* Select mode (pen): every page of the sub-tab with a tick. In a custom tag the ticks start as the tag's pages and Done
+     saves them as its members; under All nothing starts ticked. Move sends the ticked pages to the other sub-tab. */
+  function subPool() { var sb = sub(); return Object.keys(S.d.pages).filter(function (k) { return S.isMem(k) && subOf(k) === sb; }); }
+  function selList() {
     var rows = '', sb = sub();
     SUR.forEach(function (s, i) {
       var n = i + 1, pg = units(n).filter(function (p) { return S.isMem(p) && subOf(p) === sb; });
       if (!pg.length) return;
-      var sel = pg.filter(function (p) { return S.hasTag(p, t); }).length, all = sel === pg.length, open = st.exp.mem[n];
-      rows += '<div class="srow"><button class="tick ' + (all ? 'on' : sel ? 'part' : '') + '" data-act="tagS" data-n="' + n + '" aria-label="Tag surah">' + (all ? ICON.check : '') + '</button>' +
-        '<button class="sname" data-act="tagS" data-n="' + n + '"><span class="num">' + n + '</span><span class="nm">' + esc(s[0]) + '</span><span class="ar">' + esc(s[1]) + '</span></button>' +
+      var sel = pg.filter(function (p) { return st.sel[p]; }).length, all = sel === pg.length, open = st.exp.mem[n];
+      rows += '<div class="srow"><button class="tick ' + (all ? 'on' : sel ? 'part' : '') + '" data-act="selS" data-n="' + n + '" aria-label="Select surah">' + (all ? ICON.check : '') + '</button>' +
+        '<button class="sname" data-act="selS" data-n="' + n + '"><span class="num">' + n + '</span><span class="nm">' + esc(s[0]) + '</span><span class="ar">' + esc(s[1]) + '</span></button>' +
         '<button class="exp ' + (open ? 'open' : '') + '" data-act="exp" data-k="mem" data-n="' + n + '" aria-label="Pages">' + ICON.chev + '</button></div>';
       if (open) rows += '<div class="pages">' + pg.map(function (p) {
-        var on = S.hasTag(p, t);
-        return '<button class="pl ' + (on ? 'mem' : '') + '" data-act="tagP" data-p="' + p + '">' + (on ? '✓ ' : '') + 'P. ' + S.kp(p) + '</button>';
+        var on = st.sel[p];
+        return '<button class="pl ' + (on ? 'mem' : '') + '" data-act="selP" data-p="' + p + '">' + (on ? '✓ ' : '') + 'P. ' + S.kp(p) + '</button>';
       }).join('') + '</div>';
     });
-    return '<div class="list">' + (rows || '<div class="empty">Nothing in Memorizing yet.</div>') + '</div>';
+    return '<div class="list">' + (rows || '<div class="empty">Nothing here yet.</div>') + '</div>';
+  }
+  /* Move pages to the other sub-tab, optionally into one of its tags; tags of the old sub-tab come off. */
+  function movePages(ks, to, tagId) {
+    var from = to === 'new' ? 'review' : 'new', old = subTags(from).map(function (t) { return t.id; });
+    ks.forEach(function (k) {
+      old.forEach(function (id) { if (S.hasTag(k, id)) S.toggleTag(k, id, false); });
+      S.toggleTag(k, from, false); S.toggleTag(k, to, true);
+      if (tagId) S.toggleTag(k, tagId, true);
+    });
   }
 
   function tomTab() {
@@ -187,7 +203,7 @@
     var sc = document.getElementById('scrim'); dlg = cb;
     sc.innerHTML = '<div class="sheetm pbox"><div class="pbt">' + esc(o.title) + '</div>' + (o.msg ? '<p class="small">' + o.msg + '</p>' : '') +
       (o.input != null ? '<input class="dinp" id="dinp" maxlength="40" value="' + esc(o.input) + '" autocomplete="off">' : '') +
-      '<div class="pbtns">' + (o.btns ? o.btns.map(function (b) { return '<button class="btn ' + (b[2] || '') + '" data-dg="' + b[0] + '">' + esc(b[1]) + '</button>'; }).join('') :
+      '<div class="pbtns' + (o.col ? ' col' : '') + '">' + (o.btns ? o.btns.map(function (b) { return '<button class="btn ' + (b[2] || '') + '" data-dg="' + b[0] + '">' + esc(b[1]) + '</button>'; }).join('') :
         '<button class="btn" data-dg="x">Cancel</button><button class="btn ' + (o.danger ? 'danger' : 'pri') + '" data-dg="ok">' + esc(o.ok) + '</button>') + '</div></div>';
     sc.style.display = 'flex';
     var inp = document.getElementById('dinp');
@@ -459,19 +475,42 @@
       var ct = ctag(); if (ct) { ct.o = Date.now(); S.saveSettings(); } else S.saveUi(); App.render();
     },
     sub: function (el) { st.tedit = null; sub(); S.d.ui.sub = el.dataset.t; S.saveUi(); App.render(); },
-    allToReview: function () {
-      var ks = Object.keys(S.d.pages).filter(function (k) { return S.d.pages[k].m && S.hasTag(k, 'new'); });
-      if (!ks.length || !confirm('Move all ' + ks.length + ' New pages to Review?')) return;
-      ks.forEach(function (k) { S.toggleTag(k, 'new', false); S.toggleTag(k, 'review', true); });
-      S.d.tags.forEach(function (t) { if (t.s === 'new') t.s = 'review'; }); S.saveSettings(); // New is empty now, so its tags follow
-      S.d.ui.sub = 'review'; S.saveUi(); App.render(); App.toast('Moved ' + ks.length + ' pages to Review');
+    selStart: function () {
+      var ct = ctag(); st.sel = {}; st.tedit = ct ? ct.id : 'all';
+      if (ct) subPool().forEach(function (k) { if (S.hasTag(k, ct.id)) st.sel[k] = true; });
+      App.render();
+    },
+    selAll: function () {
+      var pool = subPool(), every = pool.every(function (k) { return st.sel[k]; });
+      st.sel = {}; if (!every) pool.forEach(function (k) { st.sel[k] = true; }); App.render();
+    },
+    selS: function (el) {
+      var sb = sub(), pg = units(+el.dataset.n).filter(function (p) { return S.isMem(p) && subOf(p) === sb; }), all = pg.every(function (p) { return st.sel[p]; });
+      pg.forEach(function (p) { if (all) delete st.sel[p]; else st.sel[p] = true; }); App.render();
+    },
+    selP: function (el) { var p = el.dataset.p; if (st.sel[p]) delete st.sel[p]; else st.sel[p] = true; App.render(); },
+    selDone: function () { // in a custom tag the ticks become its pages; under All, Done just closes
+      var ct = ctag();
+      if (ct && st.tedit === ct.id) subPool().forEach(function (k) { S.toggleTag(k, ct.id, !!st.sel[k]); });
+      st.tedit = null; st.sel = {}; App.render();
+    },
+    selMove: function () {
+      var ks = subPool().filter(function (k) { return st.sel[k]; }); if (!ks.length) return;
+      var to = sub() === 'new' ? 'review' : 'new', toName = to === 'new' ? 'New' : 'Review';
+      var btns = [['all', toName + ' · All', 'pri']].concat(byOpened(subTags(to)).map(function (t) { return [t.id, t.name]; }), [['x', 'Cancel']]);
+      dialog({ title: 'Move ' + ks.length + ' page' + (ks.length === 1 ? '' : 's') + ' to ' + toName, msg: 'Pick All or a tag in ' + toName + '.', btns: btns, col: true }, function (v, w) {
+        var tg = w === 'all' ? null : subTags(to).filter(function (t) { return t.id === w; })[0];
+        if (w !== 'all' && !tg) return;
+        movePages(ks, to, tg && tg.id);
+        st.tedit = null; st.sel = {}; App.render(); App.toast('Moved ' + ks.length + ' page' + (ks.length === 1 ? '' : 's') + ' to ' + toName + (tg ? ' · ' + tg.name : ''));
+      });
     },
     // Tag name entry uses an in-app dialog (the browser's prompt() can be blocked in an installed app).
     addTag: function () {
       dialog({ title: 'New tag', input: '', ok: 'Create' }, function (name) {
         name = (name || '').trim(); if (!name) return;
         var id = 't' + Date.now().toString(36), sb = sub(); S.d.tags.push({ id: id, name: name, s: sb, c: S.today(), o: Date.now() });
-        S.d.ui.cts = S.d.ui.cts || {}; S.d.ui.cts[sb] = id; st.tedit = id; // open the new tag, ready to pick its pages
+        S.d.ui.cts = S.d.ui.cts || {}; S.d.ui.cts[sb] = id; st.tedit = id; st.sel = {}; // open the new tag in select mode, ready to pick its pages
         S.saveSettings(); App.render(); App.toast('Tag created · tick the pages for it');
       });
     },
@@ -493,12 +532,6 @@
     },
     exp: function (el) { var k = el.dataset.k, n = el.dataset.n; st.exp[k][n] = !st.exp[k][n]; App.render(); },
     edit: function () { st.edit = !st.edit; App.render(); },
-    tedit: function (el) { st.tedit = st.tedit ? null : el.dataset.t; App.render(); },
-    tagS: function (el) {
-      var t = st.tedit, sb = sub(), pg = units(+el.dataset.n).filter(function (p) { return S.isMem(p) && subOf(p) === sb; }), all = pg.every(function (p) { return S.hasTag(p, t); });
-      pg.forEach(function (p) { S.toggleTag(p, t, !all); }); App.render();
-    },
-    tagP: function (el) { S.toggleTag(el.dataset.p, st.tedit); App.render(); },
     open: function (el) {
       closeSheet(); var k = el.dataset.p, sc = el.dataset.k === 'tom' ? null : scope(k);
       Reader.open(S.kp(k), S.kn(k), sc && sc.rg, sc && sc.tag);
