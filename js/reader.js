@@ -233,7 +233,10 @@
     else if (!sec) divs.forEach(function (x) { s += '<polyline class="div view" points="' + divPts(x.m) + '"/>'; });
     var m = R.items[R.sel];
     if (R.edit && m) {
-      if (m.k === 'box') s += '<circle class="hd" data-h="tl" cx="' + r1(m.x) + '" cy="' + r1(m.y) + '" r="18"/><circle class="hd" data-h="br" cx="' + r1(m.x + m.w) + '" cy="' + r1(m.y + m.h) + '" r="18"/>';
+      if (m.k === 'box') { // height locked (default): handles sit mid-edge and only change the width
+        var lk = hLock(), hy = lk ? m.y + m.h / 2 : null;
+        s += '<circle class="hd" data-h="tl" cx="' + r1(m.x) + '" cy="' + r1(lk ? hy : m.y) + '" r="18"/><circle class="hd" data-h="br" cx="' + r1(m.x + m.w) + '" cy="' + r1(lk ? hy : m.y + m.h) + '" r="18"/>';
+      }
       else s += '<circle class="hd" data-h="r" cx="' + r1((1000 + m.x) / 2) + '" cy="' + r1(m.y1) + '" r="18"/>' +
         '<circle class="hd" data-h="l" cx="' + r1(m.x / 2) + '" cy="' + r1(m.y2) + '" r="18"/>' +
         '<circle class="hd" data-h="s" cx="' + r1(m.x) + '" cy="' + r1((m.y1 + m.y2) / 2) + '" r="15"/>';
@@ -310,8 +313,9 @@
       }
       if (d.k === 'h') {
         m = R.items[d.i]; if (!m) return;
-        if (d.h === 'br') { m.w = Math.max(12, pt.x - m.x); m.h = Math.max(12, pt.y - m.y); }
-        else if (d.h === 'tl') { var rx = m.x + m.w, by = m.y + m.h; m.x = Math.min(pt.x, rx - 12); m.y = Math.min(pt.y, by - 12); m.w = rx - m.x; m.h = by - m.y; }
+        var lk = hLock();
+        if (d.h === 'br') { m.w = Math.max(12, pt.x - m.x); if (!lk) m.h = Math.max(12, pt.y - m.y); }
+        else if (d.h === 'tl') { var rx = m.x + m.w, by = m.y + m.h; m.x = Math.min(pt.x, rx - 12); m.w = rx - m.x; if (!lk) { m.y = Math.min(pt.y, by - 12); m.h = by - m.y; } }
         else if (d.h === 'r') m.y1 = clamp(pt.y, 0, R.Hu); else if (d.h === 'l') m.y2 = clamp(pt.y, 0, R.Hu); else if (d.h === 's') m.x = clamp(pt.x, 15, 985);
         draw();
       }
@@ -335,6 +339,8 @@
       commitItems(); draw();
     };
   }
+
+  function hLock() { return S.d.settings.boxHLock !== false; } // Settings → Lock box height (on by default)
 
   /* ---------- page gestures (read mode) ---------- */
   function bindGestures() {
@@ -646,7 +652,7 @@
       '<button class="icb pri" data-ract="doneEdit" aria-label="Save">' + IC.check + '</button></div>';
     // The style row is always shown so the drawer keeps one height; with no box selected it sets the style for the next box.
     x += boxStyle(m && m.k === 'box' ? m : R.style, m && m.k === 'div');
-    x += '<div class="hint ehint"><b>' + (am ? 'Mask ' + (masksOf(R.p).indexOf(am) + 1) : '') + '</b> · ' + (m ? (m.k === 'box' ? 'Drag the box to move it; drag a round handle to resize.' + '' : 'Drag to move. Side handles make a step; the middle one moves it.') + (m.k === 'div' ? ' <button class="addlink" data-ract="straight">Straighten</button>' : '')
+    x += '<div class="hint ehint"><b>' + (am ? 'Mask ' + (masksOf(R.p).indexOf(am) + 1) : '') + '</b> · ' + (m ? (m.k === 'box' ? (hLock() ? 'Drag the box to move it; drag a round handle to change its width.' : 'Drag the box to move it; drag a round handle to resize.') + '' : 'Drag to move. Side handles make a step; the middle one moves it.') + (m.k === 'div' ? ' <button class="addlink" data-ract="straight">Straighten</button>' : '')
       : 'Tap Box or Line to add one, or tap a shape to select it. Tip: long-press a shape while reading to edit it.') + '</div>';
     return x;
   }

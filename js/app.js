@@ -300,6 +300,7 @@
       '<h4>Page display</h4><div class="frow"><label>Show pages</label><select data-in="fit"><option value="page"' + (s.fit !== 'width' ? ' selected' : '') + '>Whole page on screen</option><option value="width"' + (s.fit === 'width' ? ' selected' : '') + '>Fit width (scroll)</option></select></div>' +
       '<div class="frow"><label>Auto-trim margins<br><span class="small muted">Measured separately for every page. Your own crops override it.</span></label><select data-in="trim"><option value="full"' + (s.trim === 'full' ? ' selected' : '') + '>Keep header &amp; page no.</option><option value="frame"' + (s.trim === 'frame' ? ' selected' : '') + '>Frame only</option><option value="off"' + (s.trim === 'off' ? ' selected' : '') + '>Off</option></select></div>' +
       '<div class="frow"><label>Extra margin</label><select data-in="trimPad">' + [0, 0.01, 0.02, 0.03].map(function (v) { return '<option value="' + v + '"' + (Math.abs((s.trimPad == null ? 0.01 : s.trimPad) - v) < 0.001 ? ' selected' : '') + '>' + (v * 100) + '%</option>'; }).join('') + '</select></div>' +
+      '<div class="frow"><label>Lock box height<br><span class="small muted">On: a box’s handles change only its width, so the height can’t shift by accident. Off: the corner handles change width and height.</span></label><button class="sw ' + (s.boxHLock !== false ? 'on' : '') + '" data-act="boxHLock"></button></div>' +
       '<div class="frow"><label>Double-tap page for the drawer<br><span class="small muted">On: double-tap the page to hide or bring back the drawer. Off: a single tap hides it and the page number brings it back.</span></label><button class="sw ' + (s.tapShow ? 'on' : '') + '" data-act="tapShow"></button></div>' +
       '<h4>Health decay</h4><div class="frow"><label>Lose health when not reviewed</label><button class="sw ' + (s.decayOn ? 'on' : '') + '" data-act="decayOn"></button></div>' +
       '<div class="frow"><label>Start after</label><select data-in="decayAfter">' + [7, 10, 14, 21, 30].map(function (v) { return '<option value="' + v + '"' + (s.decayAfter === v ? ' selected' : '') + '>' + v + ' days</option>'; }).join('') + '</select></div>' +
@@ -409,6 +410,7 @@
     },
     theme: function (el) { S.d.settings.theme = el.dataset.t; S.saveSettings(); App.render(); openSettings(); },
     tapShow: function () { S.d.settings.tapShow = !S.d.settings.tapShow; S.saveSettings(); openSettings(); },
+    boxHLock: function () { S.d.settings.boxHLock = S.d.settings.boxHLock === false; S.saveSettings(); openSettings(); },
     decayOn: function () { S.d.settings.decayOn = !S.d.settings.decayOn; S.saveSettings(); openSettings(); App.render(); },
     cover: function (el) { S.d.settings.cover = el.dataset.c; S.saveSettings(); openSettings(); },
     signIn: function () { Sync.signIn(false); },
