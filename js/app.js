@@ -20,11 +20,11 @@
     book: I('<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>'),
     check: I('<path d="M20 6L9 17l-5-5"/>'), play: I('<path d="M6 4l14 8-14 8z"/>')
   };
-  var BUILTIN = [{ id: 'new', name: 'New' }, { id: 'review', name: 'Selected for review' }];
+  var BUILTIN = [{ id: 'new', name: 'New' }, { id: 'review', name: 'Selected for Review' }];
   function allTags() { return BUILTIN.concat(S.d.tags); }
   function tagBorn(t) { var n = parseInt(String(t.id).slice(1), 36); return isNaN(n) ? 0 : n; }
   function byOpened(a) { return a.slice().sort(function (x, y) { return (y.o || tagBorn(y)) - (x.o || tagBorn(x)); }); }
-  /* The custom tag the Memorizing tab is filtered to (null for New / Selected for review / none). */
+  /* The custom tag the Memorizing tab is filtered to (null for New / Selected for Review / none). */
   function ctag() { var c = S.d.ui.chips[0]; return c ? S.d.tags.filter(function (t) { return t.id === c; })[0] || null : null; }
   /* Local date the tag was created; counts "in this tag" run from here. */
   function tagSince(t) { if (t.c) return t.c; var d = new Date(tagBorn(t)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -86,7 +86,7 @@
   }
   function memTab() {
     var cur = S.d.ui.chips[0];
-    // New / Selected for review are sub-tabs; custom tags sit below as chips, most recently opened first.
+    // New / Selected for Review are sub-tabs; custom tags sit below as chips, most recently opened first.
     var h = '<nav class="subtabs">' + BUILTIN.map(function (t) {
       return '<button class="' + (cur === t.id ? 'on' : '') + '" data-act="chip" data-t="' + t.id + '">' + esc(t.name) + '</button>';
     }).join('') + '</nav>';
