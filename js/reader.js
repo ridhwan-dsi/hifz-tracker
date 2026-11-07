@@ -126,7 +126,7 @@
     open: function (p, n, range, tag) {
       R.style = boxDef(); R.palOpen = false; R.tag = tag || null; // custom tag: counts shown for the tag, not the month
       p = clamp(p | 0, 1, 604); R.n = n || 0;
-      R.range = range && range.length ? range.slice().sort(function (a, b) { return S.kp(a) - S.kp(b); }) : null;
+      R.range = range && range.length ? range.slice().sort(function (a, b) { return S.kp(a) - S.kp(b) || S.kn(a) - S.kn(b); }) : null;
       if (!Reader.isOpen()) history.pushState({ reader: 1 }, '', '#p' + p);
       $('#reader').classList.add('on'); document.body.style.overflow = 'hidden';
       go(p, 0);
@@ -151,14 +151,23 @@
   });
 
   // Next/previous page: the next listed page when opened from Memorizing, otherwise the adjacent mushaf page.
-  function stepTo(dir) {
+  // Listed pages run in (page, surah) order. Swiping never jumps to another surah unless that surah comes
+  // right after/before this one and continues on the same or the next page — and only with the
+  // "Swipe on into the next surah" setting on. Otherwise swiping stops at the end of the surah.
+  function stepTo(dir, say) {
     if (!R.range) { var q = R.p + dir; return q >= 1 && q <= 604 ? { p: q } : null; }
-    var r = R.range, i, k;
-    if (dir > 0) { for (i = 0; i < r.length; i++) if (S.kp(r[i]) > R.p) { k = r[i]; break; } }
-    else { for (i = r.length - 1; i >= 0; i--) if (S.kp(r[i]) < R.p) { k = r[i]; break; } }
-    return k ? { p: S.kp(k), n: S.kn(k) } : null;
+    var r = R.range, i, k, c = R.p * 1000 + R.n, v = function (u) { return S.kp(u) * 1000 + S.kn(u); };
+    if (dir > 0) { for (i = 0; i < r.length; i++) if (v(r[i]) > c) { k = r[i]; break; } }
+    else { for (i = r.length - 1; i >= 0; i--) if (v(r[i]) < c) { k = r[i]; break; } }
+    if (!k) return null;
+    var p = S.kp(k), n = S.kn(k);
+    if (n !== R.n) {
+      var ok = S.d.settings.swipeSur !== false && Math.abs(n - R.n) === 1 && Math.abs(p - R.p) <= 1;
+      if (!ok) { if (say) App.toast('End of ' + (QURAN.S[R.n - 1] ? QURAN.S[R.n - 1][0] : 'surah') + ' · tap a page number to jump'); return null; }
+    }
+    return { p: p, n: n };
   }
-  function step(dir) { var t = stepTo(dir); if (t) go(t.p, dir, t.n); return t; }
+  function step(dir) { var t = stepTo(dir, 1); if (t) go(t.p, dir, t.n); return t; }
   function go(p, dir, n) {
     if (p < 1 || p > 604) return;
     var ss0 = S.onPage(p), n0 = n || R.n; if (ss0.indexOf(n0) < 0) n0 = dir < 0 ? ss0[ss0.length - 1] : ss0[0];
@@ -427,7 +436,7 @@
       if (!g || e.pointerId !== g.id) return;
       clearTimeout(g.lp); var dx = e.clientX - g.x, dy = e.clientY - g.y, dt = Date.now() - g.t, ax = g.ax, sh = $('#sheet'); g = null;
       if (ax === 'x') {
-        var dir = dx > 0 ? 1 : -1, nt = stepTo(dir);
+        var dir = dx > 0 ? 1 : -1, nt = stepTo(dir, Math.abs(dx) > 60);
         if (Math.abs(dx) > 60 && nt) {
           sh.style.transition = 'transform .13s ease-in'; sh.style.transform = 'translateX(' + (dir * innerWidth) + 'px)';
           setTimeout(function () { go(nt.p, dir, nt.n); }, 130); return;

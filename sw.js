@@ -1,5 +1,5 @@
 /* Service worker: app shell network-first (so updates arrive), mushaf pages cache-first (full resolution, offline). */
-var SHELL = 'hifz-shell-v73', PAGES = 'hifz-pages';
+var SHELL = 'hifz-shell-v74', PAGES = 'hifz-pages';
 var FILES = ['./', 'index.html', 'css/app.css', 'js/config.js', 'js/quran.js', 'js/autocrop.js', 'js/store.js', 'js/timer.js', 'js/tally.js', 'js/reader.js', 'js/app.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png'];
 self.addEventListener('install', function (e) { e.waitUntil(caches.open(SHELL).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); })); });
 self.addEventListener('activate', function (e) {

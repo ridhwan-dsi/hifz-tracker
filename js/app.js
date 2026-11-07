@@ -429,6 +429,7 @@
       '<div class="frow"><label>New box width<br><span class="small muted">How wide a new box starts, as a share of the page width.</span></label><select data-in="boxW">' + [8, 11, 15, 20, 25, 34, 50].map(function (v) { return '<option value="' + v + '"' + ((+s.boxW || 11) === v ? ' selected' : '') + '>' + v + '%</option>'; }).join('') + '</select></div>' +
       '<div class="frow"><label>Lock box height<br><span class="small muted">On: a box’s handles change only its width, so the height can’t shift by accident. Off: the corner handles change width and height.</span></label><button class="sw ' + (s.boxHLock !== false ? 'on' : '') + '" data-act="boxHLock"></button></div>' +
       '<div class="frow"><label>Double-tap page for the drawer<br><span class="small muted">On: double-tap the page to hide or bring back the drawer. Off: a single tap hides it and the page number brings it back.</span></label><button class="sw ' + (s.tapShow ? 'on' : '') + '" data-act="tapShow"></button></div>' +
+      '<div class="frow"><label>Swipe on into the next surah<br><span class="small muted">In Memorizing, swiping stays inside one surah. On: when the next surah in your list starts on the same or the next page (e.g. Faatir → Yaseen), swiping carries on into it. Off: swiping always stops at the end of a surah.</span></label><button class="sw ' + (s.swipeSur !== false ? 'on' : '') + '" data-act="swipeSur"></button></div>' +
       '<h4>Health decay</h4><div class="frow"><label>Lose health when not reviewed</label><button class="sw ' + (s.decayOn ? 'on' : '') + '" data-act="decayOn"></button></div>' +
       '<div class="frow"><label>Start after</label><select data-in="decayAfter">' + [7, 10, 14, 21, 30].map(function (v) { return '<option value="' + v + '"' + (s.decayAfter === v ? ' selected' : '') + '>' + v + ' days</option>'; }).join('') + '</select></div>' +
       '<div class="frow"><label>Then lose</label><select data-in="decayPct">' + [5, 10, 15].map(function (v) { return '<option value="' + v + '"' + (s.decayPct === v ? ' selected' : '') + '>' + v + '% per week</option>'; }).join('') + '</select></div>' +
@@ -558,6 +559,7 @@
       Promise.all([p1, p2, p3]).catch(function () {}).then(function () { location.replace(location.pathname + '?v=' + Date.now() + location.hash); });
     },
     theme: function (el) { S.d.settings.theme = el.dataset.t; S.saveSettings(); App.render(); openSettings(); },
+    swipeSur: function () { S.d.settings.swipeSur = S.d.settings.swipeSur === false; S.saveSettings(); openSettings(); },
     tapShow: function () { S.d.settings.tapShow = !S.d.settings.tapShow; S.saveSettings(); openSettings(); },
     boxHLock: function () { S.d.settings.boxHLock = S.d.settings.boxHLock === false; S.saveSettings(); openSettings(); },
     cropRestore: function () { if (!confirm('Restore the default crop to the auto-trim?')) return; S.d.settings.cropDef = null; S.saveSettings(); /* null, not delete, so the restore syncs to other devices */ openSettings(); App.render(); App.toast('Default crop restored'); },
