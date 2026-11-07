@@ -416,6 +416,7 @@
       x += '</div>';
       host.innerHTML = x; afterPanel(); return;
     }
+    var before = toolPos();
     var dz = dzCur();
     x += '<div class="rpanel dz-' + dz + '"><button class="grab" data-ract="dsz" aria-label="Resize controls">' + (dz === 'rib' ? IC.up : IC.down) + '</button>';
     if (R.sub === 'join') x += joinPanel();
@@ -423,7 +424,18 @@
     else if (R.edit) x += editPanel() + toolsRow();
     else x += mainPanel();
     x += '</div>';
-    host.innerHTML = x; afterPanel();
+    host.innerHTML = x; afterPanel(); slideTools(before);
+  }
+  // Toolbar icons glide to their new spots when an oval opens or closes, instead of jumping.
+  function toolPos() {
+    var o = {}; [].forEach.call(document.querySelectorAll('.rpanel .tools [data-ract]'), function (b) { o[b.dataset.ract] = b.getBoundingClientRect().left; }); return o;
+  }
+  function slideTools(before) {
+    [].forEach.call(document.querySelectorAll('.rpanel .tools [data-ract]'), function (b) {
+      var x0 = before[b.dataset.ract]; if (x0 == null || !b.animate) return;
+      var d = x0 - b.getBoundingClientRect().left; if (Math.abs(d) < 1) return;
+      b.animate([{ transform: 'translateX(' + d + 'px)' }, { transform: 'none' }], { duration: 220, easing: 'cubic-bezier(.2,.7,.3,1)' });
+    });
   }
   /* Page strip under the surah name: the listed pages (Memorizing) or the surah's pages, current one centred.
      Scroll or drag the strip; whichever number settles in the centre opens. Tap a number to jump to it. */
@@ -561,7 +573,7 @@
     return '<div class="rrow scroll tools">' + tb('home', 'Back', IC.back, false) +
       tb('health', m ? h + '%' : 'Health', IC.heart, R.sub === 'health', !m) + tb('tags', 'Tags', IC.tag, R.sub === 'tags', !m) +
       timerTool() + tb('tally', 'Tally', IC.tally, R.sub === 'tally') +
-      (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + '<span style="flex:1"></span>' + grp + '</div>';
+      (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + grp + '</div>';
   }
   // Once a session is running, Timer expands into an oval with the running time and play/pause beside it.
   function timerTool() {
@@ -609,7 +621,8 @@
       '<button class="btn sm" data-ract="tlyEdit">Edit</button><button class="btn sm pri" data-ract="tlySave"' + (T.n ? '' : ' disabled') + '>Save</button>' +
       '<button class="icb" data-ract="tlyHide" aria-label="Hide counter">' + IC.x + '</button></div>';
     var parts = ns > 1 ? t.sec.map(function (v, j) { return 'S' + (j + 1) + ' ' + v; }).join(' · ') + ' · ' : '';
-    x += '<div class="small muted" style="padding:0 4px 4px">' + parts + 'Page read <b>' + t.page + '×</b>';
+    var mo = S.month(), tm = S.tally(R.k, function (d) { return d.slice(0, 7) === mo; }).page;
+    x += '<div class="small muted" style="padding:0 4px 4px">' + parts + 'Page read <b>' + tm + '×</b> this month · <b>' + t.page + '×</b> lifetime';
     var g = S.d.settings.tDay;
     if (g) { var td = S.today(), dr = Tally.dayReads(function (d) { return d === td; }); x += ' · today ' + dr + ' / ' + g + (dr >= g ? ' ✓' : ''); }
     return x + '</div></div>';

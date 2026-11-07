@@ -6,7 +6,7 @@
   var T = { on: false, n: 0, k: null, from: 0, to: 0, x: 0.84, y: 0.32 };
   try { Object.assign(T, JSON.parse(localStorage.getItem(LK)) || {}); } catch (e) {}
   function keep() { try { localStorage.setItem(LK, JSON.stringify(T)); } catch (e) {} }
-  function holdMs() { var h = +S.d.settings.tHold || 0.4; return Math.round(Math.max(0.4, Math.min(1.5, h)) * 1000); }
+  function holdMs() { var h = +S.d.settings.tHold || 0.4; return Math.round(Math.max(0.2, Math.min(1.5, h)) * 1000); }
   function buzz() { try { navigator.vibrate && navigator.vibrate(35); } catch (e) {} }
 
   var el = null, ring = null, num = null;
@@ -16,14 +16,26 @@
     document.body.appendChild(el);
     ring = el.querySelector('.tr'); num = el.querySelector('.tn');
     var g = null;
-    function reset() { if (g) clearTimeout(g.t); ring.style.transition = 'stroke-dashoffset .12s'; ring.style.strokeDashoffset = C; }
+    // The ring is drawn frame by frame and the count + vibration fire on the very frame it closes,
+    // so even at 0.2 s the buzz lands with the ring, not after it.
+    function reset() { if (g) cancelAnimationFrame(g.raf); ring.style.transition = 'stroke-dashoffset .12s'; ring.style.strokeDashoffset = C; }
+    function run(gg) {
+      var ms = holdMs(), t0 = performance.now();
+      ring.style.transition = 'none';
+      (function f(now) {
+        if (g !== gg || gg.drag) return;
+        var k = Math.min(1, (now - t0) / ms);
+        ring.style.strokeDashoffset = C * (1 - k);
+        if (k < 1) { gg.raf = requestAnimationFrame(f); return; }
+        buzz(); Tally.add(1); el.classList.add('pop'); setTimeout(function () { el.classList.remove('pop'); }, 130); reset();
+      })(t0);
+    }
     el.addEventListener('pointerdown', function (e) {
       e.preventDefault(); e.stopPropagation();
       try { el.setPointerCapture(e.pointerId); } catch (x) {}
       var r = el.getBoundingClientRect();
       g = { id: e.pointerId, x: e.clientX, y: e.clientY, ox: e.clientX - r.left, oy: e.clientY - r.top, drag: false };
-      ring.style.transition = 'stroke-dashoffset ' + holdMs() + 'ms linear'; ring.style.strokeDashoffset = 0;
-      g.t = setTimeout(function () { if (!g || g.drag) return; Tally.add(1); buzz(); el.classList.add('pop'); setTimeout(function () { el.classList.remove('pop'); }, 130); reset(); }, holdMs());
+      run(g);
     });
     el.addEventListener('pointermove', function (e) {
       if (!g || e.pointerId !== g.id) return;

@@ -309,3 +309,6 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 /* Toolbar: a little tighter so Tally fits beside an open timer. */
 .rrow.tools { gap: 2px; }
 .rrow.tools .tb { min-width: 42px; padding: 5px 4px; }
+/* Toolbar icons spread evenly across the bar; the spacing tightens as an oval opens, scrolling only if still too wide. */
+.rrow.tools { justify-content: space-between; }
+.rrow.tools > * { flex: none; }
