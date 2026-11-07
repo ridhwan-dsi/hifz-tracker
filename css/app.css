@@ -297,3 +297,15 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 .psp { flex: none; width: calc(50% - 25px); height: 1px; }
 .pc { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--line); color: var(--muted); font-size: 12px; font-weight: 700; display: grid; place-items: center; scroll-snap-align: center; background: transparent; transition: color .1s, font-size .1s, border-color .1s; }
 .pc.cur { border-color: transparent; color: #fff; font-size: 14px; }
+/* Tally counter: floating round button, count inside, ring closes around it while held. */
+#tally { position: fixed; z-index: 45; width: 84px; height: 84px; touch-action: none; user-select: none; -webkit-user-select: none; display: none; cursor: pointer; }
+#tally svg { position: absolute; inset: 0; width: 84px; height: 84px; transform: rotate(-90deg); pointer-events: none; }
+#tally .tk { fill: none; stroke: color-mix(in srgb, var(--acc) 22%, transparent); stroke-width: 4; }
+#tally .tr { fill: none; stroke: var(--acc); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 232.5; stroke-dashoffset: 232.5; }
+#tally .tn { position: absolute; inset: 8px; border-radius: 50%; background: color-mix(in srgb, var(--acc) 50%, #fff); color: #10261b; opacity: .93; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; transition: transform .12s; }
+#tally.pop .tn { transform: scale(1.08); }
+.tlsub .tlyn { font-size: 22px; color: var(--acc); font-variant-numeric: tabular-nums; }
+.tlsub .btn:disabled { opacity: .45; }
+/* Toolbar: a little tighter so Tally fits beside an open timer. */
+.rrow.tools { gap: 2px; }
+.rrow.tools .tb { min-width: 42px; padding: 5px 4px; }

@@ -7,7 +7,7 @@
   function blank() {
     return {
       v: 2, acct: null, pages: {}, tags: [], time: {}, su: 0, last: null,
-      settings: { theme: 'green', decayOn: true, decayAfter: 14, decayPct: 5, cover: '#ffffff', fit: 'page', trim: 'full', trimPad: 0.01, goalDay: 30, autoRev: 10, sessT: 0 },
+      settings: { theme: 'green', decayOn: true, decayAfter: 14, decayPct: 5, cover: '#ffffff', fit: 'page', trim: 'full', trimPad: 0.01, goalDay: 30, autoRev: 10, sessT: 0, tHold: 0.4, tDay: 0, tRuleN: 0, tRulePct: 5, tapShow: false },
       ui: { tab: 'mem', contMin: false, chips: [] }
     };
   }
@@ -137,6 +137,28 @@
       if (L.last && L.last.p && !L.last.k) L.last.k = uk(L.last.p);
       this.migrateUnits();
       this.persist();
+    },
+    /* Tally: each saved count is logged on the unit as [date, from, to, n]; from/to are sections (1-based) of
+       Mask 1's lines, 0/0 = whole page. A section's reads = every entry covering it; the page's reads = its least-read section. */
+    nSec: function (p) {
+      var o = this.get(p), m = o.mk ? o.mk[0] : (o.masks ? { items: o.masks } : null);
+      return m ? (m.items || []).filter(function (q) { return q.k === 'div'; }).length + 1 : 1;
+    },
+    tally: function (k, pred) {
+      var ns = this.nSec(kp(k)), sec = [], raw = 0, i;
+      for (i = 0; i < ns; i++) sec.push(0);
+      (this.get(k).tl || []).forEach(function (e) {
+        if (pred && !pred(e[0])) return;
+        raw += e[3];
+        var a = e[1] ? Math.min(e[1], ns) : 1, b = e[2] ? Math.min(e[2], ns) : ns;
+        for (i = a; i <= b; i++) sec[i - 1] += e[3];
+      });
+      return { sec: sec, page: Math.min.apply(null, sec), raw: raw };
+    },
+    addTally: function (k, from, to, n) {
+      var before = this.tally(k).page;
+      this.edit(k, function (o) { o.tl = o.tl || []; o.tl.push([today(), from || 0, to || 0, n]); });
+      return { before: before, after: this.tally(k).page };
     },
     exportData: function () { var c = JSON.parse(JSON.stringify(this.d)); delete c.ui; return c; }
   };

@@ -98,7 +98,7 @@
     close: function () {
       if (window.Timer) Timer.pause();
       $('#reader').classList.remove('on'); document.body.style.overflow = '';
-      R.sub = null; R.edit = false; R.sel = -1; App.render();
+      R.sub = null; R.edit = false; R.sel = -1; App.render(); if (window.Tally) Tally.render();
     },
     isOpen: function () { return $('#reader').classList.contains('on'); },
     page: function () { return R.p; },
@@ -107,7 +107,12 @@
     relayout: function () { if (Reader.isOpen()) layout(); }
   };
   window.Reader = Reader;
-  window.addEventListener('popstate', function () { if (Reader.isOpen()) Reader.close(); });
+  window.addEventListener('popstate', function () {
+    if (!Reader.isOpen()) return;
+    // An unsaved tally keeps the reader open until it is saved, edited or left.
+    if (Tally.dirty()) { history.pushState({ reader: 1 }, '', '#p' + R.p); Tally.ask(function () { history.back(); }); return; }
+    Reader.close();
+  });
 
   // Next/previous page: the next listed page when opened from Memorizing, otherwise the adjacent mushaf page.
   function stepTo(dir) {
@@ -120,6 +125,11 @@
   function step(dir) { var t = stepTo(dir); if (t) go(t.p, dir, t.n); return t; }
   function go(p, dir, n) {
     if (p < 1 || p > 604) return;
+    var ss0 = S.onPage(p), n0 = n || R.n; if (ss0.indexOf(n0) < 0) n0 = dir < 0 ? ss0[ss0.length - 1] : ss0[0];
+    if (Tally.dirty() && Tally.unit() !== S.uk(p, n0)) {
+      Tally.ask(function () { go(p, dir, n); }, function () { var sh = $('#sheet'); sh.style.transition = 'transform .18s'; sh.style.transform = ''; renderPanel(); });
+      return;
+    }
     if (n) R.n = n;
     if (dir) buzz();
     // Which surah's portion of the page this is. A shared page keeps the surah you came from if it is on it;
@@ -127,6 +137,7 @@
     var ss = S.onPage(p);
     if (ss.indexOf(R.n) < 0) R.n = dir < 0 ? ss[ss.length - 1] : ss[0];
     R.k = S.uk(p, R.n);
+    if (p !== R.p) Tally.newPage();
     R.p = p; R.sel = -1; R.drag = null; R.edit = false; R.draft = null;
     // Every page opens on Mask 1 (created the first time it's needed).
     var ms0 = masksOf(p);
@@ -136,7 +147,7 @@
     loadItems();
     S.setLast(p, R.k);
     if (history.state && history.state.reader) history.replaceState({ reader: 1 }, '', '#p' + p);
-    renderPanel();
+    renderPanel(); Tally.render();
     layout(dir);
     [p - 1, p + 1, p + 2, p - 2].forEach(function (q) { if (q >= 1 && q <= 604) img(q).catch(function () {}); });
   }
@@ -155,7 +166,11 @@
       });
       var U = dims.reduce(function (a, d) { return a + d.u; }, 0);
       var vw = sc.clientWidth || innerWidth, top = 8, vh = innerHeight - R.ph - top * 2;
-      var W = (fitPage() || R.sub === 'crop' || R.sub === 'join' || R.edit) ? Math.min(vw, vh / U) : Math.min(vw, 820);
+      // Whole-page mode keeps the page's own width; a join that makes it taller than the screen scrolls instead of shrinking.
+      var fitAll = R.sub === 'crop' || R.sub === 'join' || R.edit, W;
+      if (fitAll) W = Math.min(vw, vh / U);
+      else if (fitPage()) { var Ub = U; segs.forEach(function (s, i) { if (s.role === 'this') Ub = dims[i].ch / dims[i].cw; }); W = Math.min(vw, vh / Math.min(U, Ub)); }
+      else W = Math.min(vw, 820);
       W = Math.max(120, Math.floor(W * lzoom()));
       var html = '';
       segs.forEach(function (s, i) {
@@ -168,7 +183,7 @@
         for (var si = 0; si < segs.length; si++) { if (segs[si].role === 'this') { oy -= segs[si].y0 * 1000 * dims[si].ch / dims[si].cw; break; } oy += dims[si].u * 1000; }
         if (Math.abs(oy - R.oy) > 0.01) { R.items = shiftItems(R.items, oy - R.oy); R.oy = oy; }
       }
-      var H = U * W, fit = fitPage() || R.sub === 'crop' || R.sub === 'join' || R.edit;
+      var H = U * W, fit = (fitPage() || fitAll) && H <= vh + 2;
       sheet.style.width = W + 'px'; sheet.style.marginLeft = sheet.style.marginRight = 'auto';
       sheet.style.marginTop = (fit ? Math.max(top, (innerHeight - R.ph - H) / 2) : 0) + 'px';
       sheet.style.transition = 'none'; sheet.style.transform = '';
@@ -199,8 +214,8 @@
   function divPts(m) { return '1000,' + r1(m.y1) + ' ' + r1(m.x) + ',' + r1(m.y1) + ' ' + r1(m.x) + ',' + r1(m.y2) + ' 0,' + r1(m.y2); }
   function draw() {
     var ov = $('#ov'); if (!ov) return;
-    var am = activeMask(), cov = S.d.settings.cover, divs = dividers(), H = R.Hu, s = '';
-    if (!am && !R.edit) { ov.innerHTML = ''; return; }
+    var am = activeMask(), cov = S.d.settings.cover, divs = dividers(), H = R.Hu, s = '', tint = tallyTint();
+    if (!am && !R.edit) { ov.innerHTML = tint; return; }
     var sec = R.edit ? 0 : (am.sec || 0), hb = !R.edit && am.hb;
     if (sec > divs.length + 1) sec = 0;
     if (!hb) R.items.forEach(function (m, i) {
@@ -223,6 +238,7 @@
         '<circle class="hd" data-h="l" cx="' + r1(m.x / 2) + '" cy="' + r1(m.y2) + '" r="18"/>' +
         '<circle class="hd" data-h="s" cx="' + r1(m.x) + '" cy="' + r1((m.y1 + m.y2) / 2) + '" r="15"/>';
     }
+    s += tint;
     if (R.tmp) s += '<rect x="' + r1(R.tmp.x) + '" y="' + r1(R.tmp.y) + '" width="' + r1(R.tmp.w) + '" height="' + r1(R.tmp.h) + '" fill="' + R.style.c + '" fill-opacity="' + R.style.o + '" stroke="#1d6fe0" stroke-width="3" stroke-dasharray="8 6"/>';
     ov.innerHTML = s;
   }
@@ -355,7 +371,8 @@
         if (dy < -50 && !R.panel) togglePanel(true); else if (dy > 50 && R.panel && fitPage()) togglePanel(false);
         return;
       }
-      if (!ax && dt < 350) togglePanel(!R.panel);
+      // Tap hides the drawer; it comes back from the page number, or by tapping the page too if that's switched on in Settings.
+      if (!ax && dt < 350) { if (R.panel) togglePanel(false); else if (S.d.settings.tapShow) togglePanel(true); }
     });
     sc.addEventListener('pointercancel', function (e) { if (g && e.pointerId === g.id) { g = null; var sh = $('#sheet'); sh.style.transition = 'transform .18s'; sh.style.transform = ''; } });
     document.addEventListener('keydown', function (e) {
@@ -377,7 +394,7 @@
     full: I('<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>'),
     fitp: I('<rect x="6" y="3" width="12" height="18" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h4"/>'), fitw: I('<path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/>'),
     left: I('<path d="M15 18l-6-6 6-6"/>'), right: I('<path d="M9 18l6-6-6-6"/>'), check: I('<path d="M20 6L9 17l-5-5"/>'),
-    pen: I('<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), up: I('<path d="M18 15l-6-6-6 6"/>'), down: I('<path d="M6 9l6 6 6-6"/>'), trash: I('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'), x: I('<path d="M6 6l12 12M18 6L6 18"/>'), back: I('<path d="M19 12H5M12 19l-7-7 7-7"/>')
+    pen: I('<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), up: I('<path d="M18 15l-6-6-6 6"/>'), down: I('<path d="M6 9l6 6 6-6"/>'), trash: I('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'), x: I('<path d="M6 6l12 12M18 6L6 18"/>'), back: I('<path d="M19 12H5M12 19l-7-7 7-7"/>'), tally: I('<circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/>')
   };
   function tb(id, label, icon, on, off) { return '<button class="tb' + (on ? ' on' : '') + '" data-ract="' + id + '"' + (off ? ' disabled' : '') + '>' + icon + label + '</button>'; }
   function navBtns(cls) {
@@ -525,6 +542,7 @@
     if (m && R.sub === 'health') x += '<div class="rsub hsub"><span class="lbl">Health</span><span class="hctl big"><button data-ract="hminus" aria-label="Lower health">−</button><span style="color:' + (h ? App.hcol(h) : 'var(--muted)') + '">' + h + '%</span><button data-ract="hplus" aria-label="Raise health">+</button></span></div>';
     if (m && R.sub === 'tags') x += '<div class="rrow scroll subrow">' + App.allTags().map(function (t) { return '<button class="chip' + (S.hasTag(R.k, t.id) ? ' on' : '') + '" data-ract="tag" data-t="' + App.esc(t.id) + '">' + App.esc(t.name) + '</button>'; }).join('') + '</div>';
     if (R.sub === 'timer') x += timerPanel();
+    if (R.sub === 'tally') x += tallyPanel();
     return x + toolsRow();
   }
   // The bottom toolbar stays put in every mode; each tool opens its row above it and a second tap closes it.
@@ -539,7 +557,7 @@
       tb('edGrp', 'Edit', open ? IC.x : IC.pen, false).replace('class="tb', 'class="tb edbtn') + '</div>';
     return '<div class="rrow scroll tools">' + tb('home', 'Back', IC.back, false) +
       tb('health', m ? h + '%' : 'Health', IC.heart, R.sub === 'health', !m) + tb('tags', 'Tags', IC.tag, R.sub === 'tags', !m) +
-      timerTool() +
+      timerTool() + tb('tally', 'Tally', IC.tally, R.sub === 'tally') +
       (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + '<span style="flex:1"></span>' + grp + '</div>';
   }
   // Once a session is running, Timer expands into an oval with the running time and play/pause beside it.
@@ -574,6 +592,32 @@
       '<button class="chip" data-ract="tT" data-v="custom" aria-label="Custom target">+</button></div>';
     if (g) x += '<div class="rrow"><span class="small muted" style="white-space:nowrap">Today <span class="tmr-day">' + Math.floor(dd.t / 60) + '</span> / ' + g + ' min' + (dd.t >= g * 60 ? ' ✓' : '') + '</span><div class="hbar" style="flex:1;margin:0"><i class="tmr-bar" style="width:' + Math.min(100, dd.t / (g * 60) * 100) + '%;background:var(--acc)"></i></div></div>';
     return x + '</div>';
+  }
+  /* Tally row: sections from Mask 1's lines (tap one, then another to take a range), the live count with Edit/Save,
+     and this page's reads per section (the page counts as read as many times as its least-read section). */
+  function tallyPanel() {
+    var ns = S.nSec(R.p), sc = Tally.scope(), T = Tally.state(), t = S.tally(R.k), x = '<div class="rsub tlsub">';
+    if (ns > 1) {
+      x += '<div class="rrow scroll"><button class="chip' + (!sc.from ? ' on' : '') + '" data-ract="tlySec" data-s="0">Whole page</button>';
+      for (var i = 1; i <= ns; i++) x += '<button class="chip num' + (sc.from && i >= sc.from && i <= sc.to ? ' on' : '') + '" data-ract="tlySec" data-s="' + i + '">S' + i + '</button>';
+      x += '</div>';
+    }
+    x += '<div class="rrow"><span class="lbl">Count</span><b class="tlyn">' + T.n + '</b><span style="flex:1"></span>' +
+      '<button class="btn sm" data-ract="tlyEdit">Edit</button><button class="btn sm pri" data-ract="tlySave"' + (T.n ? '' : ' disabled') + '>Save</button>' +
+      '<button class="icb" data-ract="tlyHide" aria-label="Hide counter">' + IC.x + '</button></div>';
+    var parts = ns > 1 ? t.sec.map(function (v, j) { return 'S' + (j + 1) + ' ' + v; }).join(' · ') + ' · ' : '';
+    x += '<div class="small muted" style="padding:0 4px 4px">' + parts + 'Page read <b>' + t.page + '×</b>';
+    var g = S.d.settings.tDay;
+    if (g) { var td = S.today(), dr = Tally.dayReads(function (d) { return d === td; }); x += ' · today ' + dr + ' / ' + g + (dr >= g ? ' ✓' : ''); }
+    return x + '</div></div>';
+  }
+  function tallyTint() {
+    var sc = Tally.scope(); if (R.sub !== 'tally' || !sc.from) return '';
+    var m1 = masksOf(R.p)[0]; if (!m1) return '';
+    var ds = shiftItems((m1.items || []).filter(function (q) { return q.k === 'div'; }), R.oy).sort(function (a, b) { return (a.y1 + a.y2) - (b.y1 + b.y2); });
+    var above = ds[sc.from - 2], below = ds[sc.to - 1], H = r1(R.Hu);
+    var top = above ? divPts(above) : '1000,0 0,0', bot = below ? divPts(below).split(' ').reverse().join(' ') : '0,' + H + ' 1000,' + H;
+    return '<polygon points="' + top + ' ' + bot + '" style="fill:var(--acc);fill-opacity:.14;pointer-events:none"/>';
   }
   function editPanel() {
     var am = activeMask(), m = R.items[R.sel], x = '';
@@ -649,7 +693,25 @@
   }
   function setActive(id) { saveMasks(function (ms, o) { o.am = id || ''; }); loadItems(); }
   var RACT = {
-    home: function () { history.back(); },
+    home: function () { if (Tally.dirty()) Tally.ask(function () { history.back(); }); else history.back(); },
+    tally: function () {
+      leaveModes();
+      if (!Tally.on()) { Tally.show(true); R.sub = 'tally'; } else R.sub = R.sub === 'tally' ? null : 'tally';
+      renderPanel(); draw();
+    },
+    tlySec: function (el) {
+      var i = +el.dataset.s, sc = Tally.scope();
+      if (!i) Tally.setScope(0, 0);
+      else if (sc.from && sc.from === sc.to && i !== sc.from) Tally.setScope(Math.min(i, sc.from), Math.max(i, sc.from));
+      else Tally.setScope(i, i);
+      renderPanel(); draw();
+    },
+    tlyEdit: function () { Tally.edit(); renderPanel(); },
+    tlySave: function () { Tally.save(); renderPanel(); },
+    tlyHide: function () {
+      var hide = function () { Tally.show(false); R.sub = null; renderPanel(); draw(); };
+      if (Tally.dirty()) Tally.ask(hide); else hide();
+    },
     next: function () { step(1); }, prev: function () { step(-1); },
     pgo: function (el) { var q = +el.dataset.p; if (q !== R.p) go(q, q > R.p ? 1 : -1, +el.dataset.n); },
     collapse: function () { togglePanel(false); }, expand: function () { togglePanel(true); },
@@ -657,7 +719,7 @@
     mem: function () { var on = !S.isMem(R.k); S.setMem(R.k, on); App.toast(on ? 'Added to Memorizing (New)' : 'Moved back to To Memorize'); renderPanel(); App.precache(); },
     hminus: function () { S.setHealth(R.k, S.health(R.k) - 5); renderPanel(); },
     hplus: function () { S.setHealth(R.k, S.health(R.k) + 5); renderPanel(); },
-    surah: function (el) { R.n = +el.dataset.n; R.k = S.uk(R.p, R.n); S.setLast(R.p, R.k); renderPanel(); },
+    surah: function (el) { if (Tally.dirty()) { Tally.ask(function () { RACT.surah(el); }); return; } R.n = +el.dataset.n; R.k = S.uk(R.p, R.n); S.setLast(R.p, R.k); renderPanel(); },
     rev: function () {
       var p = R.k;
       if (S.get(p).lr === S.today()) { S.unreviewToday(p); renderPanel(); App.toast('Review for today removed'); return; }

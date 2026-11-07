@@ -186,9 +186,10 @@
     });
     for (var mm2 in months) pms[mm2] = 1; pms[m] = 1;
     var tOf = function (p) { return tmap[S.kp(p)] || 0; };
+    var rdOf = function (p) { return S.tally(p, prd === 'all' ? null : function (d) { return d.slice(0, 7) === prd; }).page; };
     var rOf = function (p) { var rv = S.get(p).rv || {}, t = 0; if (prd !== 'all') return rv[prd] || 0; for (var x in rv) t += rv[x]; return t; };
     var SRT = { page: ['Page', 'Mushaf order', 'Reversed', null], health: ['Health', 'Best first', 'Worst first', function (p) { return S.health(p); }],
-      time: ['Time spent', 'Most first', 'Least first', tOf], revs: ['Times reviewed', 'Most first', 'Least first', rOf],
+      time: ['Time spent', 'Most first', 'Least first', tOf], reads: ['Times read (tally)', 'Most first', 'Least first', rdOf], revs: ['Times reviewed', 'Most first', 'Least first', rOf],
       last: ['Last reviewed', 'Most recent first', 'Longest ago first', function (p) { var d = S.get(p).lr; return d ? new Date(d + 'T00:00:00').getTime() : 0; }] };
     var sk = SRT[st.srt] || SRT.page, kf = sk[3], dn = st.sdir ? -1 : 1;
     list.sort(function (a, b) { var c = kf ? kf(b) - kf(a) : 0; return (c || byUnit(a, b)) * (kf ? (c ? dn : 1) : dn); });
@@ -200,7 +201,7 @@
       return '<div class="prow"><button class="tick ' + (on ? 'on' : '') + '" style="margin:0" data-act="ssel" data-p="' + p + '">' + (on ? ICON.check : '') + '</button>' +
         '<div class="grow"><div style="display:flex;gap:8px;align-items:center"><button class="pl" data-act="open" data-p="' + p + '">P. ' + S.kp(p) + '</button><span class="small muted" style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">' + esc(unitTitle(p)) + (S.hasTag(p, 'review') ? ' · for review' : '') + '</span></div>' +
         '<div class="hbar"><i style="width:' + hh + '%;background:' + hcol(hh) + '"></i></div></div>' +
-        '<div style="text-align:right;font-size:12px"><b>' + hh + '%</b><br><span class="muted">' + ago(o.lr) + ' · ' + rOf(p) + '×' + (tOf(p) >= 30 ? ' · ' + Timer.mins(tOf(p)) : '') + '</span></div></div>';
+        '<div style="text-align:right;font-size:12px"><b>' + hh + '%</b><br><span class="muted">' + ago(o.lr) + ' · ' + rOf(p) + '×' + (tOf(p) >= 30 ? ' · ' + Timer.mins(tOf(p)) : '') + (rdOf(p) ? ' · ' + rdOf(p) + ' reads' : '') + '</span></div></div>';
     }).join('') || '<div class="empty">No pages.</div>') + '</div>';
     var nsel = Object.keys(st.ssel).filter(function (k) { return st.ssel[k]; }).length;
     if (list.length) h += '<div class="actbar"><button class="btn" data-act="sselAll">' + (nsel ? 'Clear (' + nsel + ')' : 'Select all') + '</button><button class="btn pri" data-act="tagReview" ' + (nsel ? '' : 'disabled style="opacity:.5"') + '>Mark for review</button></div>';
@@ -222,7 +223,9 @@
       '<div class="card"><div class="v">' + Math.floor(((D[td] || {}).t || 0) / 60) + (g ? '<span class="small muted"> / ' + g + '</span>' : '') + '</div><div class="k">Minutes today' + (g && met(td) ? ' · ✓ goal' : '') + '</div></div>' +
       '<div class="card"><div class="v">' + streak + '</div><div class="k">Day streak</div></div>' +
       '<div class="card"><div class="v">' + Timer.mins(sum(function (k) { return k >= wks; })) + '</div><div class="k">Last 7 days</div></div>' +
-      '<div class="card"><div class="v">' + Timer.mins(sum(function () { return true; })) + '</div><div class="k">Total time</div></div></div>';
+      '<div class="card"><div class="v">' + Timer.mins(sum(function () { return true; })) + '</div><div class="k">Total time</div></div>' +
+      '<div class="card"><div class="v">' + Tally.dayReads(function (d) { return d === td; }) + (S.d.settings.tDay ? '<span class="small muted"> / ' + S.d.settings.tDay + '</span>' : '') + '</div><div class="k">Page reads today</div></div>' +
+      '<div class="card"><div class="v">' + Tally.dayReads(function (d) { return d.slice(0, 7) === mth; }) + '</div><div class="k">Page reads this month</div></div></div>';
     if (st.cday) return h + dayDetail(st.cday, D[st.cday]);
     // Month calendar
     var cm = st.cal || mth, y = +cm.slice(0, 4), mo = +cm.slice(5, 7) - 1, first = new Date(y, mo, 1), nd = new Date(y, mo + 1, 0).getDate();
@@ -276,11 +279,16 @@
       '<h4>Page display</h4><div class="frow"><label>Show pages</label><select data-in="fit"><option value="page"' + (s.fit !== 'width' ? ' selected' : '') + '>Whole page on screen</option><option value="width"' + (s.fit === 'width' ? ' selected' : '') + '>Fit width (scroll)</option></select></div>' +
       '<div class="frow"><label>Auto-trim margins<br><span class="small muted">Measured separately for every page. Your own crops override it.</span></label><select data-in="trim"><option value="full"' + (s.trim === 'full' ? ' selected' : '') + '>Keep header &amp; page no.</option><option value="frame"' + (s.trim === 'frame' ? ' selected' : '') + '>Frame only</option><option value="off"' + (s.trim === 'off' ? ' selected' : '') + '>Off</option></select></div>' +
       '<div class="frow"><label>Extra margin</label><select data-in="trimPad">' + [0, 0.01, 0.02, 0.03].map(function (v) { return '<option value="' + v + '"' + (Math.abs((s.trimPad == null ? 0.01 : s.trimPad) - v) < 0.001 ? ' selected' : '') + '>' + (v * 100) + '%</option>'; }).join('') + '</select></div>' +
+      '<div class="frow"><label>Tap page to show the drawer<br><span class="small muted">Tapping the page always hides it. When on, tapping again brings it back (otherwise use the page number).</span></label><button class="sw ' + (s.tapShow ? 'on' : '') + '" data-act="tapShow"></button></div>' +
       '<h4>Health decay</h4><div class="frow"><label>Lose health when not reviewed</label><button class="sw ' + (s.decayOn ? 'on' : '') + '" data-act="decayOn"></button></div>' +
       '<div class="frow"><label>Start after</label><select data-in="decayAfter">' + [7, 10, 14, 21, 30].map(function (v) { return '<option value="' + v + '"' + (s.decayAfter === v ? ' selected' : '') + '>' + v + ' days</option>'; }).join('') + '</select></div>' +
       '<div class="frow"><label>Then lose</label><select data-in="decayPct">' + [5, 10, 15].map(function (v) { return '<option value="' + v + '"' + (s.decayPct === v ? ' selected' : '') + '>' + v + '% per week</option>'; }).join('') + '</select></div>' +
       '<h4>Stopwatch</h4><div class="frow"><label>Daily goal</label><select data-in="goalDay">' + [0, 10, 15, 20, 30, 45, 60, 90].map(function (v) { return '<option value="' + v + '"' + (s.goalDay === v ? ' selected' : '') + '>' + (v ? v + ' min' : 'Off') + '</option>'; }).join('') + '</select></div>' +
       '<div class="frow"><label>Auto-mark reviewed<br><span class="small muted">After this much stopwatch time on a review page in a day. Pages tagged New are left alone.</span></label><select data-in="autoRev">' + [0, 3, 5, 10, 15, 20].map(function (v) { return '<option value="' + v + '"' + (s.autoRev === v ? ' selected' : '') + '>' + (v ? v + ' min' : 'Off') + '</option>'; }).join('') + '</select></div>' +
+      '<h4>Tally</h4><div class="frow"><label>Hold to count<br><span class="small muted">How long to hold the counter until the ring closes.</span></label>' + '<select data-in="tHold">' + [0.4, 0.5, 0.6, 0.7, 0.8, 1, 1.2, 1.5].map(function (v) { return '<option value="' + v + '"' + (+s.tHold === v ? ' selected' : '') + '>' + v + ' s' + '</option>'; }).join('') + '</select>' + '</div>' +
+      '<div class="frow"><label>Daily target<br><span class="small muted">Page reads a day (a page counts once all its sections are read).</span></label>' + '<select data-in="tDay">' + [0, 1, 2, 3, 5, 10, 20, 30].map(function (v) { return '<option value="' + v + '"' + (+s.tDay === v ? ' selected' : '') + '>' + (v ? v + ' reads' : 'Off') + '</option>'; }).join('') + '</select>' + '</div>' +
+      '<div class="frow"><label>Raise health every</label>' + '<select data-in="tRuleN">' + [0, 5, 10, 20, 30, 50, 100].map(function (v) { return '<option value="' + v + '"' + (+s.tRuleN === v ? ' selected' : '') + '>' + (v ? v + ' reads' : 'Off') + '</option>'; }).join('') + '</select>' + '</div>' +
+      (s.tRuleN ? '<div class="frow"><label>By</label>' + '<select data-in="tRulePct">' + [5, 10, 15, 20].map(function (v) { return '<option value="' + v + '"' + (+s.tRulePct === v ? ' selected' : '') + '>' + '+' + v + '%' + '</option>'; }).join('') + '</select>' + '</div>' : '') +
       '<h4>Section hiding colour</h4><div class="rrow">' + [['#ffffff', 'White'], ['#fbf6e9', 'Cream'], ['#e9ecea', 'Grey']].map(function (c) { return '<button class="sw-c ' + (s.cover === c[0] ? 'on' : '') + '" style="background:' + c[0] + '" data-act="cover" data-c="' + c[0] + '" aria-label="' + c[1] + '"></button>'; }).join('') + '</div>' +
       '<h4>Custom tags</h4>' + (S.d.tags.length ? S.d.tags.map(function (t) { return '<div class="frow"><label>' + esc(t.name) + '</label><button class="btn sm" data-act="delTag" data-t="' + esc(t.id) + '">Remove</button></div>'; }).join('') : '<p class="small muted">None yet — add one with “+ Tag” on the Memorizing tab.</p>') +
       '<h4>Account &amp; sync</h4>' + acct +
@@ -360,7 +368,7 @@
     },
     updateApp: function (el) {
       el.disabled = true; el.textContent = 'Updating…';
-      var sw = navigator.serviceWorker, files = ['./', 'index.html', 'css/app.css', 'js/config.js', 'js/quran.js', 'js/autocrop.js', 'js/store.js', 'js/timer.js', 'js/reader.js', 'js/app.js', 'sw.js'];
+      var sw = navigator.serviceWorker, files = ['./', 'index.html', 'css/app.css', 'js/config.js', 'js/quran.js', 'js/autocrop.js', 'js/store.js', 'js/timer.js', 'js/tally.js', 'js/reader.js', 'js/app.js', 'sw.js'];
       var p1 = sw ? sw.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }) : Promise.resolve();
       var p2 = window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k !== 'hifz-pages'; }).map(function (k) { return caches.delete(k); })); }) : Promise.resolve();
       // Refetch the app files past the browser's HTTP cache so the reload gets fresh copies.
@@ -368,6 +376,7 @@
       Promise.all([p1, p2, p3]).catch(function () {}).then(function () { location.replace(location.pathname + '?v=' + Date.now() + location.hash); });
     },
     theme: function (el) { S.d.settings.theme = el.dataset.t; S.saveSettings(); App.render(); openSettings(); },
+    tapShow: function () { S.d.settings.tapShow = !S.d.settings.tapShow; S.saveSettings(); openSettings(); },
     decayOn: function () { S.d.settings.decayOn = !S.d.settings.decayOn; S.saveSettings(); openSettings(); App.render(); },
     cover: function (el) { S.d.settings.cover = el.dataset.c; S.saveSettings(); openSettings(); },
     signIn: function () { Sync.signIn(false); },
@@ -387,7 +396,7 @@
     if (k === 'q') {
       st.q = e.target.value; var pos = e.target.selectionStart; App.render();
       var inp = document.querySelector('[data-in=q]'); if (inp) { inp.focus(); try { inp.setSelectionRange(pos, pos); } catch (x) {} }
-    } else if (k === 'decayAfter' || k === 'decayPct' || k === 'trimPad' || k === 'goalDay' || k === 'autoRev') { S.d.settings[k] = +e.target.value; S.saveSettings(); App.render(); }
+    } else if (k === 'decayAfter' || k === 'decayPct' || k === 'trimPad' || k === 'goalDay' || k === 'autoRev' || k === 'tHold' || k === 'tDay' || k === 'tRuleN' || k === 'tRulePct') { S.d.settings[k] = +e.target.value; S.saveSettings(); App.render(); if (k === 'tRuleN') openSettings(); }
     else if (k === 'srt') { st.srt = e.target.value; st.sdir = 0; App.render(); }
     else if (k === 'sprd') { st.sprd = e.target.value; App.render(); }
     else if (k === 'fit' || k === 'trim') { S.d.settings[k] = e.target.value; S.saveSettings(); App.render(); }
