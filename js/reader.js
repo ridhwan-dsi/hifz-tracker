@@ -68,12 +68,40 @@
     var p = R.p, ms = JSON.parse(JSON.stringify(masksOf(p)));
     S.edit(p, function (o) { fn(ms, o); o.mk = ms; delete o.masks; delete o.sec; delete o.hb; });
   }
+  /* Boxes and lines are stored in page units (1000 = the full, uncropped page width, measured from the page
+     image's top-left) and turned into on-screen units with the current crop, so changing a crop or the default
+     crop never moves or resizes them. Older masks (no pg flag) were saved in on-screen units of the crop they were
+     drawn with: the page's own crop if it had one, else the plain auto-trim (there was no default crop then). */
+  function aspect(p) { return p <= 61 ? 1177 / 750 : 1072 / 750; } // pages 1–61 are taller in this mushaf
+  function conv(list, c, p, toView) {
+    var f = 1 - c.l - c.r, ox = c.l * 1000, oy = c.t * aspect(p) * 1000;
+    var X = toView ? function (v) { return (v - ox) / f; } : function (v) { return v * f + ox; };
+    var Y = toView ? function (v) { return (v - oy) / f; } : function (v) { return v * f + oy; };
+    var L = toView ? function (v) { return v / f; } : function (v) { return v * f; };
+    return JSON.parse(JSON.stringify(list || [])).map(function (m) {
+      if (m.k === 'box') { m.x = X(m.x); m.y = Y(m.y); m.w = L(m.w); m.h = L(m.h); }
+      else if (m.k === 'div') { m.x = X(m.x); m.y1 = Y(m.y1); m.y2 = Y(m.y2); }
+      return m;
+    });
+  }
+  function viewItems(m, p) { return conv(m.items, cropOf(p), p, true); }
+  function migrateMasks(p) {
+    var o = S.get(p), ms = masksOf(p);
+    if (!ms.some(function (m) { return !m.pg && m.items && m.items.length; })) return;
+    var lc = o.crop ? { l: o.crop.l || 0, t: o.crop.t || 0, r: o.crop.r || 0, b: o.crop.b || 0 } : baseCrop(p);
+    ms = JSON.parse(JSON.stringify(ms));
+    ms.forEach(function (m) { if (!m.pg) { m.items = conv(m.items, lc, p, false).map(rnd); m.pg = 1; } });
+    S.edit(p, function (o) { o.mk = ms; delete o.masks; delete o.sec; delete o.hb; });
+  }
+  // New-box height tracks the text: 80 on-screen units under the plain auto-trim, scaled for any tighter or looser crop.
+  function boxH() { var b = baseCrop(R.p), c = cropOf(R.p); return 80 * (1 - b.l - b.r) / Math.max(0.2, 1 - c.l - c.r); }
+  function rnd(m) { var c = {}; for (var k in m) c[k] = typeof m[k] === 'number' ? r1(m[k]) : m[k]; return c; }
   function commitItems() {
-    var am = S.get(R.p).am, items = shiftItems(R.items, -R.oy).map(function (m) { var c = {}; for (var k in m) c[k] = typeof m[k] === 'number' ? r1(m[k]) : m[k]; return c; });
-    saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am) { m.items = items; if (m.sec > nDiv(items) + 1) m.sec = 0; } }); });
+    var am = S.get(R.p).am, items = conv(shiftItems(R.items, -R.oy), cropOf(R.p), R.p, false).map(function (m) { var c = {}; for (var k in m) c[k] = typeof m[k] === 'number' ? r1(m[k]) : m[k]; return c; });
+    saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am) { m.items = items; m.pg = 1; if (m.sec > nDiv(items) + 1) m.sec = 0; } }); });
   }
   function nDiv(items) { return items.filter(function (m) { return m.k === 'div'; }).length; }
-  function loadItems() { var m = activeMask(); R.items = shiftItems(m ? m.items || [] : [], R.oy); }
+  function loadItems() { var m = activeMask(); R.items = shiftItems(m ? viewItems(m, R.p) : [], R.oy); }
   // Boxes and lines are saved against the page itself, so joining or trimming never moves them off their words.
   function shiftItems(list, d) {
     return JSON.parse(JSON.stringify(list)).map(function (m) { if (m.k === 'box') m.y += d; else if (m.k === 'div') { m.y1 += d; m.y2 += d; } return m; });
@@ -147,6 +175,7 @@
     R.k = S.uk(p, R.n);
     if (p !== R.p) Tally.newPage();
     R.p = p; R.sel = -1; R.drag = null; R.edit = false; R.draft = null;
+    migrateMasks(p);
     // Every page opens on Mask 1 (created the first time it's needed).
     var ms0 = masksOf(p);
     if (!ms0.length) saveMasks(function (ms, o) { ms.push({ id: 'm' + Date.now().toString(36) + '1', name: 'Mask 1', items: [], sec: 0 }); o.am = ms[0].id; });
@@ -647,7 +676,7 @@
   function tallyTint() {
     var sc = Tally.scope(); if (R.sub !== 'tally' || !sc.from) return '';
     var m1 = masksOf(R.p)[0]; if (!m1) return '';
-    var ds = shiftItems((m1.items || []).filter(function (q) { return q.k === 'div'; }), R.oy).sort(function (a, b) { return (a.y1 + a.y2) - (b.y1 + b.y2); });
+    var ds = shiftItems(viewItems(m1, R.p).filter(function (q) { return q.k === 'div'; }), R.oy).sort(function (a, b) { return (a.y1 + a.y2) - (b.y1 + b.y2); });
     var above = ds[sc.from - 2], below = ds[sc.to - 1], H = r1(R.Hu);
     var top = above ? divPts(above) : '1000,0 0,0', bot = below ? divPts(below).split(' ').reverse().join(' ') : '0,' + H + ' 1000,' + H;
     return '<polygon points="' + top + ' ' + bot + '" style="fill:var(--acc);fill-opacity:.14;pointer-events:none"/>';
@@ -818,7 +847,7 @@
       if (!startEdit(-1)) return;
       var nb = R.items.filter(function (q) { return q.k === 'box'; }).length, off = (nb % 6) * 40;
       var bw = (+S.d.settings.boxW || 11) * 10; // Settings → New box width, % of the page width
-      R.items.push({ k: 'box', x: clamp(500 - bw / 2 + off * 0.5, 0, 1000 - bw), y: clamp(R.Hu * 0.3 + off, 0, R.Hu - 90), w: bw, h: 80, c: R.style.c, o: R.style.o, b: R.style.b });
+      R.items.push({ k: 'box', x: clamp(500 - bw / 2 + off * 0.5, 0, 1000 - bw), y: clamp(R.Hu * 0.3 + off, 0, R.Hu - 90), w: bw, h: boxH(), c: R.style.c, o: R.style.o, b: R.style.b });
       R.sel = R.items.length - 1; commitItems(); draw(); renderPanel();
     },
     addLine: function () {
@@ -864,18 +893,18 @@
     cropAuto: function () { R.draft = autoCrop(R.p); drawCrop(); },
     cropNone: function () { R.draft = { l: 0, t: 0, r: 0, b: 0 }; drawCrop(); },
     cropPrev: function () { R.draft = cropOf(R.p - 1); drawCrop(); },
-    cropCancel: function () { R.sub = null; R.draft = null; renderPanel(); layout(); },
+    cropCancel: function () { R.sub = null; R.draft = null; loadItems(); renderPanel(); layout(); },
     cropDef: function () {
       if (!confirm('Use this crop as the default for every page? Pages you have cropped yourself keep their own crop.')) return;
       var d = R.draft, a = baseCrop(R.p);
       S.d.settings.cropDef = { l: r4(d.l - a.l), t: r4(d.t - a.t), r: r4(d.r - a.r), b: r4(d.b - a.b), p: R.p }; S.saveSettings();
       S.edit(R.p, function (o) { delete o.crop; }); // this page now follows the default too
-      R.sub = null; R.draft = null; renderPanel(); layout(); App.toast('Default crop set from P. ' + R.p);
+      R.sub = null; R.draft = null; loadItems(); renderPanel(); layout(); App.toast('Default crop set from P. ' + R.p);
     },
     cropApply: function () {
       var d = R.draft, a = autoCrop(R.p), same = ['l', 't', 'r', 'b'].every(function (k) { return Math.abs(d[k] - a[k]) < 0.0005; });
       S.edit(R.p, function (o) { if (same) delete o.crop; else o.crop = { l: r4(d.l), t: r4(d.t), r: r4(d.r), b: r4(d.b) }; });
-      R.sub = null; R.draft = null; renderPanel(); layout();
+      R.sub = null; R.draft = null; loadItems(); renderPanel(); layout();
     }
   };
 
