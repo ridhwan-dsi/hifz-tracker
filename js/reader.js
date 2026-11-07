@@ -271,7 +271,7 @@
     var m = R.items[R.sel];
     if (R.edit && m) {
       // Handles are sized in screen pixels (not page units) so they stay easy to hold on a phone.
-      var hr = r1(HD_R * pxU()), ad = R.drag && R.drag.k === 'h' ? R.drag.h : '';
+      var hr = 18, ad = R.drag && R.drag.k === 'h' ? R.drag.h : '';
       handlesOf(m).forEach(function (h) {
         if (h.h === 'g') { // up/down grip at the right end: the only place that moves a line
           var u = pxU(), gw = GRIP_W * u, gh = GRIP_H * u, gx = h.x - gw / 2, gy = h.y - gh / 2, a = 5 * u;
@@ -279,7 +279,7 @@
             '<path d="M' + r1(h.x - a) + ' ' + r1(h.y - 5 * u) + 'L' + r1(h.x) + ' ' + r1(h.y - 12 * u) + 'L' + r1(h.x + a) + ' ' + r1(h.y - 5 * u) + 'M' + r1(h.x - a) + ' ' + r1(h.y + 5 * u) + 'L' + r1(h.x) + ' ' + r1(h.y + 12 * u) + 'L' + r1(h.x + a) + ' ' + r1(h.y + 5 * u) + '"/></g>';
           return;
         }
-        s += '<circle class="hd' + (ad === h.h ? ' on' : '') + '" data-h="' + h.h + '" cx="' + r1(h.x) + '" cy="' + r1(h.y) + '" r="' + (h.h === 's' ? r1(hr * 0.85) : hr) + '"/>';
+        s += '<circle class="hd' + (ad === h.h ? ' on' : '') + '" data-h="' + h.h + '" cx="' + r1(h.x) + '" cy="' + r1(h.y) + '" r="' + (h.h === 's' ? 15 : hr) + '"/>';
       });
     }
     s += tint;

@@ -130,7 +130,7 @@ svg.i { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-widt
 #ov .div.view { stroke: #e0662c; stroke-width: 2.5; stroke-dasharray: 10 7; opacity: .75; pointer-events: none; }
 #ov .hit { stroke: transparent; stroke-width: 34; fill: none; }
 #ov rect.sel { stroke: #1d6fe0 !important; stroke-width: 4 !important; stroke-dasharray: 10 6; }
-#ov .hd { fill: #fff; stroke: #1d6fe0; stroke-width: 3px; vector-effect: non-scaling-stroke; filter: drop-shadow(0 1px 2px rgba(0,0,0,.3)); }
+#ov .hd { fill: #fff; stroke: #1d6fe0; stroke-width: 4; }
 #ov .hd.on { fill: #1d6fe0; }
 
 .rback { position: fixed; top: calc(10px + env(safe-area-inset-top)); left: 10px; z-index: 42; width: 40px; height: 40px; border-radius: 12px; background: rgba(20,24,22,.55); color: #fff; display: grid; place-items: center; backdrop-filter: blur(6px); }
