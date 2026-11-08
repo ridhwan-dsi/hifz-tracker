@@ -156,7 +156,8 @@
   var Reader = {
     // range: optional list of unit keys (from the Memorizing tab) — swiping/arrows then stay within those pages.
     open: function (p, n, range, tag) {
-      R.style = boxDef(); R.palOpen = false; R.wasDesk = desk(); R.tag = tag || null; // custom tag: counts shown for the tag, not the month
+      R.style = boxDef(); R.palOpen = false; R.wasDesk = desk();
+      if (!Reader.isOpen()) { R.wasPL = phoneLand(); if (R.wasPL) { R.panel = false; R.dszL = 'rib'; } } R.tag = tag || null; // custom tag: counts shown for the tag, not the month
       p = clamp(p | 0, 1, 604); R.n = n || 0;
       R.range = range && range.length ? range.slice().sort(function (a, b) { return S.kp(a) - S.kp(b) || S.kn(a) - S.kn(b); }) : null;
       if (!Reader.isOpen()) history.pushState({ reader: 1 }, '', '#p' + p);
@@ -299,7 +300,8 @@
   function setZoom(d) { var s = S.d.settings; s[zkey()] = clamp(Math.round(lzoom() * 100) + d, 40, 100); S.saveSettings(); afterPanel(); relayout(); }
   var rq = 0;
   function relayout() { cancelAnimationFrame(rq); rq = requestAnimationFrame(function () { layout(); }); }
-  window.addEventListener('resize', function () { if (Reader.isOpen()) { if (R.wasDesk !== desk()) { R.wasDesk = desk(); loadItems(); renderPanel(); } measurePanel(); afterPanel(); relayout(); } });
+  window.addEventListener('resize', function () { if (Reader.isOpen()) { if (R.wasDesk !== desk()) { R.wasDesk = desk(); loadItems(); renderPanel(); }
+      if (R.wasPL !== phoneLand()) { R.wasPL = phoneLand(); if (R.wasPL && !R.edit && R.sub !== 'crop' && R.sub !== 'join') { R.panel = false; R.dszL = 'rib'; } else R.panel = true; renderPanel(); } measurePanel(); afterPanel(); relayout(); } });
   function measurePanel() { var pn = $('.rpanel'); var h = R.panel && pn ? pn.offsetHeight : 0; var ch = h !== R.ph; R.ph = h; $('#reader').style.setProperty('--ph', h + 'px'); return ch; }
 
   /* ---------- mask drawing ---------- */
@@ -540,7 +542,10 @@
       if (e.key === 'ArrowLeft') step(1); else if (e.key === 'ArrowRight') step(-1); else if (e.key === 'Escape') history.back();
     });
   }
-  function togglePanel(on) { R.panel = on; renderPanel(); }
+  function togglePanel(on) { if (on && !R.panel && phoneLand()) R.dszL = 'rib'; R.panel = on; renderPanel(); }
+  /* Phone on its side (mobile view): the drawer starts hidden, and each time it is brought back it comes as the thin
+     ribbon; its arrow makes it bigger. This size is kept apart from the portrait drawer size. */
+  function phoneLand() { return land() && !desk() && innerHeight < 600; }
   function openFace() {
     if (R.edit || R.sub === 'crop' || R.sub === 'join') return; // finish editing this page first
     var q = partner(R.p), t = faceTarget(q);
@@ -655,10 +660,10 @@
   /* Drawer sizes: Full (all rows), Fit (shrinks to the gap under a full-width page), Ribbon (toolbar only).
      Tools that need room (Crop, Join, Box/Line) always open at Full. Rows for Health/Tags/Timer stay visible in every size. */
   var DZ = ['hide', 'rib', 'fit', 'full'];
-  function dzCur() { return (R.sub === 'crop' || R.sub === 'join' || R.edit) ? 'full' : (S.d.settings.dsz || 'full'); }
+  function dzCur() { return (R.sub === 'crop' || R.sub === 'join' || R.edit) ? 'full' : phoneLand() ? (R.dszL || 'rib') : (S.d.settings.dsz || 'full'); }
   function setDz(z) {
     if (z === 'hide') { togglePanel(false); return; }
-    S.d.settings.dsz = z; S.saveSettings(); R.fitU = R.U; R.panel = true; renderPanel();
+    if (phoneLand()) R.dszL = z; else { S.d.settings.dsz = z; S.saveSettings(); } R.fitU = R.U; R.panel = true; renderPanel();
   }
   function fitRows() {
     var pn = $('.rpanel'), host = $('#rui'); if (!pn) return;
