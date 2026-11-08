@@ -6,6 +6,14 @@
   var T = { on: false, n: 0, k: null, from: 0, to: 0, x: 0.84, y: 0.32 };
   try { Object.assign(T, JSON.parse(localStorage.getItem(LK)) || {}); } catch (e) {}
   function keep() { try { localStorage.setItem(LK, JSON.stringify(T)); } catch (e) {} }
+  /* v92 kept tallies: unsaved counts parked per page (unit key) on this device, not in the stats.
+     A count still running when the app was closed is parked on its page at the next launch, so the page
+     comes back as it was left once the Tally icon is tapped there. Minimising leaves it running as is. */
+  var KK = 'hifz.tallyKept', K = {};
+  try { K = JSON.parse(localStorage.getItem(KK)) || {}; } catch (e) {}
+  function keepK() { try { localStorage.setItem(KK, JSON.stringify(K)); } catch (e) {} }
+  function park() { if (!T.n || !T.k) return; K[T.k] = { n: T.n, from: T.from, to: T.to, at: Date.now() }; T.n = 0; T.k = null; keepK(); keep(); }
+  if (T.n > 0) { park(); T.on = false; keep(); }
   function holdMs() { var h = +S.d.settings.tHold || 0.4; return Math.round(Math.max(0.2, Math.min(1.5, h)) * 1000); }
   function buzz() { try { navigator.vibrate && navigator.vibrate(35); } catch (e) {} }
 
@@ -101,19 +109,29 @@
       App.toast(msg);
     },
     discard: function () { T.n = 0; T.k = null; keep(); Tally.render(); },
+    // Keep for later: park the count on its page; it is not saved to the stats.
+    park: function () { if (!T.k) T.k = Reader.unit(); park(); Tally.render(); },
+    kept: function (k) { return K[k] || null; },
+    // Resume a kept count on this page (only when nothing is counting now).
+    resume: function (k) {
+      var q = K[k]; if (!q || T.n) return false;
+      T.n = q.n; T.k = k; T.from = q.from || 0; T.to = q.to || 0; delete K[k]; keepK(); keep(); Tally.render();
+      App.toast('Resumed kept tally · ' + q.n); return true;
+    },
     edit: function () {
       var v = prompt('Count', T.n); if (v == null) return false;
       v = parseInt(v, 10); if (!(v >= 0)) return false;
       Tally.set(v); return true;
     },
-    // Unsaved count when leaving the page: Save, Edit (then save) or Leave. Tapping outside stays on the page.
+    // Unsaved count when leaving the page: Save, Keep for later, Delete, or Continue counting (stay). Tapping outside stays too.
     ask: function (then, stay) {
       var sc = document.getElementById('scrim'); if (!sc) { then(); return; }
       ask = { then: then, stay: stay };
       var k = T.k || Reader.unit();
       sc.innerHTML = '<div class="sheetm pbox"><div class="pbt">Unsaved tally on P. ' + S.kp(k) + '</div>' +
         '<div class="small muted">Count ' + T.n + (T.from ? ' · section ' + T.from + (T.to > T.from ? '–' + T.to : '') : ' · whole page') + '</div>' +
-        '<div class="pbtns"><button class="btn danger" data-tg="leave">Leave</button><button class="btn" data-tg="edit">Edit</button><button class="btn pri" data-tg="save">Save</button></div></div>';
+        '<div class="pbtns"><button class="btn danger" data-tg="leave">Delete</button><button class="btn" data-tg="keep">Keep for later</button><button class="btn pri" data-tg="save">Save</button></div>' +
+        '<div class="pbtns"><button class="btn" data-tg="stay">Continue counting</button></div></div>';
       sc.style.display = 'flex';
     }
   };
@@ -124,8 +142,9 @@
     if (b) {
       e.stopPropagation();
       var w = b.dataset.tg;
+      if (w === 'stay') { ask = null; closeAsk(); if (a.stay) a.stay(); return; }
       if (w === 'edit' && !Tally.edit()) return;
-      if (w === 'leave') Tally.discard(); else Tally.save();
+      if (w === 'leave') Tally.discard(); else if (w === 'keep') Tally.park(); else Tally.save();
       ask = null; closeAsk(); a.then(); return;
     }
     if (e.target.id === 'scrim') { ask = null; closeAsk(); if (a.stay) a.stay(); }

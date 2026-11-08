@@ -217,6 +217,7 @@
     if (ss.indexOf(R.n) < 0) R.n = dir < 0 ? ss[ss.length - 1] : ss[0];
     R.k = S.uk(p, R.n);
     if (p !== R.p) Tally.newPage();
+    if (Tally.on()) Tally.resume(R.k); // a kept count on this page comes back while the counter is out
     R.p = p; R.sel = -1; R.drag = null; R.edit = false; R.draft = null;
     migrateMasks(p);
     // Every page opens on Mask 1 (created the first time it's needed).
@@ -787,7 +788,7 @@
     return '<div class="rrow scroll tools' + (open ? ' edopen' : '') + '">' + (open ? '' :
       tb('health', m ? h + '%' : 'Health', IC.heart, R.sub === 'health', !m) + // no Tags here: tags are set from the home screen only (no accidental removals while reading)
       
-      timerTool() + tb('tally', 'Tally', IC.tally, R.sub === 'tally') +
+      timerTool() + tb('tally', (Tally.kept(R.k) && !Tally.dirty() ? '<i class="tkdot"></i>' : '') + 'Tally', IC.tally, R.sub === 'tally') +
       (desk() ? tb('spread', '2 pages', IC.book, S.d.settings.spread !== false) : '') +
       (installed() ? '' : tb('fs', 'Full screen', IC.full, false))) + grp + tb('home', 'Back', IC.back, false) + '</div>';
   }
@@ -932,6 +933,7 @@
     tally: function () {
       leaveModes();
       if (!Tally.on()) { Tally.show(true); R.sub = 'tally'; } else R.sub = R.sub === 'tally' ? null : 'tally';
+      Tally.resume(R.k);
       renderPanel(); draw();
     },
     tlySec: function (el) {
@@ -960,7 +962,7 @@
       else { var s = QURAN.S[n - 1]; q = d > 0 ? s[3] : s[4]; }
       if (q) go(q, d, n);
     },
-    surah: function (el) { if (Tally.dirty()) { Tally.ask(function () { RACT.surah(el); }); return; } R.n = +el.dataset.n; R.k = S.uk(R.p, R.n); S.setLast(R.p, R.k); renderPanel(); },
+    surah: function (el) { if (Tally.dirty()) { Tally.ask(function () { RACT.surah(el); }); return; } R.n = +el.dataset.n; R.k = S.uk(R.p, R.n); S.setLast(R.p, R.k); if (Tally.on()) Tally.resume(R.k); renderPanel(); },
     rev: function () {
       var p = R.k;
       if (S.get(p).lr === S.today()) { S.unreviewToday(p); renderPanel(); App.toast('Review for today removed'); return; }
