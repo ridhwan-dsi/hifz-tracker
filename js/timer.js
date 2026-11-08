@@ -15,6 +15,11 @@
     var p = function (n) { return String(n).padStart(2, '0'); };
     return h ? h + ':' + p(m) + ':' + p(x) : p(m) + ':' + p(x);
   }
+  /* v95: Settings switch "Time left" (Timer row): with a session target, the stopwatch shows the time remaining
+     as −3:25 (with "/ 10:00" beside it) instead of the time spent. */
+  function rem() { var t = S.d.settings.sessT; return S.d.settings.tRem && t ? t : 0; }
+  function ms(s) { s = Math.max(0, Math.ceil(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+  function shown(s) { var t = rem(); return t ? '−' + ms(t * 60 - (s || 0)) : fmt(s); }
   function mins(s) { var m = Math.round((s || 0) / 60); return m < 60 ? m + ' min' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm'; }
   // Pages tagged New (or not yet in Memorizing) count as memorizing; other Memorizing pages count as review.
   function modeOf(p) { return S.isMem(p) && !S.hasTag(p, 'new') ? 'r' : 'n'; }
@@ -74,7 +79,7 @@
 
   // Update only the live numbers so taps on the panel are never interrupted.
   function paint() {
-    var t = fmt(T.secs);
+    var t = shown(T.secs);
     document.querySelectorAll('.tmr-t').forEach(function (el) { el.textContent = t; });
     if (!window.Reader || !Reader.isOpen()) return;
     var p = Reader.page(), dd = day(S.today()), g = S.d.settings.goalDay;
@@ -84,7 +89,7 @@
   }
 
   var Timer = {
-    fmt: fmt, mins: mins, day: day, pageToday: pageToday, modeOf: modeOf,
+    fmt: fmt, shown: shown, rem: rem, mins: mins, day: day, pageToday: pageToday, modeOf: modeOf,
     state: function () { return T; },
     active: function () { return T.run || T.secs > 0; },
     achieved: function () { return !!S.d.settings.sessT && T.secs >= S.d.settings.sessT * 60; },

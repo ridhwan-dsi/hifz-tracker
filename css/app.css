@@ -417,3 +417,8 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 /* v92: kept-tally dot on the Tally icon */
 .tb { position: relative; }
 .tb .tkdot { position: absolute; top: 3px; right: 9px; width: 8px; height: 8px; border-radius: 50%; background: #e0a100; }
+/* v95 time-left: total beside the countdown */
+.tgrp .tgst { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.05; }
+.tgrp .tgl2 { font-size: 10.5px; font-weight: 700; opacity: .6; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pbox .tbig .tgl { font-size: 18px; font-weight: 700; opacity: .6; margin-left: 6px; }
+.jsw[disabled] { opacity: .45; }

@@ -608,7 +608,7 @@
       // One bottom pill: expand handle, then (when a session exists) the stopwatch chip — tap it to pause/resume.
       x += navBtns('float') + '<div class="rhandle"><button class="rh-exp" data-ract="expand" aria-label="Show controls">' + IC.up + '<span>P. ' + p + '</span></button>';
       if (ta) x += '<button class="tchip' + (Timer.achieved() ? ' ach' : '') + (tr ? '' : ' paused') + '" data-ract="tGo" aria-label="' + (tr ? 'Pause' : 'Resume') + ' stopwatch">' +
-        (Timer.achieved() ? IC.check : '<i class="tdot"></i>') + '<span class="tmr-t">' + Timer.fmt(Timer.state().secs) + '</span>' +
+        (Timer.achieved() ? IC.check : '<i class="tdot"></i>') + '<span class="tmr-t">' + Timer.shown(Timer.state().secs) + '</span>' +
         (S.d.settings.sessT && !Timer.achieved() ? '<span class="tgl">/ ' + S.d.settings.sessT + ':00</span>' : '') + (tr ? IC.pause : IC.play) + '</button>';
       x += '</div>';
       host.innerHTML = x; afterPanel(); return;
@@ -804,7 +804,7 @@
   function timerTool() {
     var T = Timer.state(), b = tb('timer', 'Timer', IC.clock, R.sub === 'timer').replace('class="tb', 'class="tb' + (T.run ? ' live' : ''));
     if (!Timer.active() && R.sub !== 'timer') return b; // opened but not started: shows 0:00 with play
-    return '<div class="egrp tgrp">' + b + '<span class="tgt tmr-t">' + Timer.fmt(T.secs) + '</span>' +
+    return '<div class="egrp tgrp">' + b + (Timer.rem() ? '<span class="tgst"><span class="tgt tmr-t">' + Timer.shown(T.secs) + '</span><span class="tgl2">/ ' + Timer.rem() + ':00</span></span>' : '<span class="tgt tmr-t">' + Timer.shown(T.secs) + '</span>') +
       '<button class="tb tgo" data-ract="tGo" aria-label="' + (T.run ? 'Pause' : 'Start') + '">' + (T.run ? IC.pause : IC.play) + '</button></div>';
   }
   // Pause box: the session time and this page's time, with Resume or Save. Tapping outside keeps it paused.
@@ -812,7 +812,7 @@
     var sc = document.getElementById('scrim'); if (!sc) return;
     var T = Timer.state(), p = R.p, md = Timer.modeOf(R.k) === 'r' ? 'review' : 'memorizing', ach = Timer.achieved();
     sc.innerHTML = '<div class="sheetm pbox"><div class="pbt">Paused</div>' +
-      '<div class="tbig' + (ach ? ' ach' : '') + '"><span class="tmr-t">' + Timer.fmt(T.secs) + '</span></div>' +
+      '<div class="tbig' + (ach ? ' ach' : '') + '"><span class="tmr-t">' + Timer.shown(T.secs) + '</span>' + (Timer.rem() ? '<span class="tgl">/ ' + Timer.rem() + ':00</span>' : '') + '</div>' +
       '<div class="small muted">' + (ach ? '<b class="tach">' + IC.check + 'Achieved</b> · ' : '') + md + ' · this page <span class="tmr-pg">' + Timer.fmt(Timer.pageToday(p)) + '</span></div>' +
       '<div class="pbtns"><button class="btn pdel" data-ract="tDel" aria-label="Delete session">' + IC.trash + '</button><button class="btn" data-ract="tSave">' + IC.check + 'Save</button><button class="btn pri" data-ract="tResume">' + IC.play + 'Resume</button></div></div>';
     sc.style.display = 'flex';
@@ -830,6 +830,9 @@
     if (opts.indexOf(cur) < 0) opts.push(cur);
     x += '<div class="rrow scroll"><span class="lbl">Target</span>' + opts.map(function (v) { return '<button class="chip' + (cur === v ? ' on' : '') + '" data-ract="tT" data-v="' + v + '">' + (v ? v + ' min' : 'None') + '</button>'; }).join('') +
       '<button class="chip" data-ract="tT" data-v="custom" aria-label="Custom target">+</button></div>';
+    var rm = !!s.tRem;
+    x += '<div class="rrow"><button class="jsw' + (rm ? ' on' : '') + '" data-ract="tRem" role="switch" aria-checked="' + rm + '"' + (cur ? '' : ' disabled') + '><i></i>Time left</button>' +
+      (cur ? '' : '<span class="small muted">set a target to count down</span>') + '</div>';
     if (g) x += '<div class="rrow"><span class="small muted" style="white-space:nowrap">Today <span class="tmr-day">' + Math.floor(dd.t / 60) + '</span> / ' + g + ' min' + (dd.t >= g * 60 ? ' ✓' : '') + '</span><div class="hbar" style="flex:1;margin:0"><i class="tmr-bar" style="width:' + Math.min(100, dd.t / (g * 60) * 100) + '%;background:var(--acc)"></i></div></div>';
     return x + '</div>';
   }
@@ -944,6 +947,7 @@
       Tally.resume(R.k);
       renderPanel(); draw();
     },
+    tRem: function () { S.d.settings.tRem = !S.d.settings.tRem; S.saveSettings(); renderPanel(); },
     tlySec: function (el) {
       var i = +el.dataset.s, sc = Tally.scope();
       if (!i) Tally.setScope(0, 0);
@@ -957,8 +961,9 @@
     // (and brings a hidden counter back), so the counter is hidden only from this switch.
     tlyHide: function () {
       if (!Tally.on()) { Tally.show(true); Tally.resume(R.k); renderPanel(); return; }
-      var hide = function () { Tally.show(false); renderPanel(); draw(); };
-      if (Tally.dirty()) Tally.ask(hide); else hide();
+      // v95: switching the counter off keeps an unsaved count for later on its page (no question asked).
+      if (Tally.dirty()) { Tally.park(); App.toast('Tally kept for later'); }
+      Tally.show(false); renderPanel(); draw();
     },
     next: function () { step(1); }, prev: function () { step(-1); },
     pgo: function (el) { var q = +el.dataset.p; if (q !== R.p) go(q, q > R.p ? 1 : -1, +el.dataset.n); },
