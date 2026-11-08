@@ -206,16 +206,24 @@
   function dialog(o, cb) {
     var sc = document.getElementById('scrim'); dlg = cb;
     sc.innerHTML = '<div class="sheetm pbox"><div class="pbt">' + esc(o.title) + '</div>' + (o.msg ? '<p class="small">' + o.msg + '</p>' : '') +
-      (o.input != null ? '<input class="dinp" id="dinp" maxlength="40" value="' + esc(o.input) + '" autocomplete="off">' : '') +
+      (o.input != null ? '<input class="dinp" id="dinp" maxlength="40" enterkeyhint="done" value="' + esc(o.input) + '" autocomplete="off">' : '') +
       '<div class="pbtns' + (o.col ? ' col' : '') + '">' + (o.btns ? o.btns.map(function (b) { return '<button class="btn ' + (b[2] || '') + '" data-dg="' + b[0] + '">' + esc(b[1]) + '</button>'; }).join('') :
         '<button class="btn" data-dg="x">Cancel</button><button class="btn ' + (o.danger ? 'danger' : 'pri') + '" data-dg="ok">' + esc(o.ok) + '</button>') + '</div></div>';
-    sc.style.display = 'flex';
+    sc.style.display = 'flex'; fitScrim();
     var inp = document.getElementById('dinp');
     if (inp) { setTimeout(function () { inp.focus(); inp.select(); }, 30); inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); endDlg(true); } }); }
   }
+  /* v89: the on-screen keyboard overlays the page without resizing it, hiding the dialog buttons.
+     Size the scrim to the visible area (visualViewport) so the sheet sits just above the keyboard. */
+  function fitScrim() {
+    var sc = document.getElementById('scrim'), vv = window.visualViewport;
+    if (!vv || sc.style.display !== 'flex') return;
+    sc.style.top = vv.offsetTop + 'px'; sc.style.bottom = 'auto'; sc.style.height = vv.height + 'px';
+  }
+  if (window.visualViewport) { visualViewport.addEventListener('resize', fitScrim); visualViewport.addEventListener('scroll', fitScrim); }
   function endDlg(ok, id) {
     var sc = document.getElementById('scrim'), inp = document.getElementById('dinp'), v = inp ? inp.value : null, cb = dlg;
-    dlg = null; sc.style.display = 'none'; sc.innerHTML = '';
+    dlg = null; sc.style.display = 'none'; sc.innerHTML = ''; sc.style.top = sc.style.height = sc.style.bottom = '';
     if (ok && cb) cb(v, id);
   }
   document.addEventListener('click', function (e) {
