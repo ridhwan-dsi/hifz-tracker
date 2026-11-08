@@ -345,3 +345,52 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 .selbar { flex-wrap: nowrap; } .selbar .tick { margin-left: 4px; } .selbar .grow { flex: 1; }
 .btn[disabled] { opacity: .45; pointer-events: none; }
 .pbox .pbtns.col { flex-direction: column; max-height: 60vh; overflow-y: auto; }
+
+/* v79 desktop reader: pages row (one or two facing pages), thin full-width bar, arrows at the screen edges */
+.spr { display: flex; justify-content: center; align-items: flex-start; gap: 12px; will-change: transform; }
+.spr .sheet { margin: 0; flex: none; will-change: auto; }
+.sheet.face { display: none; cursor: pointer; transition: box-shadow .15s; }
+.spr.two .sheet.face { display: block; }
+.sheet.face:not(.out):hover { box-shadow: 0 0 0 2px rgba(255,255,255,.45), 0 2px 18px rgba(0,0,0,.35); }
+.sheet.face.out { cursor: default; } .sheet.face.out .pseg { opacity: .55; }
+.fov { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
+.spr.two #sheet { box-shadow: 0 0 0 2.5px var(--acc), 0 2px 18px rgba(0,0,0,.35); }
+
+#reader.desk .rpanel { left: 0; right: 0; max-width: none; margin: 0; border-radius: 0; max-height: none; overflow: visible; padding: 0 20px; transition: none;
+  box-shadow: 0 -1px 0 var(--line), 0 -6px 20px rgba(0,0,0,.18); }
+#reader.desk .rpanel .grab { display: none; }
+#reader.desk .rpanel.mainp { display: grid; column-gap: 20px; align-items: center;
+  grid-template-columns: minmax(150px, 1fr) minmax(220px, 360px) minmax(0, 1.3fr) auto;
+  grid-template-areas: "sub sub sub sub" "name strip masks tools" "stat strip masks tools"; }
+#reader.desk .mainp .rrow.nav, #reader.desk .mainp .rtitle.tcol { display: contents; }
+#reader.desk .mainp .navb.in { display: none; }
+#reader.desk .mainp .tname { grid-area: name; align-self: end; text-align: left; padding-top: 7px; }
+#reader.desk .mainp .pswrap { grid-area: strip; }
+#reader.desk .mainp .pstrip { padding: 4px 0; }
+#reader.desk .mainp .rstat { grid-area: stat; align-self: start; text-align: left; margin: 0; padding-bottom: 7px; }
+#reader.desk .mainp > .rrow.wrap { grid-area: masks; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 0; }
+#reader.desk .mainp > .rrow.wrap::-webkit-scrollbar { display: none; }
+#reader.desk .rpanel .rrow.tools { border-top: 0; margin: 0; padding: 5px 0; justify-content: flex-end; gap: 2px; }
+#reader.desk .mainp > .rrow.tools { grid-area: tools; }
+#reader.desk .rpanel .tb:hover:not(:disabled):not(.on) { background: var(--acc-soft); color: var(--acc); }
+/* Health, Tags, Timer and Tally open as a slim strip across the top of the bar */
+#reader.desk .mainp > .rsub, #reader.desk .mainp > .subrow { grid-area: sub; margin: 0 -20px; padding: 7px 20px; border-top: 0; border-bottom: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; }
+#reader.desk .mainp > .subrow { gap: 6px; }
+#reader.desk .mainp > .rsub > * { flex: 0 1 auto; min-width: 0; padding: 0; }
+#reader.desk .mainp > .tsub > .rrow:last-child { flex: 1 1 280px; }
+/* Crop, Join and Box/Line editing: controls flow along one wide row, the hint above, tools at the right */
+#reader.desk .rpanel:not(.mainp) { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 22px; padding-top: 6px; }
+#reader.desk .rpanel:not(.mainp) > * { flex: 0 1 auto; min-width: 0; }
+#reader.desk .rpanel:not(.mainp) > .hint { order: -1; flex-basis: 100%; min-height: 0; padding: 0; }
+#reader.desk .rpanel:not(.mainp) > .rrow.tools { margin-left: auto; }
+#reader.desk .rpanel .etop .pill { flex: none; }
+#reader.desk .rpanel .bstyle { padding: 3px 0; max-width: 520px; }
+#reader.desk .rpanel .jhead { width: 360px; }
+#reader.desk .rpanel .jsl { flex: 0 1 460px; }
+#reader.desk .rpanel .rtitle { flex: none; }
+/* Page arrows at the left and right edges, centred on the page area */
+#reader.desk .navb.float, .navb.edge { position: fixed; top: calc((100% - var(--ph, 0px)) / 2 - 28px); bottom: auto !important; z-index: 42; width: 56px; height: 56px;
+  background: rgba(20,24,22,.45); color: #fff; backdrop-filter: blur(6px); box-shadow: 0 4px 14px rgba(0,0,0,.3); }
+#reader.desk .navb.float.l, .navb.edge.l { left: 16px; } #reader.desk .navb.float.r, .navb.edge.r { right: 16px; }
+.navb.edge:hover:not(:disabled), #reader.desk .navb.float:hover:not(:disabled) { background: var(--acc); color: var(--acc-ink); }

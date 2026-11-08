@@ -23,6 +23,35 @@
   function fitPage() { return S.d.settings.fit !== 'width'; }
   // Landscape-only zoom out (40–100%), so a wide screen doesn't blow the page up too far.
   function land() { return innerWidth > innerHeight; }
+  /* Desktop: a wide landscape screen (laptop, monitor, tablet on its side). The controls become one thin bar
+     across the bottom, page arrows sit at the screen edges, and two facing pages can be shown side by side. */
+  function desk() { return innerWidth >= 1000 && innerWidth > innerHeight; }
+  var EDGE = 88; // room kept at each side for the edge arrows
+  function partner(p) { return p % 2 ? p + 1 : p - 1; } // Madani mushaf: odd pages on the right, even on the left
+  function spreadOn(segs) { return desk() && !!S.d.settings.spread && R.sub !== 'join' && segs.length === 1; }
+  // Where the facing page leads when clicked: null if it is not in the list this page was opened from.
+  function faceTarget(q) {
+    if (!R.range) return { p: q };
+    var ks = R.range.filter(function (u) { return S.kp(u) === q; }); if (!ks.length) return null;
+    var k = ks.filter(function (u) { return S.kn(u) === R.n; })[0] || ks[0];
+    return { p: q, n: S.kn(k) };
+  }
+  // The facing page wears the same mask slot as the open page (Mask 1 on both, or None on both).
+  function staticMask(q, Hu) {
+    var ms0 = masksOf(R.p), am = activeMask(), slot = am ? ms0.indexOf(am) : -1; if (slot < 0) return '';
+    migrateMasks(q);
+    var m = masksOf(q)[slot]; if (!m || !m.items || !m.items.length) return '';
+    var it = viewItems(m, q), s = '', cov = S.d.settings.cover;
+    var ds = it.filter(function (x) { return x.k === 'div'; }).sort(function (a, b) { return (a.y1 + a.y2) - (b.y1 + b.y2); });
+    var sec = m.sec || 0; if (sec > ds.length + 1) sec = 0;
+    if (!m.hb) it.forEach(function (x) { if (x.k === 'box') s += '<rect x="' + r1(x.x) + '" y="' + r1(x.y) + '" width="' + r1(x.w) + '" height="' + r1(x.h) + '" rx="4" fill="' + x.c + '" fill-opacity="' + x.o + '"' + (x.b ? ' stroke="' + x.c + '" stroke-width="4"' : '') + '/>'; });
+    if (sec && ds.length) {
+      var above = ds[sec - 2], below = ds[sec - 1];
+      if (above) s += '<polygon points="0,0 1000,0 ' + divPts(above) + '" fill="' + cov + '"/>';
+      if (below) s += '<polygon points="' + divPts(below) + ' 0,' + r1(Hu) + ' 1000,' + r1(Hu) + '" fill="' + cov + '"/>';
+    } else ds.forEach(function (x) { s += '<polyline points="' + divPts(x) + '" style="fill:none;stroke:#e0662c;stroke-width:2.5;stroke-dasharray:10 7;opacity:.75"/>'; });
+    return s;
+  }
   function lzoom() { var z = S.d.settings.lz; return land() && z ? clamp(z, 40, 100) / 100 : 1; }
   function zoomChip() { var z = Math.round(lzoom() * 100); return '<div class="zchip"><button data-ract="zout" aria-label="Zoom out"' + (z <= 40 ? ' disabled' : '') + '>−</button><span>' + z + '%</span><button data-ract="zin" aria-label="Zoom in"' + (z >= 100 ? ' disabled' : '') + '>+</button></div>'; }
 
@@ -172,7 +201,7 @@
     if (p < 1 || p > 604) return;
     var ss0 = S.onPage(p), n0 = n || R.n; if (ss0.indexOf(n0) < 0) n0 = dir < 0 ? ss0[ss0.length - 1] : ss0[0];
     if (Tally.dirty() && Tally.unit() !== S.uk(p, n0)) {
-      Tally.ask(function () { go(p, dir, n); }, function () { var sh = $('#sheet'); sh.style.transition = 'transform .18s'; sh.style.transform = ''; renderPanel(); });
+      Tally.ask(function () { go(p, dir, n); }, function () { var sh = $('#spr'); sh.style.transition = 'transform .18s'; sh.style.transform = ''; renderPanel(); });
       return;
     }
     if (n) R.n = n;
@@ -201,17 +230,19 @@
   /* ---------- layout ---------- */
   var layoutSeq = 0;
   function layout(dir) {
-    var seq = ++layoutSeq, p = R.p, segs = segsFor(p);
-    return Promise.all(segs.map(function (s) { return img(s.p); })).then(function (ims) {
+    var seq = ++layoutSeq, p = R.p, segs = segsFor(p), two = spreadOn(segs), fp = partner(p);
+    return Promise.all(segs.map(function (s) { return img(s.p); }).concat(two ? [img(fp)] : [])).then(function (ims) {
       if (seq !== layoutSeq) return;
-      var sc = $('#rscroll'), sheet = $('#sheet');
+      var sc = $('#rscroll'), sheet = $('#sheet'), spr = $('#spr'), face = $('#face'), fim = two ? ims.pop() : null;
       var dims = segs.map(function (s, i) {
         var im = ims[i], c = s.raw ? { l: 0, t: 0, r: 0, b: 0 } : cropOf(s.p), nw = im.naturalWidth, nh = im.naturalHeight;
         var cw = (1 - c.l - c.r) * nw, ch = (1 - c.t - c.b) * nh;
         return { im: im, c: c, nw: nw, nh: nh, cw: cw, ch: ch, u: (s.y1 - s.y0) * ch / cw };
       });
       var U = dims.reduce(function (a, d) { return a + d.u; }, 0);
-      var vw = sc.clientWidth || innerWidth, top = 8, vh = innerHeight - R.ph - top * 2;
+      var vw = sc.clientWidth || innerWidth, top = 8, vh = innerHeight - R.ph - top * 2, GAP = 12;
+      if (desk()) vw = Math.max(240, vw - 2 * EDGE);
+      if (two) vw = (vw - GAP) / 2; // each page gets half the width
       // Whole-page mode keeps the page's own width; a join that makes it taller than the screen scrolls instead of shrinking.
       var fitAll = R.sub === 'crop' || R.sub === 'join' || R.edit, W;
       if (fitAll) W = Math.min(vw, vh / U);
@@ -229,16 +260,30 @@
         for (var si = 0; si < segs.length; si++) { if (segs[si].role === 'this') { oy -= segs[si].y0 * 1000 * dims[si].ch / dims[si].cw; break; } oy += dims[si].u * 1000; }
         if (Math.abs(oy - R.oy) > 0.01) { R.items = shiftItems(R.items, oy - R.oy); R.oy = oy; }
       }
-      var H = U * W, fit = (fitPage() || fitAll) && H <= vh + 2;
-      sheet.style.width = W + 'px'; sheet.style.marginLeft = sheet.style.marginRight = 'auto';
-      sheet.style.marginTop = (fit ? Math.max(top, (innerHeight - R.ph - H) / 2) : 0) + 'px';
-      sheet.style.transition = 'none'; sheet.style.transform = '';
+      var H = U * W;
+      // Facing page: shown beside this one at the same width, with its own crop and the same mask slot.
+      var key = two ? Math.min(p, fp) : null, same = two && R.sprK === key;
+      R.sprK = key; spr.classList.toggle('two', two);
+      if (two) {
+        var fc = cropOf(fp), fnw = fim.naturalWidth, fnh = fim.naturalHeight, fcw = (1 - fc.l - fc.r) * fnw, fch = (1 - fc.t - fc.b) * fnh, fk = W / fcw, Hf = fch / fcw * 1000;
+        var ft = faceTarget(fp);
+        face.className = 'sheet face' + (ft ? '' : ' out'); face.title = ft ? 'Open P. ' + fp : 'P. ' + fp + ' isn’t in this list';
+        face.style.width = W + 'px'; face.style.order = p % 2 ? 0 : 2; // odd page sits on the right
+        face.innerHTML = '<div class="pseg" style="height:' + (fch * fk).toFixed(2) + 'px"><img src="' + fim.src + '" alt="" style="width:' + (fnw * fk).toFixed(2) + 'px;transform:translate(' + (-fc.l * fnw * fk).toFixed(2) + 'px,' + (-fc.t * fnh * fk).toFixed(2) + 'px)"></div>' +
+          '<svg class="fov" viewBox="0 0 1000 ' + Hf.toFixed(1) + '" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">' + staticMask(fp, Hf) + '</svg>';
+        H = Math.max(H, fch * fk);
+      } else face.innerHTML = '';
+      sheet.style.order = 1;
+      var fit = (fitPage() || fitAll) && H <= vh + 2;
+      sheet.style.width = W + 'px'; sheet.style.marginLeft = sheet.style.marginRight = sheet.style.marginTop = '';
+      spr.style.marginTop = (fit ? Math.max(top, (innerHeight - R.ph - H) / 2) : 0) + 'px';
+      spr.style.transition = 'none'; spr.style.transform = '';
       sheet.innerHTML = html + '<svg id="ov" viewBox="0 0 1000 ' + R.Hu.toFixed(1) + '" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>';
       $('#rpad').style.height = fit ? '0px' : (R.ph + 20) + 'px';
       sc.style.overflowY = fit ? 'hidden' : 'auto';
       sc.style.touchAction = fit || R.edit ? 'none' : 'pan-y';
-      if (dir && sheet.animate) sheet.animate([{ transform: 'translateX(' + (-dir * 60) + 'px)', opacity: 0.2 }, { transform: 'none', opacity: 1 }], { duration: 170, easing: 'ease-out' });
-      if (dir) sc.scrollTop = 0;
+      if (dir && !same && spr.animate) spr.animate([{ transform: 'translateX(' + (-dir * 60) + 'px)', opacity: 0.2 }, { transform: 'none', opacity: 1 }], { duration: 170, easing: 'ease-out' });
+      if (dir && !same) sc.scrollTop = 0;
       if (R.sub === 'crop') drawCrop(); else draw();
       bindOv();
       if (R.U !== R.fitU && dzCur() === 'fit') { R.fitU = R.U; fitRows(); if (measurePanel()) relayout(); }
@@ -250,7 +295,7 @@
   var rq = 0;
   function relayout() { cancelAnimationFrame(rq); rq = requestAnimationFrame(function () { layout(); }); }
   window.addEventListener('resize', function () { if (Reader.isOpen()) { measurePanel(); afterPanel(); relayout(); } });
-  function measurePanel() { var pn = $('.rpanel'); var h = R.panel && pn ? pn.offsetHeight : 0; var ch = h !== R.ph; R.ph = h; return ch; }
+  function measurePanel() { var pn = $('.rpanel'); var h = R.panel && pn ? pn.offsetHeight : 0; var ch = h !== R.ph; R.ph = h; $('#reader').style.setProperty('--ph', h + 'px'); return ch; }
 
   /* ---------- mask drawing ---------- */
   function dividers() {
@@ -430,11 +475,11 @@
       if (!g || e.pointerId !== g.id) return;
       var dx = e.clientX - g.x, dy = e.clientY - g.y;
       if (!g.ax && Math.abs(dx) + Math.abs(dy) > 12) { g.ax = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; clearTimeout(g.lp); }
-      if (g.ax === 'x') { var sh = $('#sheet'); sh.style.transition = 'none'; sh.style.transform = 'translateX(' + dx + 'px)'; }
+      if (g.ax === 'x') { var sh = $('#spr'); sh.style.transition = 'none'; sh.style.transform = 'translateX(' + dx + 'px)'; }
     });
     sc.addEventListener('pointerup', function (e) {
       if (!g || e.pointerId !== g.id) return;
-      clearTimeout(g.lp); var dx = e.clientX - g.x, dy = e.clientY - g.y, dt = Date.now() - g.t, ax = g.ax, sh = $('#sheet'); g = null;
+      clearTimeout(g.lp); var dx = e.clientX - g.x, dy = e.clientY - g.y, dt = Date.now() - g.t, ax = g.ax, sh = $('#spr'); g = null;
       if (ax === 'x') {
         var dir = dx > 0 ? 1 : -1, nt = stepTo(dir, Math.abs(dx) > 60);
         if (Math.abs(dx) > 60 && nt) {
@@ -449,17 +494,25 @@
       }
       // Single tap hides the drawer (page number brings it back), or with the Settings switch on, double-tap toggles it.
       if (!ax && dt < 350) {
-        if (!S.d.settings.tapShow) { if (R.panel) togglePanel(false); return; }
+        var fe = e.target.closest && e.target.closest('#face');
+        if (fe && $('#spr').classList.contains('two')) { openFace(); return; }
+        if (!S.d.settings.tapShow) { if (R.panel && !desk()) togglePanel(false); return; }
         var now = Date.now(); if (now - (R.lastTap || 0) < 320) { R.lastTap = 0; togglePanel(!R.panel); } else R.lastTap = now;
       }
     });
-    sc.addEventListener('pointercancel', function (e) { if (g && e.pointerId === g.id) { g = null; var sh = $('#sheet'); sh.style.transition = 'transform .18s'; sh.style.transform = ''; } });
+    sc.addEventListener('pointercancel', function (e) { if (g && e.pointerId === g.id) { g = null; var sh = $('#spr'); sh.style.transition = 'transform .18s'; sh.style.transform = ''; } });
     document.addEventListener('keydown', function (e) {
       if (!Reader.isOpen() || /INPUT|SELECT|TEXTAREA/.test((e.target || {}).tagName)) return;
       if (e.key === 'ArrowLeft') step(1); else if (e.key === 'ArrowRight') step(-1); else if (e.key === 'Escape') history.back();
     });
   }
   function togglePanel(on) { R.panel = on; renderPanel(); }
+  function openFace() {
+    if (R.edit || R.sub === 'crop' || R.sub === 'join') return; // finish editing this page first
+    var q = partner(R.p), t = faceTarget(q);
+    if (!t) { App.toast('P. ' + q + ' isn’t in this list'); return; }
+    go(t.p, q > R.p ? 1 : -1, t.n);
+  }
 
   /* ---------- panel ---------- */
   var I = function (d) { return '<svg class="i" viewBox="0 0 24 24">' + d + '</svg>'; };
@@ -473,7 +526,8 @@
     full: I('<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>'),
     fitp: I('<rect x="6" y="3" width="12" height="18" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h4"/>'), fitw: I('<path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/>'),
     left: I('<path d="M15 18l-6-6 6-6"/>'), right: I('<path d="M9 18l6-6-6-6"/>'), check: I('<path d="M20 6L9 17l-5-5"/>'),
-    pen: I('<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), up: I('<path d="M18 15l-6-6-6 6"/>'), down: I('<path d="M6 9l6 6 6-6"/>'), trash: I('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'), x: I('<path d="M6 6l12 12M18 6L6 18"/>'), back: I('<path d="M19 12H5M12 19l-7-7 7-7"/>'), tally: I('<circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/>')
+    pen: I('<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), up: I('<path d="M18 15l-6-6-6 6"/>'), down: I('<path d="M6 9l6 6 6-6"/>'), trash: I('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'), x: I('<path d="M6 6l12 12M18 6L6 18"/>'), back: I('<path d="M19 12H5M12 19l-7-7 7-7"/>'), tally: I('<circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/>'),
+    book: I('<path d="M2 5.5C4.5 4.3 7.5 4.3 12 6c4.5-1.7 7.5-1.7 10-.5v13c-2.5-1.2-5.5-1.2-10 .5-4.5-1.7-7.5-1.7-10-.5zM12 6v13.5"/>')
   };
   function tb(id, label, icon, on, off) { return '<button class="tb' + (on ? ' on' : '') + '" data-ract="' + id + '"' + (off ? ' disabled' : '') + '>' + icon + label + '</button>'; }
   function navBtns(cls) {
@@ -494,7 +548,7 @@
     }
     var before = toolPos();
     var dz = dzCur();
-    x += '<div class="rpanel dz-' + dz + '"><button class="grab" data-ract="dsz" aria-label="Resize controls">' + (dz === 'rib' ? IC.up : IC.down) + '</button>';
+    x += '<div class="rpanel dz-' + dz + (R.sub === 'join' || R.sub === 'crop' || R.edit ? '' : ' mainp') + '"><button class="grab" data-ract="dsz" aria-label="Resize controls">' + (dz === 'rib' ? IC.up : IC.down) + '</button>';
     if (R.sub === 'join') x += joinPanel();
     else if (R.sub === 'crop') x += cropPanel() + toolsRow();
     else if (R.edit) x += editPanel() + toolsRow();
@@ -551,6 +605,7 @@
     }, { passive: true });
   }
   function afterPanel() {
+    $('#reader').classList.toggle('desk', desk());
     wireStrip();
     var zc = $('#rui .zchip'); if (land()) { if (zc) zc.outerHTML = zoomChip(); else $('#rui').insertAdjacentHTML('beforeend', zoomChip()); } else if (zc) zc.remove();
     // Keep the active tool visible when the toolbar is wider than the screen.
@@ -571,7 +626,8 @@
   function fitRows() {
     var pn = $('.rpanel'), host = $('#rui'); if (!pn) return;
     [].forEach.call(pn.querySelectorAll('.dzh'), function (e) { e.classList.remove('dzh'); });
-    [].forEach.call(host.querySelectorAll('.navb.float'), function (e) { e.remove(); });
+    [].forEach.call(host.querySelectorAll('.navb.float,.navb.edge'), function (e) { e.remove(); });
+    if (desk()) { host.insertAdjacentHTML('beforeend', navBtns('edge')); return; } // one bar, no drawer sizes; arrows at the screen edges
     var dz = dzCur(); if (dz === 'full') return;
     var rows = [].filter.call(pn.children, function (e) { return !e.matches('.grab,.tools,.rsub,.subrow'); });
     if (dz === 'rib') rows.forEach(function (e) { e.classList.add('dzh'); });
@@ -649,6 +705,7 @@
     return '<div class="rrow scroll tools' + (open ? ' edopen' : '') + '">' + (open ? '' :
       tb('health', m ? h + '%' : 'Health', IC.heart, R.sub === 'health', !m) + tb('tags', 'Tags', IC.tag, R.sub === 'tags', !m) +
       timerTool() + tb('tally', 'Tally', IC.tally, R.sub === 'tally') +
+      (desk() ? tb('spread', '2 pages', IC.book, !!S.d.settings.spread) : '') +
       (installed() ? '' : tb('fs', 'Full screen', IC.full, false))) + grp + tb('home', 'Back', IC.back, false) + '</div>';
   }
   // Once a session is running, Timer expands into an oval with the running time and play/pause beside it.
@@ -912,6 +969,7 @@
     jT: function (el) { R.jt = el.dataset.t; renderPanel(); relayout(); },
     subDone: function () { var j = R.sub === 'join'; R.sub = null; renderPanel(); if (j) relayout(); },
     joinReset: function () { setJn(function () { return null; }); renderPanel(); relayout(); },
+    spread: function () { S.d.settings.spread = !S.d.settings.spread; S.saveSettings(); renderPanel(); layout(); },
     fit: function () { S.d.settings.fit = fitPage() ? 'width' : 'page'; S.saveSettings(); renderPanel(); layout(); },
     fs: function () {
       var d = document;
