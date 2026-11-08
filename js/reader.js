@@ -700,9 +700,8 @@
     var dz = dzCur(); if (dz === 'full') return;
     var rows = [].filter.call(pn.children, function (e) { return !e.matches('.grab,.tools,.rsub,.subrow'); });
     if (dz === 'rib') {
-      rows.forEach(function (e) { e.classList.add('dzh'); });
-      // v94: Ribbon is the thinnest size — an open Tally row keeps only its Count line (otherwise Fit and Ribbon looked the same).
-      [].forEach.call(pn.querySelectorAll('.tlsub > :not(.tcore)'), function (e) { e.classList.add('dzh'); });
+      // v96: Ribbon is the thinnest size — only the arrow and the icon toolbar; an open tool row (Tally, Timer, Health) hides too.
+      [].forEach.call(pn.children, function (e) { if (!e.matches('.grab,.tools')) e.classList.add('dzh'); });
     }
     else {
       var vw = ($('#rscroll') || {}).clientWidth || innerWidth, gap = R.U ? Math.floor(innerHeight - 16 - R.U * Math.min(vw, 820)) - 1 : 0;
