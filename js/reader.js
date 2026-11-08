@@ -692,6 +692,12 @@
     if (z === 'hide') { togglePanel(false); return; }
     if (phoneLand()) R.dszL = z; else { S.d.settings.dsz = z; S.saveSettings(); } R.fitU = R.U; R.panel = true; renderPanel();
   }
+  /* v98: in Ribbon the tool rows are hidden, so tapping Tally / Timer / Health there opens that row and grows the
+     drawer to Fit (which keeps tool rows) instead of toggling a row nobody can see. Returns the new R.sub. */
+  function toolSub(name) {
+    if (!desk() && R.panel && dzCur() === 'rib') { if (phoneLand()) R.dszL = 'fit'; else { S.d.settings.dsz = 'fit'; S.saveSettings(); } R.fitU = R.U; return name; }
+    return R.sub === name ? null : name;
+  }
   function fitRows() {
     var pn = $('.rpanel'), host = $('#rui'); if (!pn) return;
     [].forEach.call(pn.querySelectorAll('.dzh'), function (e) { e.classList.remove('dzh'); });
@@ -945,7 +951,7 @@
     home: function () { if (Tally.dirty()) Tally.park(); history.back(); },
     tally: function () {
       leaveModes();
-      if (!Tally.on()) { Tally.show(true); R.sub = 'tally'; } else R.sub = R.sub === 'tally' ? null : 'tally';
+      if (!Tally.on()) { Tally.show(true); toolSub('tally'); R.sub = 'tally'; } else R.sub = toolSub('tally');
       Tally.resume(R.k);
       renderPanel(); draw();
     },
@@ -997,7 +1003,7 @@
     timer: function () {
       leaveModes();
       // Tap opens the oval at 0:00 with play (nothing starts until play is pressed); tap again closes it.
-      R.sub = R.sub === 'timer' ? null : 'timer';
+      R.sub = toolSub('timer');
       renderPanel();
     },
     zout: function () { setZoom(-10); },
@@ -1015,7 +1021,7 @@
       if (v === 'custom') { v = parseInt(prompt('Session target in minutes', S.d.settings.sessT || 45), 10); if (!(v > 0)) return; }
       Timer.setTarget(+v); renderPanel();
     },
-    health: function () { leaveModes(); R.sub = R.sub === 'health' ? null : 'health'; renderPanel(); },
+    health: function () { leaveModes(); R.sub = toolSub('health'); renderPanel(); },
     tag: function (el) { S.toggleTag(R.k, el.dataset.t); renderPanel(); },
     mask: function (el) {
       var k = el.dataset.slot;
