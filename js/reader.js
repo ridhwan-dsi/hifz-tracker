@@ -55,8 +55,9 @@
     return s;
   }
   function zkey() { return desk() ? 'lz' : 'lzm'; } // mobile view and web view each keep their own zoom
-  function lzoom() { var z = S.d.settings[zkey()]; return land() && z ? clamp(z, 40, 100) / 100 : 1; }
-  function zoomChip() { var z = Math.round(lzoom() * 100); return '<div class="zchip"><button data-ract="zout" aria-label="Zoom out"' + (z <= 40 ? ' disabled' : '') + '>−</button><span>' + z + '%</span><button data-ract="zin" aria-label="Zoom in"' + (z >= 100 ? ' disabled' : '') + '>+</button></div>'; }
+  function zmax() { return desk() ? 300 : 100; } // web view can zoom past the fitted page; mobile stops at full width
+  function lzoom() { var z = S.d.settings[zkey()]; return land() && z ? clamp(z, 40, zmax()) / 100 : 1; }
+  function zoomChip() { var z = Math.round(lzoom() * 100); return '<div class="zchip"><button data-ract="zout" aria-label="Zoom out"' + (z <= 40 ? ' disabled' : '') + '>−</button><span>' + z + '%</span><button data-ract="zin" aria-label="Zoom in"' + (z >= zmax() ? ' disabled' : '') + '>+</button></div>'; }
 
   /* ---------- crop / joins ---------- */
   function baseCrop(p) {
@@ -287,6 +288,7 @@
       sheet.innerHTML = html + '<svg id="ov" viewBox="0 0 1000 ' + R.Hu.toFixed(1) + '" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>';
       $('#rpad').style.height = fit ? '0px' : (R.ph + 20) + 'px';
       sc.style.overflowY = fit ? 'hidden' : 'auto';
+      sc.style.overflowX = desk() && !fit ? 'auto' : ''; // web view zoomed past the screen width scrolls sideways too
       sc.style.touchAction = fit || R.edit ? 'none' : 'pan-y';
       if (dir && !same && spr.animate) spr.animate([{ transform: 'translateX(' + (-dir * 60) + 'px)', opacity: 0.2 }, { transform: 'none', opacity: 1 }], { duration: 170, easing: 'ease-out' });
       if (dir && !same) sc.scrollTop = 0;
@@ -297,7 +299,20 @@
       if (seq === layoutSeq) $('#sheet').innerHTML = '<div style="padding:40px;text-align:center;color:#666;background:#fff">Couldn’t load this page. Check your connection.</div>';
     });
   }
-  function setZoom(d) { var s = S.d.settings; s[zkey()] = clamp(Math.round(lzoom() * 100) + d, 40, 100); S.saveSettings(); afterPanel(); relayout(); }
+  function setZoom(d) { var s = S.d.settings; s[zkey()] = clamp(Math.round(lzoom() * 100) + d, 40, zmax()); S.saveSettings(); afterPanel(); relayout(); }
+  /* Web view: the mouse wheel zooms (10% a notch), keeping the spot under the pointer in place. */
+  var wheelSave = 0;
+  function wheelZoom(e) {
+    if (!desk() || !land()) return;
+    e.preventDefault();
+    var sc = $('#rscroll'), s = S.d.settings, z0 = Math.round(lzoom() * 100), z = clamp(z0 + (e.deltaY < 0 ? 10 : -10), 40, zmax());
+    if (z === z0) return;
+    var r = sc.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+    var fx = (sc.scrollLeft + mx) / Math.max(1, sc.scrollWidth), fy = (sc.scrollTop + my) / Math.max(1, sc.scrollHeight);
+    s.lz = z; clearTimeout(wheelSave); wheelSave = setTimeout(function () { S.saveSettings(); }, 600);
+    afterPanel();
+    layout().then(function () { sc.scrollLeft = fx * sc.scrollWidth - mx; sc.scrollTop = fy * sc.scrollHeight - my; });
+  }
   var rq = 0;
   function relayout() { cancelAnimationFrame(rq); rq = requestAnimationFrame(function () { layout(); }); }
   window.addEventListener('resize', function () { if (Reader.isOpen()) { if (R.wasDesk !== desk()) { R.wasDesk = desk(); loadItems(); renderPanel(); }
@@ -470,6 +485,7 @@
   /* ---------- page gestures (read mode) ---------- */
   function bindGestures() {
     var sc = $('#rscroll'), g = null, pz = null;
+    sc.addEventListener('wheel', wheelZoom, { passive: false });
     /* Two-finger pinch, phone on its side (mobile view) only: scales the page live, then sets the same zoom as the
        − / + chip (40–100%, 100% = full width) when the fingers lift. */
     function pinchOK() { return land() && !desk() && innerHeight < 600 && !R.edit && R.sub !== 'crop' && R.sub !== 'join'; }
@@ -499,6 +515,8 @@
       if (pz) return;
       if (R.edit || R.sub === 'crop' || (e.pointerType === 'mouse' && e.button !== 0)) return;
       g = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId, ax: null };
+      // Web view, page bigger than the screen: dragging with the mouse moves the page instead of turning it.
+      if (desk() && e.pointerType === 'mouse' && (sc.scrollHeight > sc.clientHeight + 2 || sc.scrollWidth > sc.clientWidth + 2)) g.pan = { sl: sc.scrollLeft, st: sc.scrollTop };
       var g0 = g, ev = { clientX: e.clientX, clientY: e.clientY };
       if (activeMask() && R.items.length) g.lp = setTimeout(function () {
         if (g !== g0 || g.ax || !$('#ov')) return;
@@ -510,12 +528,15 @@
     sc.addEventListener('pointermove', function (e) {
       if (!g || e.pointerId !== g.id) return;
       var dx = e.clientX - g.x, dy = e.clientY - g.y;
+      if (g.pan) { if (!g.ax && Math.abs(dx) + Math.abs(dy) > 12) { g.ax = 'p'; clearTimeout(g.lp); sc.classList.add('panning'); } if (g.ax === 'p') { sc.scrollLeft = g.pan.sl - dx; sc.scrollTop = g.pan.st - dy; } return; }
       if (!g.ax && Math.abs(dx) + Math.abs(dy) > 12) { g.ax = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; clearTimeout(g.lp); }
       if (g.ax === 'x') { var sh = $('#spr'); sh.style.transition = 'none'; sh.style.transform = 'translateX(' + dx + 'px)'; }
     });
     sc.addEventListener('pointerup', function (e) {
       if (!g || e.pointerId !== g.id) return;
       clearTimeout(g.lp); var dx = e.clientX - g.x, dy = e.clientY - g.y, dt = Date.now() - g.t, ax = g.ax, sh = $('#spr'); g = null;
+      sc.classList.remove('panning');
+      if (ax === 'p') return;
       if (ax === 'x') {
         var dir = dx > 0 ? 1 : -1, nt = stepTo(dir, Math.abs(dx) > 60);
         if (Math.abs(dx) > 60 && nt) {

@@ -406,3 +406,6 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 .vsw.rv { position: fixed; top: calc(12px + env(safe-area-inset-top)); right: 12px; z-index: 42; box-shadow: 0 4px 14px rgba(0,0,0,.3); }
 .sswitch button.nb { border-style: dashed; color: var(--acc); background: transparent; }
 body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
+/* v88 web view zoom past 100%: the pages row grows past the screen and scrolls instead of being cut off */
+#reader.desk .spr { min-width: 100%; width: max-content; }
+#reader.desk .rscroll.panning { cursor: grabbing; }
