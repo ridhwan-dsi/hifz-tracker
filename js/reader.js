@@ -283,7 +283,8 @@
       sheet.style.order = 1;
       var fit = (fitPage() || fitAll) && H <= vh + 2;
       sheet.style.width = W + 'px'; sheet.style.marginLeft = sheet.style.marginRight = sheet.style.marginTop = '';
-      spr.style.marginTop = (fit ? Math.max(top, (innerHeight - R.ph - H) / 2) : 0) + 'px';
+      // v91: only web view centres the page vertically; the phone reader keeps it at the top, leaving the space below free (e.g. for the tally button)
+      spr.style.marginTop = (fit && document.body.classList.contains('web') ? Math.max(top, (innerHeight - R.ph - H) / 2) : 0) + 'px';
       spr.style.transition = 'none'; spr.style.transform = '';
       sheet.innerHTML = html + '<svg id="ov" viewBox="0 0 1000 ' + R.Hu.toFixed(1) + '" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>';
       $('#rpad').style.height = fit ? '0px' : (R.ph + 20) + 'px';
