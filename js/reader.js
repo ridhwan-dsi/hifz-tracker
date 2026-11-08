@@ -249,6 +249,8 @@
       // Whole-page mode keeps the page's own width; a join that makes it taller than the screen scrolls instead of shrinking.
       var fitAll = R.sub === 'crop' || R.sub === 'join' || R.edit, W;
       if (fitAll) W = Math.min(vw, vh / U);
+      // Phone on its side (mobile view): fit the width and scroll down the page; the zoom chip scales from there.
+      else if (land() && !desk() && innerHeight < 600) W = vw;
       else if (fitPage()) { var Ub = U; segs.forEach(function (s, i) { if (s.role === 'this') Ub = dims[i].ch / dims[i].cw; }); W = Math.min(vw, vh / Math.min(U, Ub)); }
       else W = Math.min(vw, 820);
       W = Math.max(120, Math.floor(W * lzoom()));
