@@ -209,7 +209,7 @@
       (o.input != null ? '<input class="dinp" id="dinp" maxlength="40" enterkeyhint="done" value="' + esc(o.input) + '" autocomplete="off">' : '') +
       '<div class="pbtns' + (o.col ? ' col' : '') + '">' + (o.btns ? o.btns.map(function (b) { return '<button class="btn ' + (b[2] || '') + '" data-dg="' + b[0] + '">' + esc(b[1]) + '</button>'; }).join('') :
         '<button class="btn" data-dg="x">Cancel</button><button class="btn ' + (o.danger ? 'danger' : 'pri') + '" data-dg="ok">' + esc(o.ok) + '</button>') + '</div></div>';
-    sc.style.display = 'flex'; fitScrim();
+    sc.classList.toggle('top', o.input != null); sc.style.display = 'flex'; fitScrim();
     var inp = document.getElementById('dinp');
     if (inp) { setTimeout(function () { inp.focus(); inp.select(); }, 30); inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); endDlg(true); } }); }
   }
