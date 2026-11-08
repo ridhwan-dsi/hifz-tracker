@@ -171,6 +171,7 @@
       R.sub = null; R.edit = false; R.sel = -1; App.render(); if (window.Tally) Tally.render();
     },
     isOpen: function () { return $('#reader').classList.contains('on'); },
+    desk: function () { return desk(); },
     page: function () { return R.p; },
     unit: function () { return R.k; },
     refresh: function () { if (Reader.isOpen()) renderPanel(); },

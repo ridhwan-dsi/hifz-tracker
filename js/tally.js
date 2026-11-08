@@ -149,5 +149,14 @@
     }
     if (e.target.id === 'scrim') { ask = null; closeAsk(); if (a.stay) a.stay(); }
   }, true);
+  // v92: in web view, Space counts one read while the counter is out (held key repeats are ignored).
+  document.addEventListener('keydown', function (e) {
+    if (e.code !== 'Space' && e.key !== ' ') return;
+    if (!el || el.style.display === 'none' || ask || !Reader.isOpen() || !Reader.desk()) return;
+    var t = e.target, tg = t && t.tagName;
+    if (tg === 'INPUT' || tg === 'TEXTAREA' || tg === 'SELECT' || (t && t.isContentEditable)) return;
+    e.preventDefault(); if (e.repeat) return;
+    buzz(); Tally.add(1); el.classList.add('pop'); setTimeout(function () { el.classList.remove('pop'); }, 130);
+  });
   window.Tally = Tally;
 })();
