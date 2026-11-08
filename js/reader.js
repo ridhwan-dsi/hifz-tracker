@@ -30,7 +30,7 @@
   function desk() { return S.d.settings.view === 'web' && wideScreen(); }
   var EDGE = 88; // room kept at each side for the edge arrows
   function partner(p) { return p % 2 ? p + 1 : p - 1; } // Madani mushaf: odd pages on the right, even on the left
-  function spreadOn(segs) { return desk() && !!S.d.settings.spread && R.sub !== 'join' && segs.length === 1; }
+  function spreadOn(segs) { return desk() && S.d.settings.spread !== false && R.sub !== 'join' && segs.length === 1; }
   // Where the facing page leads when clicked: null if it is not in the list this page was opened from.
   function faceTarget(q) {
     if (!R.range) return { p: q };
@@ -73,7 +73,7 @@
     ['l', 't', 'r', 'b'].forEach(function (k) { o[k] = clamp(o[k], 0, 0.4); });
     return o;
   }
-  function cropOf(p) { var c = S.get(p).crop; return c ? { l: c.l || 0, t: c.t || 0, r: c.r || 0, b: c.b || 0 } : autoCrop(p); }
+  function cropOf(p) { if (desk() && !S.d.settings.webTrim && R.sub !== 'crop') return { l: 0, t: 0, r: 0, b: 0 }; var c = S.get(p).crop; return c ? { l: c.l || 0, t: c.t || 0, r: c.r || 0, b: c.b || 0 } : autoCrop(p); }
   // Join belongs to a mask (so surahs sharing a page each keep their own joined view); None shows the plain page.
   function jnOf() { var am = activeMask(); return am && am.jn ? am.jn : null; }
   function setJn(fn) { var am = activeMask(); if (!am) return; saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) { var j = fn(m.jn ? JSON.parse(JSON.stringify(m.jn)) : {}); if (j) m.jn = j; else delete m.jn; } }); }); }
@@ -155,7 +155,7 @@
   var Reader = {
     // range: optional list of unit keys (from the Memorizing tab) — swiping/arrows then stay within those pages.
     open: function (p, n, range, tag) {
-      R.style = boxDef(); R.palOpen = false; R.tag = tag || null; // custom tag: counts shown for the tag, not the month
+      R.style = boxDef(); R.palOpen = false; R.wasDesk = desk(); R.tag = tag || null; // custom tag: counts shown for the tag, not the month
       p = clamp(p | 0, 1, 604); R.n = n || 0;
       R.range = range && range.length ? range.slice().sort(function (a, b) { return S.kp(a) - S.kp(b) || S.kn(a) - S.kn(b); }) : null;
       if (!Reader.isOpen()) history.pushState({ reader: 1 }, '', '#p' + p);
@@ -296,7 +296,7 @@
   function setZoom(d) { var s = S.d.settings; s.lz = clamp(Math.round(lzoom() * 100) + d, 40, 100); S.saveSettings(); afterPanel(); relayout(); }
   var rq = 0;
   function relayout() { cancelAnimationFrame(rq); rq = requestAnimationFrame(function () { layout(); }); }
-  window.addEventListener('resize', function () { if (Reader.isOpen()) { measurePanel(); afterPanel(); relayout(); } });
+  window.addEventListener('resize', function () { if (Reader.isOpen()) { if (R.wasDesk !== desk()) { R.wasDesk = desk(); loadItems(); renderPanel(); } measurePanel(); afterPanel(); relayout(); } });
   function measurePanel() { var pn = $('.rpanel'); var h = R.panel && pn ? pn.offsetHeight : 0; var ch = h !== R.ph; R.ph = h; $('#reader').style.setProperty('--ph', h + 'px'); return ch; }
 
   /* ---------- mask drawing ---------- */
@@ -501,7 +501,7 @@
       if (!ax && dt < 350) {
         var fe = e.target.closest && e.target.closest('#face');
         if (fe && $('#spr').classList.contains('two')) { openFace(); return; }
-        if (!S.d.settings.tapShow) { if (R.panel && !desk()) togglePanel(false); return; }
+        if (!S.d.settings.tapShow && !desk()) { if (R.panel) togglePanel(false); return; }
         var now = Date.now(); if (now - (R.lastTap || 0) < 320) { R.lastTap = 0; togglePanel(!R.panel); } else R.lastTap = now;
       }
     });
@@ -612,6 +612,8 @@
   }
   function afterPanel() {
     $('#reader').classList.toggle('desk', desk());
+    var vs = $('#rui .vsw'); if (vs) vs.remove();
+    if (wideScreen()) $('#rui').insertAdjacentHTML('beforeend', '<button class="vsw rv' + (desk() ? ' on' : '') + '" data-ract="viewFlip" title="Switch between mobile view and web view"><i></i>Web view</button>');
     wireStrip();
     var zc = $('#rui .zchip'); if (land()) { if (zc) zc.outerHTML = zoomChip(); else $('#rui').insertAdjacentHTML('beforeend', zoomChip()); } else if (zc) zc.remove();
     // Keep the active tool visible when the toolbar is wider than the screen.
@@ -666,10 +668,29 @@
   });
 
   // On a page shared by several surahs, the title is a switch: each surah's part has its own memorizing state.
+  /* Surah row, right to left like the mushaf (later surahs on the left). It holds the surahs on this page (a switch on a
+     shared page) and, at the first or last listed page of this surah, a chip for the neighbouring surah in the same list
+     (or the mushaf, from To Memorize) — tapping it moves into that surah's pages. Opened from a list, surahs with no
+     listed pages are left out. */
+  function hasMore(dir) {
+    if (R.range) return R.range.some(function (u) { return S.kn(u) === R.n && (dir > 0 ? S.kp(u) > R.p : S.kp(u) < R.p); });
+    var s = QURAN.S[R.n - 1]; return s ? (dir > 0 ? R.p < s[4] : R.p > s[3]) : false;
+  }
+  function nbSurah(dir) {
+    if (!R.range) { var n = R.n + dir; return n >= 1 && n <= 114 ? n : 0; }
+    var best = 0; R.range.forEach(function (u) { var n = S.kn(u); if (dir > 0 ? n > R.n && (!best || n < best) : n < R.n && n > best) best = n; });
+    return best;
+  }
   function surahTitle(p) {
-    var ss = S.onPage(p);
-    if (ss.length < 2) return App.esc(App.pageTitle(p));
-    return '<span class="sswitch">' + ss.map(function (n) { return '<button class="' + (n === R.n ? 'on' : '') + '" data-ract="surah" data-n="' + n + '">' + App.esc(QURAN.S[n - 1][0]) + '</button>'; }).join('') + '</span>';
+    var ss = S.onPage(p).filter(function (n) { return n === R.n || !R.range || R.range.indexOf(S.uk(p, n)) >= 0; });
+    var nx = hasMore(1) ? 0 : nbSurah(1), pv = hasMore(-1) ? 0 : nbSurah(-1);
+    if (ss.indexOf(nx) >= 0) nx = 0; if (ss.indexOf(pv) >= 0) pv = 0;
+    if (ss.length < 2 && !nx && !pv) return App.esc(App.pageTitle(p));
+    var nm = function (n) { return App.esc(QURAN.S[n - 1][0]); };
+    return '<span class="sswitch">' +
+      (nx ? '<button class="nb" data-ract="nbS" data-n="' + nx + '" data-d="1" aria-label="Next surah">‹ ' + nm(nx) + '</button>' : '') +
+      ss.slice().reverse().map(function (n) { return '<button class="' + (n === R.n ? 'on' : '') + '" data-ract="surah" data-n="' + n + '">' + nm(n) + '</button>'; }).join('') +
+      (pv ? '<button class="nb" data-ract="nbS" data-n="' + pv + '" data-d="-1" aria-label="Previous surah">' + nm(pv) + ' ›</button>' : '') + '</span>';
   }
   function mainPanel() {
     var p = R.p, k = R.k, o = S.get(k), m = S.isMem(k), h = S.health(k);
@@ -711,7 +732,7 @@
     return '<div class="rrow scroll tools' + (open ? ' edopen' : '') + '">' + (open ? '' :
       tb('health', m ? h + '%' : 'Health', IC.heart, R.sub === 'health', !m) + tb('tags', 'Tags', IC.tag, R.sub === 'tags', !m) +
       timerTool() + tb('tally', 'Tally', IC.tally, R.sub === 'tally') +
-      (desk() ? tb('spread', '2 pages', IC.book, !!S.d.settings.spread) + tb('mview', 'Mobile view', IC.phone, false) : '') +
+      (desk() ? tb('spread', '2 pages', IC.book, S.d.settings.spread !== false) : '') +
       (installed() ? '' : tb('fs', 'Full screen', IC.full, false))) + grp + tb('home', 'Back', IC.back, false) + '</div>';
   }
   // Once a session is running, Timer expands into an oval with the running time and play/pause beside it.
@@ -877,6 +898,12 @@
     mem: function () { var on = !S.isMem(R.k); S.setMem(R.k, on); App.toast(on ? 'Added to Memorizing (New)' : 'Moved back to To Memorize'); renderPanel(); App.precache(); },
     hminus: function () { S.setHealth(R.k, S.health(R.k) - 5); renderPanel(); },
     hplus: function () { S.setHealth(R.k, S.health(R.k) + 5); renderPanel(); },
+    nbS: function (el) { // into the neighbouring surah: its first listed page going forward, its last going back
+      var n = +el.dataset.n, d = +el.dataset.d, q;
+      if (R.range) { var ps = R.range.filter(function (u) { return S.kn(u) === n; }).map(S.kp).sort(function (a, b) { return a - b; }); q = d > 0 ? ps[0] : ps[ps.length - 1]; }
+      else { var s = QURAN.S[n - 1]; q = d > 0 ? s[3] : s[4]; }
+      if (q) go(q, d, n);
+    },
     surah: function (el) { if (Tally.dirty()) { Tally.ask(function () { RACT.surah(el); }); return; } R.n = +el.dataset.n; R.k = S.uk(R.p, R.n); S.setLast(R.p, R.k); renderPanel(); },
     rev: function () {
       var p = R.k;
@@ -975,8 +1002,9 @@
     jT: function (el) { R.jt = el.dataset.t; renderPanel(); relayout(); },
     subDone: function () { var j = R.sub === 'join'; R.sub = null; renderPanel(); if (j) relayout(); },
     joinReset: function () { setJn(function () { return null; }); renderPanel(); relayout(); },
-    mview: function () { S.d.settings.view = 'mobile'; S.saveSettings(); R.panel = true; renderPanel(); layout(); App.toast('Mobile view · switch back in Settings'); },
-    spread: function () { S.d.settings.spread = !S.d.settings.spread; S.saveSettings(); renderPanel(); layout(); },
+    // Mobile ⇄ Web flip switch (top-right on wide screens). Items are re-read because web view shows uncropped pages.
+    viewFlip: function () { if (R.edit) RACT.doneEdit(); if (R.sub === 'crop') RACT.cropApply(); S.d.settings.view = desk() ? 'mobile' : 'web'; S.saveSettings(); R.wasDesk = desk(); R.panel = true; loadItems(); renderPanel(); layout(); },
+    spread: function () { S.d.settings.spread = S.d.settings.spread === false; S.saveSettings(); renderPanel(); layout(); },
     fit: function () { S.d.settings.fit = fitPage() ? 'width' : 'page'; S.saveSettings(); renderPanel(); layout(); },
     fs: function () {
       var d = document;

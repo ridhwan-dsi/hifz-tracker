@@ -49,6 +49,7 @@
       document.documentElement.dataset.theme = S.d.settings.theme;
       var meta = document.querySelector('meta[name=theme-color]');
       if (meta) meta.content = getComputedStyle(document.documentElement).getPropertyValue('--acc').trim() || '#1f7a52';
+      document.body.classList.toggle('web', S.d.settings.view === 'web' && innerWidth >= 1000);
       $('#app').innerHTML = st.view === 'stats' ? stats() : home();
     },
     syncChanged: function () { var el = $('#syncChip'); if (el) el.outerHTML = syncChip(); if ($('#settingsSheet')) openSettings(); },
@@ -67,6 +68,10 @@
     }
   };
   window.App = App;
+  // Mobile ⇄ Web switch beside Settings, offered on screens 1000 px wide or more (small laptops are about 1280–1366).
+  function viewSw() { return innerWidth >= 1000 ? '<button class="vsw' + (S.d.settings.view === 'web' ? ' on' : '') + '" data-act="viewFlip" title="Switch between mobile view and web view"><i></i>Web view</button>' : ''; }
+  var wasWide = innerWidth >= 1000;
+  window.addEventListener('resize', function () { var w = innerWidth >= 1000; if (w !== wasWide) { wasWide = w; if (!(window.Reader && Reader.isOpen())) App.render(); } });
 
   function syncChip() {
     var s = Sync.state, cid = Sync.cid();
@@ -80,7 +85,7 @@
     var d = S.d, h = '';
     h += '<header class="top"><div class="brand"><span class="dot">' + ICON.book + '</span>Hifz Tracker</div>' + syncChip() +
       '<button class="ib" data-act="stats" aria-label="Stats">' + ICON.stats + '</button>' +
-      '<button class="ib" data-act="settings" aria-label="Settings">' + ICON.gear + '</button></header>';
+      '<button class="ib" data-act="settings" aria-label="Settings">' + ICON.gear + '</button>' + viewSw() + '</header>';
     if (d.last && d.last.p) {
       var lp = d.last.p, lk = d.last.k || S.uk(lp);
       if (d.ui.contMin) h += '<div class="cont min"><button class="go" data-act="open" data-p="' + lk + '">' + ICON.play + ' P. ' + lp + '</button><button class="ib" data-act="contMin" aria-label="Expand">' + ICON.fwd + '</button></div>';
@@ -244,7 +249,7 @@
     var m = S.month(), monthTotal = 0, all = 0, sumH = 0, months = {};
     Object.keys(S.d.pages).forEach(function (k) { var rv = S.d.pages[k].rv || {}; for (var mm in rv) { months[mm] = (months[mm] || 0) + rv[mm]; all += rv[mm]; if (mm === m) monthTotal += rv[mm]; } });
     mem.forEach(function (p) { sumH += S.health(p); });
-    var h = '<header class="top"><button class="ib" data-act="home" aria-label="Back">' + ICON.back + '</button><div class="brand">Stats</div></header>';
+    var h = '<header class="top"><button class="ib" data-act="home" aria-label="Back">' + ICON.back + '</button><div class="brand">Stats</div>' + viewSw() + '</header>';
     h += '<div class="seg">' + [['rep', 'Report'], ['prog', 'Progress'], ['time', 'Calendar']].map(function (x) { return '<button class="' + (st.stab === x[0] ? 'on' : '') + '" data-act="stab" data-t="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
     if (st.stab === 'time') return h + timeStats();
     if (st.stab === 'rep') return h + report();
@@ -436,7 +441,8 @@
     var themes = [['green', '#1f7a52', 'Green'], ['blue', '#1d5ca6', 'Blue'], ['dark', '#111513', 'Dark']];
     var h = '<div class="sheetm" id="settingsSheet"><h3>Settings</h3>' +
       '<h4>Theme</h4><div class="themes">' + themes.map(function (t) { return '<button class="' + (s.theme === t[0] ? 'on' : '') + '" data-act="theme" data-t="' + t[0] + '"><span class="sq" style="background:' + t[1] + '"></span>' + t[2] + '</button>'; }).join('') + '</div>' +
-      '<h4>Page display</h4>' + (innerWidth >= 1000 ? '<div class="frow"><label>Web view<br><span class="small muted">For laptops and big screens: a thin control bar across the bottom, page arrows at the sides, and an option to show two facing pages. Off: the phone reader.</span></label><button class="sw ' + (s.view === 'web' ? 'on' : '') + '" data-act="webView"></button></div>' : '') + '<div class="frow"><label>Show pages</label><select data-in="fit"><option value="page"' + (s.fit !== 'width' ? ' selected' : '') + '>Whole page on screen</option><option value="width"' + (s.fit === 'width' ? ' selected' : '') + '>Fit width (scroll)</option></select></div>' +
+      '<h4>Page display</h4>' + (innerWidth >= 1000 ? '<div class="frow"><label>Web view<br><span class="small muted">For laptops and big screens: a thin control bar across the bottom, page arrows at the sides, two facing pages. Off: the phone reader. Also on the switch beside Settings.</span></label><button class="sw ' + (s.view === 'web' ? 'on' : '') + '" data-act="webView"></button></div>' +
+        '<div class="frow"><label>Trim margins in web view<br><span class="small muted">Off: web view shows whole pages, like a printed mushaf.</span></label><button class="sw ' + (s.webTrim ? 'on' : '') + '" data-act="webTrim"></button></div>' : '') + '<div class="frow"><label>Show pages</label><select data-in="fit"><option value="page"' + (s.fit !== 'width' ? ' selected' : '') + '>Whole page on screen</option><option value="width"' + (s.fit === 'width' ? ' selected' : '') + '>Fit width (scroll)</option></select></div>' +
       '<div class="frow"><label>Auto-trim margins<br><span class="small muted">Measured separately for every page. Your own crops override it.</span></label><select data-in="trim"><option value="full"' + (s.trim === 'full' ? ' selected' : '') + '>Keep header &amp; page no.</option><option value="frame"' + (s.trim === 'frame' ? ' selected' : '') + '>Frame only</option><option value="off"' + (s.trim === 'off' ? ' selected' : '') + '>Off</option></select></div>' +
       (s.cropDef ? '<div class="frow"><label>Default crop<br><span class="small muted">Custom, set from P. ' + s.cropDef.p + '. Applies to every page you haven’t cropped yourself; Auto in a page’s Crop uses it. Restore default goes back to the auto-trim above.</span></label><button class="btn sm" data-act="cropRestore">Restore default</button></div>'
         : '<div class="frow"><label>Default crop<br><span class="small muted">Using the auto-trim above. To make your own, open Crop on a page, adjust it and tap “Set as default”.</span></label></div>') +
@@ -592,7 +598,9 @@
     },
     theme: function (el) { S.d.settings.theme = el.dataset.t; S.saveSettings(); App.render(); openSettings(); },
     swipeSur: function () { S.d.settings.swipeSur = S.d.settings.swipeSur === false; S.saveSettings(); openSettings(); },
-    webView: function () { S.d.settings.view = S.d.settings.view === 'web' ? 'mobile' : 'web'; S.saveSettings(); openSettings(); },
+    viewFlip: function () { S.d.settings.view = S.d.settings.view === 'web' ? 'mobile' : 'web'; S.saveSettings(); App.render(); },
+    webTrim: function () { S.d.settings.webTrim = !S.d.settings.webTrim; S.saveSettings(); openSettings(); },
+    webView: function () { S.d.settings.view = S.d.settings.view === 'web' ? 'mobile' : 'web'; S.saveSettings(); App.render(); openSettings(); },
     tapShow: function () { S.d.settings.tapShow = !S.d.settings.tapShow; S.saveSettings(); openSettings(); },
     boxHLock: function () { S.d.settings.boxHLock = S.d.settings.boxHLock === false; S.saveSettings(); openSettings(); },
     cropRestore: function () { if (!confirm('Restore the default crop to the auto-trim?')) return; S.d.settings.cropDef = null; S.saveSettings(); /* null, not delete, so the restore syncs to other devices */ openSettings(); App.render(); App.toast('Default crop restored'); },

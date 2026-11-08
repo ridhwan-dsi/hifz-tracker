@@ -397,3 +397,12 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 #reader.desk .mainp > .rrow.wrap .chip { padding: 4px 10px; font-size: 13px; }
 #reader.desk .mainp > .rrow.wrap .chip.num { min-width: 32px; }
 #reader.desk .rpanel .rrow.tools .tb { min-width: 40px; padding: 4px 4px; font-size: 10.5px; }
+
+/* v82 Mobile ⇄ Web switch (wide screens only), neighbour-surah chips, wider home in web view */
+.vsw { flex: none; display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px 5px 6px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); color: var(--muted); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+.vsw i { width: 30px; height: 18px; border-radius: 99px; background: var(--line); position: relative; flex: none; }
+.vsw i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: left .15s; }
+.vsw.on { color: var(--acc); border-color: var(--acc); } .vsw.on i { background: var(--acc); } .vsw.on i::after { left: 14px; }
+.vsw.rv { position: fixed; top: calc(12px + env(safe-area-inset-top)); right: 12px; z-index: 42; box-shadow: 0 4px 14px rgba(0,0,0,.3); }
+.sswitch button.nb { border-style: dashed; color: var(--acc); background: transparent; }
+body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
