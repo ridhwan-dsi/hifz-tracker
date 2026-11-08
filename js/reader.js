@@ -451,7 +451,10 @@
     return [{ h: 'r', x: (1000 + m.x) / 2, y: m.y1 }, { h: 'l', x: m.x / 2, y: m.y2 }, { h: 's', x: m.x, y: (m.y1 + m.y2) / 2 }, { h: 'g', x: gx, y: m.y1 }];
   }
   function nearHandle(m, pt) {
-    var best = null, bd = HD_GRAB * pxU();
+    var best = null, u = pxU(), bd = HD_GRAB * u;
+    // Inside a box the big grab zone would swallow a narrow box, leaving no place to drag it: there a handle wins
+    // only right on its dot, and never in the box's middle third, which always moves the box.
+    if (m.k === 'box' && pt.x > m.x && pt.x < m.x + m.w && pt.y > m.y && pt.y < m.y + m.h) bd = Math.min((HD_R + 8) * u, m.w / 3);
     handlesOf(m).forEach(function (h) { var d = Math.hypot(pt.x - h.x, pt.y - h.y); if (d <= bd) { bd = d; best = h.h; } });
     return best;
   }
