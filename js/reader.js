@@ -334,21 +334,22 @@
     if (!am && !R.edit) { ov.innerHTML = tint; return; }
     var sec = R.edit ? 0 : (am.sec || 0), hb = !R.edit && am.hb;
     if (sec > divs.length + 1) sec = 0;
+    var lockB = R.edit && R.etool === 'line', lockL = R.edit && R.etool === 'box'; // v93: only the tool being edited is touchable
     if (!hb) R.items.forEach(function (m, i) {
       if (m.k !== 'box') return;
-      s += '<rect data-i="' + i + '" class="' + (R.edit && R.sel === i ? 'sel' : '') + '" x="' + r1(m.x) + '" y="' + r1(m.y) + '" width="' + r1(m.w) + '" height="' + r1(m.h) + '" rx="4" fill="' + m.c + '" fill-opacity="' + m.o + '"' + (m.b ? ' stroke="' + m.c + '" stroke-width="4"' : '') + '/>';
+      s += '<rect' + (lockB ? ' style="pointer-events:none"' : ' data-i="' + i + '"') + ' class="' + (R.edit && R.sel === i ? 'sel' : '') + '" x="' + r1(m.x) + '" y="' + r1(m.y) + '" width="' + r1(m.w) + '" height="' + r1(m.h) + '" rx="4" fill="' + m.c + '" fill-opacity="' + m.o + '"' + (m.b ? ' stroke="' + m.c + '" stroke-width="4"' : '') + '/>';
     });
     if (sec && divs.length) {
       var above = divs[sec - 2], below = divs[sec - 1];
       if (above) s += '<polygon points="0,0 1000,0 ' + divPts(above.m) + '" fill="' + cov + '"/>';
       if (below) s += '<polygon points="' + divPts(below.m) + ' 0,' + r1(H) + ' 1000,' + r1(H) + '" fill="' + cov + '"/>';
     }
-    if (R.edit) divs.forEach(function (x) {
+    if (R.edit && !lockL) divs.forEach(function (x) {
       s += '<polyline class="div' + (R.sel === x.i ? ' sel' : '') + '" points="' + divPts(x.m) + '" style="pointer-events:none"/><polyline class="hit" data-i="' + x.i + '" points="' + divPts(x.m) + '"/>';
     });
-    else if (!sec) divs.forEach(function (x) { s += '<polyline class="div view" points="' + divPts(x.m) + '"/>'; });
+    else if (!sec || lockL) divs.forEach(function (x) { s += '<polyline class="div view" points="' + divPts(x.m) + '"/>'; });
     var m = R.items[R.sel];
-    if (R.edit && m) {
+    if (R.edit && m && kindOK(m)) {
       // Handles are sized in screen pixels (not page units) so they stay easy to hold on a phone.
       var hr = 18, ad = R.drag && R.drag.k === 'h' ? R.drag.h : '';
       handlesOf(m).forEach(function (h) {
@@ -408,7 +409,7 @@
         return;
       }
       // A touch anywhere near a handle of the selected shape grabs that handle (nearest wins), before the line or box itself.
-      var nh = R.sel >= 0 ? nearHandle(R.items[R.sel], pt) : null;
+      var nh = R.sel >= 0 && kindOK(R.items[R.sel]) ? nearHandle(R.items[R.sel], pt) : null;
       if (nh) { R.drag = { k: 'h', h: nh, i: R.sel, pt: pt, orig: JSON.parse(JSON.stringify(R.items[R.sel])) }; draw(); return; }
       if (ds.i != null && R.items[+ds.i].k === 'div') { R.sel = +ds.i; draw(); renderPanel(); return; } // touching a line only selects it
       if (ds.i != null) { R.sel = +ds.i; R.drag = { k: 'move', i: +ds.i, pt: pt, orig: JSON.parse(JSON.stringify(R.items[+ds.i])) }; draw(); renderPanel(); return; }
@@ -483,6 +484,8 @@
     handlesOf(m).forEach(function (h) { var d = Math.hypot(pt.x - h.x, pt.y - h.y); if (d <= bd) { bd = d; best = h.h; } });
     return best;
   }
+  // v93: while editing boxes, lines are view-only, and while editing lines, boxes are view-only.
+  function kindOK(m) { return !m || !R.etool || (R.etool === 'box') === (m.k === 'box'); }
   function hLock() { return S.d.settings.boxHLock !== false; } // Settings → Lock box height (on by default)
 
   /* ---------- page gestures (read mode) ---------- */
@@ -839,7 +842,7 @@
     }
     x += '<div class="rrow"><span class="lbl">Count</span><b class="tlyn">' + T.n + '</b><span style="flex:1"></span>' +
       '<button class="btn sm" data-ract="tlyEdit">Edit</button><button class="btn sm pri" data-ract="tlySave"' + (T.n ? '' : ' disabled') + '>Save</button>' +
-      '<button class="icb" data-ract="tlyHide" aria-label="Hide counter">' + IC.x + '</button></div>';
+      '<button class="jsw' + (Tally.on() ? ' on' : '') + '" data-ract="tlyHide" role="switch" aria-checked="' + Tally.on() + '"><i></i>Counter</button></div>';
     var parts = ns > 1 ? t.sec.map(function (v, j) { return 'S' + (j + 1) + ' ' + v; }).join(' · ') + ' · ' : '';
     var mo = S.month(), sn = R.tag && App.tagSince(R.tag), tm = S.tally(R.k, function (d) { return sn ? d >= sn : d.slice(0, 7) === mo; }).page;
     x += '<div class="small muted" style="padding:0 4px 4px">' + parts + 'Page read <b>' + tm + '×</b> ' + periodTxt() + ' · <b>' + t.page + '×</b> lifetime';
@@ -946,8 +949,11 @@
     },
     tlyEdit: function () { Tally.edit(); renderPanel(); },
     tlySave: function () { Tally.save(); renderPanel(); },
+    // v93: the switch in the Tally row hides/shows the counter; the row stays open. The Tally icon only opens/closes the row
+    // (and brings a hidden counter back), so the counter is hidden only from this switch.
     tlyHide: function () {
-      var hide = function () { Tally.show(false); R.sub = null; renderPanel(); draw(); };
+      if (!Tally.on()) { Tally.show(true); Tally.resume(R.k); renderPanel(); return; }
+      var hide = function () { Tally.show(false); renderPanel(); draw(); };
       if (Tally.dirty()) Tally.ask(hide); else hide();
     },
     next: function () { step(1); }, prev: function () { step(-1); },
@@ -1025,14 +1031,14 @@
       loadItems(); R.edit = false; R.sel = -1; R.sub = null; draw(); renderPanel(); layout();
     },
     addBox: function () {
-      if (!startEdit(-1)) return;
+      if (!startEdit(-1)) return; R.etool = 'box';
       var nb = R.items.filter(function (q) { return q.k === 'box'; }).length, off = (nb % 6) * 40;
       var bw = (+S.d.settings.boxW || 11) * 10; // Settings → New box width, % of the page width
       R.items.push({ k: 'box', x: clamp(500 - bw / 2 + off * 0.5, 0, 1000 - bw), y: clamp(R.Hu * 0.3 + off, 0, R.Hu - 90), w: bw, h: boxH(), c: R.style.c, o: R.style.o, b: R.style.b });
       R.sel = R.items.length - 1; commitItems(); draw(); renderPanel();
     },
     addLine: function () {
-      if (!startEdit(-1)) return;
+      if (!startEdit(-1)) return; R.etool = 'line';
       var ds = dividers(), last = ds.length ? ds[ds.length - 1].m : null, y = last ? Math.max(last.y1, last.y2) + 140 : R.Hu * 0.35;
       if (y > R.Hu - 40) y = R.Hu / 2;
       R.items.push({ k: 'div', x: 500, y1: y, y2: y }); R.sel = R.items.length - 1; commitItems(); draw(); renderPanel();
