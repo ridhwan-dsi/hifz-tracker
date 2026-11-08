@@ -54,7 +54,8 @@
     } else ds.forEach(function (x) { s += '<polyline points="' + divPts(x) + '" style="fill:none;stroke:#e0662c;stroke-width:2.5;stroke-dasharray:10 7;opacity:.75"/>'; });
     return s;
   }
-  function lzoom() { var z = S.d.settings.lz; return land() && z ? clamp(z, 40, 100) / 100 : 1; }
+  function zkey() { return desk() ? 'lz' : 'lzm'; } // mobile view and web view each keep their own zoom
+  function lzoom() { var z = S.d.settings[zkey()]; return land() && z ? clamp(z, 40, 100) / 100 : 1; }
   function zoomChip() { var z = Math.round(lzoom() * 100); return '<div class="zchip"><button data-ract="zout" aria-label="Zoom out"' + (z <= 40 ? ' disabled' : '') + '>−</button><span>' + z + '%</span><button data-ract="zin" aria-label="Zoom in"' + (z >= 100 ? ' disabled' : '') + '>+</button></div>'; }
 
   /* ---------- crop / joins ---------- */
@@ -293,7 +294,7 @@
       if (seq === layoutSeq) $('#sheet').innerHTML = '<div style="padding:40px;text-align:center;color:#666;background:#fff">Couldn’t load this page. Check your connection.</div>';
     });
   }
-  function setZoom(d) { var s = S.d.settings; s.lz = clamp(Math.round(lzoom() * 100) + d, 40, 100); S.saveSettings(); afterPanel(); relayout(); }
+  function setZoom(d) { var s = S.d.settings; s[zkey()] = clamp(Math.round(lzoom() * 100) + d, 40, 100); S.saveSettings(); afterPanel(); relayout(); }
   var rq = 0;
   function relayout() { cancelAnimationFrame(rq); rq = requestAnimationFrame(function () { layout(); }); }
   window.addEventListener('resize', function () { if (Reader.isOpen()) { if (R.wasDesk !== desk()) { R.wasDesk = desk(); loadItems(); renderPanel(); } measurePanel(); afterPanel(); relayout(); } });
@@ -613,7 +614,7 @@
   function afterPanel() {
     $('#reader').classList.toggle('desk', desk());
     var vs = $('#rui .vsw'); if (vs) vs.remove();
-    if (wideScreen()) $('#rui').insertAdjacentHTML('beforeend', '<button class="vsw rv' + (desk() ? ' on' : '') + '" data-ract="viewFlip" title="Switch between mobile view and web view"><i></i>Web view</button>');
+    if (wideScreen()) $('#rui').insertAdjacentHTML('beforeend', '<button class="vsw rv' + (desk() ? ' on' : '') + '" data-ract="viewFlip" title="Mobile view / Web view" aria-label="Switch between mobile view and web view"><span class="vm"><svg class="i" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span><span class="vd"><svg class="i" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8.5 21h7M12 17v4"/></svg></span></button>');
     wireStrip();
     var zc = $('#rui .zchip'); if (land()) { if (zc) zc.outerHTML = zoomChip(); else $('#rui').insertAdjacentHTML('beforeend', zoomChip()); } else if (zc) zc.remove();
     // Keep the active tool visible when the toolbar is wider than the screen.

@@ -69,7 +69,7 @@
   };
   window.App = App;
   // Mobile ⇄ Web switch beside Settings, offered on screens 1000 px wide or more (small laptops are about 1280–1366).
-  function viewSw() { return innerWidth >= 1000 ? '<button class="vsw' + (S.d.settings.view === 'web' ? ' on' : '') + '" data-act="viewFlip" title="Switch between mobile view and web view"><i></i>Web view</button>' : ''; }
+  function viewSw() { return innerWidth >= 1000 ? '<button class="vsw' + (S.d.settings.view === 'web' ? ' on' : '') + '" data-act="viewFlip" title="Mobile view / Web view" aria-label="Switch between mobile view and web view"><span class="vm"><svg class="i" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span><span class="vd"><svg class="i" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8.5 21h7M12 17v4"/></svg></span></button>' : ''; }
   var wasWide = innerWidth >= 1000;
   window.addEventListener('resize', function () { var w = innerWidth >= 1000; if (w !== wasWide) { wasWide = w; if (!(window.Reader && Reader.isOpen())) App.render(); } });
 
