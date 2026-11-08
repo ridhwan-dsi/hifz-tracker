@@ -699,7 +699,11 @@
     if (desk()) { host.insertAdjacentHTML('beforeend', navBtns('edge')); return; } // one bar, no drawer sizes; arrows at the screen edges
     var dz = dzCur(); if (dz === 'full') return;
     var rows = [].filter.call(pn.children, function (e) { return !e.matches('.grab,.tools,.rsub,.subrow'); });
-    if (dz === 'rib') rows.forEach(function (e) { e.classList.add('dzh'); });
+    if (dz === 'rib') {
+      rows.forEach(function (e) { e.classList.add('dzh'); });
+      // v94: Ribbon is the thinnest size — an open Tally row keeps only its Count line (otherwise Fit and Ribbon looked the same).
+      [].forEach.call(pn.querySelectorAll('.tlsub > :not(.tcore)'), function (e) { e.classList.add('dzh'); });
+    }
     else {
       var vw = ($('#rscroll') || {}).clientWidth || innerWidth, gap = R.U ? Math.floor(innerHeight - 16 - R.U * Math.min(vw, 820)) - 1 : 0;
       for (var i = 0; i < rows.length && pn.offsetHeight > gap; i++) rows[i].classList.add('dzh');
@@ -840,7 +844,7 @@
       for (var i = 1; i <= ns; i++) x += '<button class="chip num' + (sc.from && i >= sc.from && i <= sc.to ? ' on' : '') + '" data-ract="tlySec" data-s="' + i + '">S' + i + '</button>';
       x += '</div>';
     }
-    x += '<div class="rrow"><span class="lbl">Count</span><b class="tlyn">' + T.n + '</b><span style="flex:1"></span>' +
+    x += '<div class="rrow tcore"><span class="lbl">Count</span><b class="tlyn">' + T.n + '</b><span style="flex:1"></span>' +
       '<button class="btn sm" data-ract="tlyEdit">Edit</button><button class="btn sm pri" data-ract="tlySave"' + (T.n ? '' : ' disabled') + '>Save</button>' +
       '<button class="jsw' + (Tally.on() ? ' on' : '') + '" data-ract="tlyHide" role="switch" aria-checked="' + Tally.on() + '"><i></i>Counter</button></div>';
     var parts = ns > 1 ? t.sec.map(function (v, j) { return 'S' + (j + 1) + ' ' + v; }).join(' · ') + ' · ' : '';
