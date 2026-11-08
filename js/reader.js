@@ -180,8 +180,8 @@
   window.Reader = Reader;
   window.addEventListener('popstate', function () {
     if (!Reader.isOpen()) return;
-    // An unsaved tally keeps the reader open until it is saved, edited or left.
-    if (Tally.dirty()) { history.pushState({ reader: 1 }, '', '#p' + R.p); Tally.ask(function () { history.back(); }); return; }
+    // v97: leaving the reader keeps an unsaved tally for later on its page (no question).
+    if (Tally.dirty()) Tally.park();
     Reader.close();
   });
 
@@ -825,6 +825,8 @@
     var on = Timer.active(); // while running, the time and play/pause sit in the toolbar oval instead
     // The session time and play/pause always live in the toolbar oval; pausing opens the Resume/Save box.
     var x = '<div class="rsub tsub">';
+    if (on && !T.run) x += '<div class="rrow"><span class="small muted">Paused · <b class="tmr-t">' + Timer.shown(T.secs) + '</b> kept for later</span><span style="flex:1"></span>' +
+      '<button class="btn sm pdel" data-ract="tDel" aria-label="Delete session">' + IC.trash + '</button><button class="btn sm" data-ract="tSave">' + IC.check + 'Save</button></div>';
     var opts = [0, 5, 10, 15, 20, 30], cur = s.sessT || 0;
     if (opts.indexOf(cur) < 0) opts.push(cur);
     x += '<div class="rrow scroll"><span class="lbl">Target</span>' + opts.map(function (v) { return '<button class="chip' + (cur === v ? ' on' : '') + '" data-ract="tT" data-v="' + v + '">' + (v ? v + ' min' : 'None') + '</button>'; }).join('') +
@@ -939,7 +941,8 @@
   }
   function setActive(id) { saveMasks(function (ms, o) { o.am = id || ''; }); loadItems(); }
   var RACT = {
-    home: function () { if (Tally.dirty()) Tally.ask(function () { history.back(); }); else history.back(); },
+    // v97: Back pauses the stopwatch (closing the reader does) and keeps an unsaved tally for later — no questions.
+    home: function () { if (Tally.dirty()) Tally.park(); history.back(); },
     tally: function () {
       leaveModes();
       if (!Tally.on()) { Tally.show(true); R.sub = 'tally'; } else R.sub = R.sub === 'tally' ? null : 'tally';
@@ -1000,7 +1003,8 @@
     zout: function () { setZoom(-10); },
     zin: function () { setZoom(10); },
     tGo: function () {
-      if (Timer.state().run) { Timer.pause(); pauseBox(); } else Timer.start();
+      // v97: pausing just keeps the session for later; Save / Delete sit in the Timer row.
+      if (Timer.state().run) Timer.pause(); else Timer.start();
       renderPanel();
     },
     tResume: function () { closePause(); Timer.start(); renderPanel(); },
