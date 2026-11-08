@@ -467,8 +467,34 @@
 
   /* ---------- page gestures (read mode) ---------- */
   function bindGestures() {
-    var sc = $('#rscroll'), g = null;
+    var sc = $('#rscroll'), g = null, pz = null;
+    /* Two-finger pinch, phone on its side (mobile view) only: scales the page live, then sets the same zoom as the
+       − / + chip (40–100%, 100% = full width) when the fingers lift. */
+    function pinchOK() { return land() && !desk() && innerHeight < 600 && !R.edit && R.sub !== 'crop' && R.sub !== 'join'; }
+    function fd(t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
+    sc.addEventListener('touchstart', function (e) {
+      if (e.touches.length !== 2 || !pinchOK()) return;
+      if (g) { clearTimeout(g.lp); g = null; }
+      var sp = $('#spr'), r = sp.getBoundingClientRect(), t = e.touches;
+      sp.style.transition = 'none';
+      sp.style.transformOrigin = ((t[0].clientX + t[1].clientX) / 2 - r.left) + 'px ' + ((t[0].clientY + t[1].clientY) / 2 - r.top) + 'px';
+      pz = { d0: fd(t) || 1, z0: lzoom(), f: 1 };
+    }, { passive: true });
+    sc.addEventListener('touchmove', function (e) {
+      if (!pz || e.touches.length !== 2) return;
+      e.preventDefault();
+      pz.f = clamp(fd(e.touches) / pz.d0, 0.4 / pz.z0, 1 / pz.z0);
+      $('#spr').style.transform = 'scale(' + pz.f + ')';
+    }, { passive: false });
+    function pinchEnd() {
+      if (!pz) return; var z = pz.z0 * pz.f; pz = null;
+      var sp = $('#spr'); sp.style.transform = ''; sp.style.transformOrigin = '';
+      S.d.settings[zkey()] = clamp(Math.round(z * 100), 40, 100); S.saveSettings(); afterPanel(); relayout();
+    }
+    sc.addEventListener('touchend', function (e) { if (e.touches.length < 2) pinchEnd(); });
+    sc.addEventListener('touchcancel', pinchEnd);
     sc.addEventListener('pointerdown', function (e) {
+      if (pz) return;
       if (R.edit || R.sub === 'crop' || (e.pointerType === 'mouse' && e.button !== 0)) return;
       g = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId, ax: null };
       var g0 = g, ev = { clientX: e.clientX, clientY: e.clientY };
