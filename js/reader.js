@@ -23,9 +23,11 @@
   function fitPage() { return S.d.settings.fit !== 'width'; }
   // Landscape-only zoom out (40–100%), so a wide screen doesn't blow the page up too far.
   function land() { return innerWidth > innerHeight; }
-  /* Desktop: a wide landscape screen (laptop, monitor, tablet on its side). The controls become one thin bar
-     across the bottom, page arrows sit at the screen edges, and two facing pages can be shown side by side. */
-  function desk() { return innerWidth >= 1000 && innerWidth > innerHeight; }
+  /* Two separate experiences. Mobile view (default) is the phone reader with its drawer, unchanged.
+     Web view is opt-in (Settings → Web view, offered only on wide screens): one thin bar across the bottom,
+     page arrows at the screen edges, optional two facing pages. If the window gets narrow it falls back to mobile. */
+  function wideScreen() { return innerWidth >= 1000; }
+  function desk() { return S.d.settings.view === 'web' && wideScreen(); }
   var EDGE = 88; // room kept at each side for the edge arrows
   function partner(p) { return p % 2 ? p + 1 : p - 1; } // Madani mushaf: odd pages on the right, even on the left
   function spreadOn(segs) { return desk() && !!S.d.settings.spread && R.sub !== 'join' && segs.length === 1; }
@@ -530,6 +532,7 @@
     fitp: I('<rect x="6" y="3" width="12" height="18" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h4"/>'), fitw: I('<path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/>'),
     left: I('<path d="M15 18l-6-6 6-6"/>'), right: I('<path d="M9 18l6-6-6-6"/>'), check: I('<path d="M20 6L9 17l-5-5"/>'),
     pen: I('<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), up: I('<path d="M18 15l-6-6-6 6"/>'), down: I('<path d="M6 9l6 6 6-6"/>'), trash: I('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'), x: I('<path d="M6 6l12 12M18 6L6 18"/>'), back: I('<path d="M19 12H5M12 19l-7-7 7-7"/>'), tally: I('<circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/>'),
+    phone: I('<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/>'),
     book: I('<path d="M2 5.5C4.5 4.3 7.5 4.3 12 6c4.5-1.7 7.5-1.7 10-.5v13c-2.5-1.2-5.5-1.2-10 .5-4.5-1.7-7.5-1.7-10-.5zM12 6v13.5"/>')
   };
   function tb(id, label, icon, on, off) { return '<button class="tb' + (on ? ' on' : '') + '" data-ract="' + id + '"' + (off ? ' disabled' : '') + '>' + icon + label + '</button>'; }
@@ -708,7 +711,7 @@
     return '<div class="rrow scroll tools' + (open ? ' edopen' : '') + '">' + (open ? '' :
       tb('health', m ? h + '%' : 'Health', IC.heart, R.sub === 'health', !m) + tb('tags', 'Tags', IC.tag, R.sub === 'tags', !m) +
       timerTool() + tb('tally', 'Tally', IC.tally, R.sub === 'tally') +
-      (desk() ? tb('spread', '2 pages', IC.book, !!S.d.settings.spread) : '') +
+      (desk() ? tb('spread', '2 pages', IC.book, !!S.d.settings.spread) + tb('mview', 'Mobile view', IC.phone, false) : '') +
       (installed() ? '' : tb('fs', 'Full screen', IC.full, false))) + grp + tb('home', 'Back', IC.back, false) + '</div>';
   }
   // Once a session is running, Timer expands into an oval with the running time and play/pause beside it.
@@ -972,6 +975,7 @@
     jT: function (el) { R.jt = el.dataset.t; renderPanel(); relayout(); },
     subDone: function () { var j = R.sub === 'join'; R.sub = null; renderPanel(); if (j) relayout(); },
     joinReset: function () { setJn(function () { return null; }); renderPanel(); relayout(); },
+    mview: function () { S.d.settings.view = 'mobile'; S.saveSettings(); R.panel = true; renderPanel(); layout(); App.toast('Mobile view · switch back in Settings'); },
     spread: function () { S.d.settings.spread = !S.d.settings.spread; S.saveSettings(); renderPanel(); layout(); },
     fit: function () { S.d.settings.fit = fitPage() ? 'width' : 'page'; S.saveSettings(); renderPanel(); layout(); },
     fs: function () {

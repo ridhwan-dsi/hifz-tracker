@@ -436,7 +436,7 @@
     var themes = [['green', '#1f7a52', 'Green'], ['blue', '#1d5ca6', 'Blue'], ['dark', '#111513', 'Dark']];
     var h = '<div class="sheetm" id="settingsSheet"><h3>Settings</h3>' +
       '<h4>Theme</h4><div class="themes">' + themes.map(function (t) { return '<button class="' + (s.theme === t[0] ? 'on' : '') + '" data-act="theme" data-t="' + t[0] + '"><span class="sq" style="background:' + t[1] + '"></span>' + t[2] + '</button>'; }).join('') + '</div>' +
-      '<h4>Page display</h4><div class="frow"><label>Show pages</label><select data-in="fit"><option value="page"' + (s.fit !== 'width' ? ' selected' : '') + '>Whole page on screen</option><option value="width"' + (s.fit === 'width' ? ' selected' : '') + '>Fit width (scroll)</option></select></div>' +
+      '<h4>Page display</h4>' + (innerWidth >= 1000 ? '<div class="frow"><label>Web view<br><span class="small muted">For laptops and big screens: a thin control bar across the bottom, page arrows at the sides, and an option to show two facing pages. Off: the phone reader.</span></label><button class="sw ' + (s.view === 'web' ? 'on' : '') + '" data-act="webView"></button></div>' : '') + '<div class="frow"><label>Show pages</label><select data-in="fit"><option value="page"' + (s.fit !== 'width' ? ' selected' : '') + '>Whole page on screen</option><option value="width"' + (s.fit === 'width' ? ' selected' : '') + '>Fit width (scroll)</option></select></div>' +
       '<div class="frow"><label>Auto-trim margins<br><span class="small muted">Measured separately for every page. Your own crops override it.</span></label><select data-in="trim"><option value="full"' + (s.trim === 'full' ? ' selected' : '') + '>Keep header &amp; page no.</option><option value="frame"' + (s.trim === 'frame' ? ' selected' : '') + '>Frame only</option><option value="off"' + (s.trim === 'off' ? ' selected' : '') + '>Off</option></select></div>' +
       (s.cropDef ? '<div class="frow"><label>Default crop<br><span class="small muted">Custom, set from P. ' + s.cropDef.p + '. Applies to every page you haven’t cropped yourself; Auto in a page’s Crop uses it. Restore default goes back to the auto-trim above.</span></label><button class="btn sm" data-act="cropRestore">Restore default</button></div>'
         : '<div class="frow"><label>Default crop<br><span class="small muted">Using the auto-trim above. To make your own, open Crop on a page, adjust it and tap “Set as default”.</span></label></div>') +
@@ -592,6 +592,7 @@
     },
     theme: function (el) { S.d.settings.theme = el.dataset.t; S.saveSettings(); App.render(); openSettings(); },
     swipeSur: function () { S.d.settings.swipeSur = S.d.settings.swipeSur === false; S.saveSettings(); openSettings(); },
+    webView: function () { S.d.settings.view = S.d.settings.view === 'web' ? 'mobile' : 'web'; S.saveSettings(); openSettings(); },
     tapShow: function () { S.d.settings.tapShow = !S.d.settings.tapShow; S.saveSettings(); openSettings(); },
     boxHLock: function () { S.d.settings.boxHLock = S.d.settings.boxHLock === false; S.saveSettings(); openSettings(); },
     cropRestore: function () { if (!confirm('Restore the default crop to the auto-trim?')) return; S.d.settings.cropDef = null; S.saveSettings(); /* null, not delete, so the restore syncs to other devices */ openSettings(); App.render(); App.toast('Default crop restored'); },

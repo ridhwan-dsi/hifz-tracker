@@ -347,8 +347,8 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 .pbox .pbtns.col { flex-direction: column; max-height: 60vh; overflow-y: auto; }
 
 /* v79 desktop reader: pages row (one or two facing pages), thin full-width bar, arrows at the screen edges */
-.spr { display: flex; justify-content: center; align-items: flex-start; gap: 12px; will-change: transform; }
-.spr .sheet { margin: 0; flex: none; will-change: auto; }
+.spr { display: flex; justify-content: center; align-items: flex-start; gap: 12px; }
+.spr .sheet { margin: 0; flex: none; }
 .sheet.face { display: none; cursor: pointer; transition: box-shadow .15s; }
 .spr.two .sheet.face { display: block; }
 .sheet.face:not(.out):hover { box-shadow: 0 0 0 2px rgba(255,255,255,.45), 0 2px 18px rgba(0,0,0,.35); }
@@ -360,7 +360,7 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
   box-shadow: 0 -1px 0 var(--line), 0 -6px 20px rgba(0,0,0,.18); }
 #reader.desk .rpanel .grab { display: none; }
 #reader.desk .rpanel.mainp { display: grid; column-gap: 20px; align-items: center;
-  grid-template-columns: minmax(150px, 1fr) minmax(220px, 360px) minmax(0, 1.3fr) auto;
+  grid-template-columns: fit-content(240px) 240px minmax(0, 1fr) auto;
   grid-template-areas: "sub sub sub sub" "name strip masks tools" "stat strip masks tools"; }
 #reader.desk .mainp .rrow.nav, #reader.desk .mainp .rtitle.tcol { display: contents; }
 #reader.desk .mainp .navb.in { display: none; }
@@ -368,8 +368,7 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 #reader.desk .mainp .pswrap { grid-area: strip; }
 #reader.desk .mainp .pstrip { padding: 4px 0; }
 #reader.desk .mainp .rstat { grid-area: stat; align-self: start; text-align: left; margin: 0; padding-bottom: 7px; }
-#reader.desk .mainp > .rrow.wrap { grid-area: masks; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 0; }
-#reader.desk .mainp > .rrow.wrap::-webkit-scrollbar { display: none; }
+#reader.desk .mainp > .rrow.wrap { grid-area: masks; flex-wrap: wrap; row-gap: 4px; padding: 6px 0; min-width: 0; }
 #reader.desk .rpanel .rrow.tools { border-top: 0; margin: 0; padding: 5px 0; justify-content: flex-end; gap: 2px; }
 #reader.desk .mainp > .rrow.tools { grid-area: tools; }
 #reader.desk .rpanel .tb:hover:not(:disabled):not(.on) { background: var(--acc-soft); color: var(--acc); }
@@ -394,3 +393,7 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
   background: rgba(20,24,22,.45); color: #fff; backdrop-filter: blur(6px); box-shadow: 0 4px 14px rgba(0,0,0,.3); }
 #reader.desk .navb.float.l, .navb.edge.l { left: 16px; } #reader.desk .navb.float.r, .navb.edge.r { right: 16px; }
 .navb.edge:hover:not(:disabled), #reader.desk .navb.float:hover:not(:disabled) { background: var(--acc); color: var(--acc-ink); }
+#reader.desk .mainp > .rrow.wrap .lbl { display: none; }
+#reader.desk .mainp > .rrow.wrap .chip { padding: 4px 10px; font-size: 13px; }
+#reader.desk .mainp > .rrow.wrap .chip.num { min-width: 32px; }
+#reader.desk .rpanel .rrow.tools .tb { min-width: 40px; padding: 4px 4px; font-size: 10.5px; }
