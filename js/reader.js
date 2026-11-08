@@ -747,7 +747,6 @@
     x += '</div>';
     // Health and Tags live in the bottom toolbar and expand their row just above it.
     if (m && R.sub === 'health') x += '<div class="rsub hsub"><span class="lbl">Health</span><span class="hctl big"><button data-ract="hminus" aria-label="Lower health">−</button><span style="color:' + (h ? App.hcol(h) : 'var(--muted)') + '">' + h + '%</span><button data-ract="hplus" aria-label="Raise health">+</button></span></div>';
-    if (m && R.sub === 'tags') x += '<div class="rrow scroll subrow">' + App.allTags(R.k).map(function (t) { return '<button class="chip' + (S.hasTag(R.k, t.id) ? ' on' : '') + '" data-ract="tag" data-t="' + App.esc(t.id) + '">' + App.esc(t.name) + '</button>'; }).join('') + '</div>';
     if (R.sub === 'timer') x += timerPanel();
     if (R.sub === 'tally') x += tallyPanel();
     return x + toolsRow();
@@ -764,7 +763,8 @@
       tb('edGrp', 'Edit', open ? IC.x : IC.pen, false).replace('class="tb', 'class="tb edbtn') + '</div>';
     // While Edit is open, the other tools step aside so all edit tools and Back fit on screen.
     return '<div class="rrow scroll tools' + (open ? ' edopen' : '') + '">' + (open ? '' :
-      tb('health', m ? h + '%' : 'Health', IC.heart, R.sub === 'health', !m) + tb('tags', 'Tags', IC.tag, R.sub === 'tags', !m) +
+      tb('health', m ? h + '%' : 'Health', IC.heart, R.sub === 'health', !m) + // no Tags here: tags are set from the home screen only (no accidental removals while reading)
+      
       timerTool() + tb('tally', 'Tally', IC.tally, R.sub === 'tally') +
       (desk() ? tb('spread', '2 pages', IC.book, S.d.settings.spread !== false) : '') +
       (installed() ? '' : tb('fs', 'Full screen', IC.full, false))) + grp + tb('home', 'Back', IC.back, false) + '</div>';
