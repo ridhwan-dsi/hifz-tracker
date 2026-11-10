@@ -770,7 +770,7 @@
     }
     // v102: Box / Line icons show or hide them (green outline = shown, grey with a slash = hidden).
     var r = '<div class="rrow wrap mwrap"><div class="mrow scroll">' +
-      tg('hb', !(am && am.hb), nb, IC.box, 'Boxes') + tg('hl', !(am && am.hl), nd, IC.line, 'Lines');
+      (nb ? tg('hb', !(am && am.hb), nb, IC.box, 'Boxes') : '') + (nd ? tg('hl', !(am && am.hl), nd, IC.line, 'Lines') : ''); // v103: only when the page has them
     var f = am ? am.sec || 0 : 0; if (f > nd + 1) f = 0;
     r += '<span class="soval' + (nd ? '' : ' off') + '"><span class="sovl">Section</span>';
     for (var i = 1; i <= nd + 1 && nd; i++) r += '<button class="' + (f === i ? 'on' : '') + '" data-ract="sec" data-s="' + i + '">' + i + '</button>';
