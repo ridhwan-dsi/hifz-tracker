@@ -479,3 +479,11 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 .spage .sfoot { display: flex; justify-content: flex-end; padding: 6px 12px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--card); }
 .statopen #tally { display: none !important; }
 #reader.desk .mainp .rswap { display: contents; height: auto; }
+/* v111: tighter Expanded drawer on the phone so it fits in the empty space under the page (page keeps its size) */
+#reader:not(.desk) .rpanel .grab { height: 20px; }
+#reader:not(.desk) .rswap { height: 70px; }
+#reader:not(.desk) .rpanel > .mwrap { padding: 0; }
+#reader:not(.desk) .mwrap .soval { padding-top: 2px; padding-bottom: 2px; } #reader:not(.desk) .mwrap .soval button { height: 30px; }
+#reader:not(.desk) .rpanel > .rrow.tools { margin-top: 0; }
+#reader:not(.desk) .rpanel { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+#reader:not(.desk) .rpanel > .rrow.tools { height: 59px; box-sizing: border-box; }

@@ -245,6 +245,7 @@
       });
       var U = dims.reduce(function (a, d) { return a + d.u; }, 0);
       var vw = sc.clientWidth || innerWidth, top = 8, vh = innerHeight - R.ph - top * 2, GAP = 12;
+      var vhW = !desk() && R.panel && R.ribH ? innerHeight - Math.min(R.ph, R.ribH) - top * 2 : vh; // v111: page size ignores the expanded drawer
       if (desk()) vw = Math.max(240, vw - 2 * EDGE);
       if (two) vw = (vw - GAP) / 2; // each page gets half the width
       // Whole-page mode keeps the page's own width; a join that makes it taller than the screen scrolls instead of shrinking.
@@ -252,7 +253,7 @@
       if (fitAll) W = Math.min(vw, vh / U);
       // Phone on its side (mobile view): fit the width and scroll down the page; the zoom chip scales from there.
       else if (land() && !desk() && innerHeight < 600) W = vw;
-      else if (fitPage()) { var Ub = U; segs.forEach(function (s, i) { if (s.role === 'this') Ub = dims[i].ch / dims[i].cw; }); W = Math.min(vw, vh / Math.min(U, Ub)); }
+      else if (fitPage()) { var Ub = U; segs.forEach(function (s, i) { if (s.role === 'this') Ub = dims[i].ch / dims[i].cw; }); W = Math.min(vw, vhW / Math.min(U, Ub)); }
       else W = Math.min(vw, 820);
       W = Math.max(120, Math.floor(W * lzoom()));
       var html = '';
@@ -317,7 +318,12 @@
   function relayout() { cancelAnimationFrame(rq); rq = requestAnimationFrame(function () { layout(); }); }
   window.addEventListener('resize', function () { if (Reader.isOpen()) { if (R.wasDesk !== desk()) { R.wasDesk = desk(); loadItems(); renderPanel(); }
       if (R.wasPL !== phoneLand()) { R.wasPL = phoneLand(); if (R.wasPL && !R.edit && R.sub !== 'crop' && R.sub !== 'join') { R.panel = false; R.dszL = 'rib'; } else R.panel = true; renderPanel(); } measurePanel(); afterPanel(); relayout(); } });
-  function measurePanel() { var pn = $('.rpanel'); var h = R.panel && pn ? pn.offsetHeight : 0; var ch = h !== R.ph; R.ph = h; $('#reader').style.setProperty('--ph', h + 'px'); return ch; }
+  function measurePanel() {
+    var pn = $('.rpanel'); var h = R.panel && pn ? pn.offsetHeight : 0;
+    // v111: the Ribbon height (drawer minus everything between the arrow and the toolbar) sets the page size on the phone,
+    // so expanding the drawer uses the empty space below the page instead of shrinking the page.
+    var gb = pn && pn.querySelector('.grab'), tr = pn && pn.querySelector(':scope > .rrow.tools');
+    if (h && gb && tr) R.ribH = h - Math.max(0, tr.offsetTop - gb.offsetTop - gb.offsetHeight); var ch = h !== R.ph; R.ph = h; $('#reader').style.setProperty('--ph', h + 'px'); return ch; }
 
   /* ---------- mask drawing ---------- */
   function dividers() {
