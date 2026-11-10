@@ -805,8 +805,8 @@
       tb('edGrp', 'Edit', open ? IC.x : IC.pen, false).replace('class="tb', 'class="tb edbtn') + '</div>';
     // While Edit is open, the other tools step aside so all edit tools and Back fit on screen.
     return '<div class="rrow scroll tools' + (open ? ' edopen' : '') + '">' + (open ? '' :
+      tb('tLine', 'Line', IC.line, R.sub === 'line' || (R.edit && R.etool === 'line')) + tb('tBox', 'Box', IC.box, R.sub === 'box' || (R.edit && R.etool === 'box')) +
       timerTool() + tb('tally', (Tally.kept(R.k) || (Tally.dirty() && Tally.unit() === R.k) ? '<i class="tkdot"></i>' : '') + 'Tally', IC.tally, R.sub === 'tally') +
-      tb('tBox', 'Box', IC.box, R.sub === 'box' || (R.edit && R.etool === 'box')) + tb('tLine', 'Line', IC.line, R.sub === 'line' || (R.edit && R.etool === 'line')) +
       (desk() ? tb('spread', '2 pages', IC.book, S.d.settings.spread !== false) : '') +
       (installed() ? '' : tb('fs', 'Full screen', IC.full, false))) + grp + tb('home', 'Back', IC.back, false) + '</div>';
   }
@@ -857,12 +857,9 @@
     x += '<div class="rrow tcore"><span class="lbl">Count</span><b class="tlyn">' + T.n + '</b><span style="flex:1"></span>' +
       '<button class="btn sm" data-ract="tlyEdit">Edit</button><button class="btn sm danger" data-ract="tlyDel"' + (T.n ? '' : ' disabled') + '>Delete</button><button class="btn sm pri" data-ract="tlySave"' + (T.n ? '' : ' disabled') + '>Save</button>' +
       '<button class="jsw' + (Tally.on() ? ' on' : '') + '" data-ract="tlyHide" role="switch" aria-checked="' + Tally.on() + '"><i></i>Counter</button></div>';
-    var kf = Tally.keptFor(R.k), kl = Object.keys(kf).filter(function (q) { return +q !== (sc.from || 0); }).map(function (q) { return (+q ? 'S' + q : 'All') + ' ' + kf[q]; });
-    var parts = (kl.length ? 'Unsaved: ' + kl.join(', ') + ' · ' : '') + (ns > 1 ? 'Counting ' + (sc.from ? 'section ' + sc.from + (sc.to > sc.from ? '–' + sc.to : '') : 'whole page') + ' · ' : '') + (ns > 1 ? t.sec.map(function (v, j) { return 'S' + (j + 1) + ' ' + v; }).join(' · ') + ' · ' : '');
+    // v105: the note shows only the whole-page read count.
     var mo = S.month(), sn = R.tag && App.tagSince(R.tag), tm = S.tally(R.k, function (d) { return sn ? d >= sn : d.slice(0, 7) === mo; }).page;
-    x += '<div class="small muted" style="padding:0 4px 4px">' + parts + 'Page read <b>' + tm + '×</b> ' + periodTxt() + ' · <b>' + t.page + '×</b> lifetime';
-    var g = S.d.settings.tDay;
-    if (g) { var td = S.today(), dr = Tally.dayReads(function (d) { return d === td; }); x += ' · today ' + dr + ' / ' + g + (dr >= g ? ' ✓' : ''); }
+    x += '<div class="small muted" style="padding:0 4px 4px">Page read <b>' + tm + '×</b> ' + periodTxt() + ' · <b>' + t.page + '×</b> lifetime';
     return x + '</div></div>';
   }
   function tallyTint() {
