@@ -40,18 +40,17 @@
   }
   // The facing page wears the same mask slot as the open page (Mask 1 on both, or None on both).
   function staticMask(q, Hu) {
-    var ms0 = masksOf(R.p), am = activeMask(), slot = am ? ms0.indexOf(am) : -1; if (slot < 0) return '';
     migrateMasks(q);
-    var m = masksOf(q)[slot]; if (!m || !m.items || !m.items.length) return '';
+    var m = masksOf(q)[0]; if (!m || !m.items || !m.items.length) return '';
     var it = viewItems(m, q), s = '', cov = (S.d.settings.hideCol || '#f3e9d4');
     var ds = it.filter(function (x) { return x.k === 'div'; }).sort(function (a, b) { return (a.y1 + a.y2) - (b.y1 + b.y2); });
-    var sec = m.sec || 0, sec2 = sec; if (sec2 > ds.length + 1) sec = sec2 = 0;
+    var sec = m.sec || 0, sec2 = sec; if (sec2 > ds.length + 1) sec = sec2 = 0; var hl = !!m.hl;
     if (!m.hb) it.forEach(function (x) { if (x.k === 'box') s += '<rect x="' + r1(x.x) + '" y="' + r1(x.y) + '" width="' + r1(x.w) + '" height="' + r1(x.h) + '" rx="4" fill="' + x.c + '" fill-opacity="' + x.o + '"' + (x.b ? ' stroke="' + x.c + '" stroke-width="4"' : '') + '/>'; });
     if (sec && ds.length) {
       var above = ds[sec - 2], below = ds[sec2 - 1];
       if (above) s += '<polygon points="0,0 1000,0 ' + divPts(above) + '" fill="' + cov + '"/>';
       if (below) s += '<polygon points="' + divPts(below) + ' 0,' + r1(Hu) + ' 1000,' + r1(Hu) + '" fill="' + cov + '"/>';
-    } else ds.forEach(function (x) { s += '<polyline points="' + divPts(x) + '" style="fill:none;stroke:#e0662c;stroke-width:2.5;stroke-dasharray:10 7;opacity:.75"/>'; });
+    } else if (!hl) ds.forEach(function (x) { s += '<polyline points="' + divPts(x) + '" style="fill:none;stroke:#e0662c;stroke-width:2.5;stroke-dasharray:10 7;opacity:.75"/>'; });
     return s;
   }
   function zkey() { return desk() ? 'lz' : 'lzm'; } // mobile view and web view each keep their own zoom
@@ -96,7 +95,9 @@
     if (o.masks && o.masks.length) return [{ id: 'm1', name: 'Mask 1', items: o.masks, sec: o.sec || 0, hb: !!o.hb }];
     return [];
   }
-  function activeMask() { var o = S.get(R.p), ms = masksOf(R.p); if (!o.am) return null; for (var i = 0; i < ms.length; i++) if (ms[i].id === o.am) return ms[i]; return null; }
+  /* v102: no masks — each page has one layer of boxes and lines (the old Mask 1; Masks 2–5 stay stored but unused). */
+  function activeMask() { return masksOf(R.p)[0] || null; }
+  function ensureLayer() { if (!masksOf(R.p).length) { saveMasks(function (ms) { ms.push(newMask(1)); }); loadItems(); } return activeMask(); }
   function saveMasks(fn) {
     var p = R.p, ms = JSON.parse(JSON.stringify(masksOf(p)));
     S.edit(p, function (o) { fn(ms, o); o.mk = ms; delete o.masks; delete o.sec; delete o.hb; });
@@ -130,7 +131,7 @@
   function boxH() { var b = baseCrop(R.p), c = cropOf(R.p); return 80 * (1 - b.l - b.r) / Math.max(0.2, 1 - c.l - c.r); }
   function rnd(m) { var c = {}; for (var k in m) c[k] = typeof m[k] === 'number' ? r1(m[k]) : m[k]; return c; }
   function commitItems() {
-    var am = S.get(R.p).am, items = conv(shiftItems(R.items, -R.oy), cropOf(R.p), R.p, false).map(function (m) { var c = {}; for (var k in m) c[k] = typeof m[k] === 'number' ? r1(m[k]) : m[k]; return c; });
+    var am0 = activeMask(), am = am0 ? am0.id : null, items = conv(shiftItems(R.items, -R.oy), cropOf(R.p), R.p, false).map(function (m) { var c = {}; for (var k in m) c[k] = typeof m[k] === 'number' ? r1(m[k]) : m[k]; return c; });
     saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am) { m.items = items; m.pg = 1; if (Math.max(m.sec || 0, m.sec2 || 0) > nDiv(items) + 1) m.sec = m.sec2 = 0; } }); });
   }
   function nDiv(items) { return items.filter(function (m) { return m.k === 'div'; }).length; }
@@ -169,18 +170,6 @@
       if (window.Timer) Timer.pause();
       $('#reader').classList.remove('on'); document.body.style.overflow = '';
       R.sub = null; R.edit = false; R.sel = -1; App.render(); if (window.Tally) Tally.render();
-    },
-    // v100: long-press a mask tab → Delete (that dialog is the confirmation).
-    delMaskAt: function (k) {
-      var ms = masksOf(R.p); if (!ms[k]) return;
-      if (R.edit) RACT.doneEdit();
-      var cur = S.get(R.p).am;
-      saveMasks(function (ms, o) {
-        ms.splice(k, 1);
-        if (!ms.some(function (m) { return m.id === cur; })) o.am = ms.length ? ms[Math.min(k, ms.length - 1)].id : '';
-      });
-      if (R.sub === 'join') R.sub = null;
-      loadItems(); R.sel = -1; syncSec(); draw(); renderPanel(); layout(); App.toast('Mask ' + (k + 1) + ' deleted');
     },
     isOpen: function () { return $('#reader').classList.contains('on'); },
     desk: function () { return desk(); },
@@ -228,15 +217,12 @@
     if (ss.indexOf(R.n) < 0) R.n = dir < 0 ? ss[ss.length - 1] : ss[0];
     R.k = S.uk(p, R.n);
     if (p !== R.p) Tally.newPage();
-    Tally.resume(R.k); // v99: the page's last unsaved count is always waiting where it was left
-    syncSec();
     R.p = p; R.sel = -1; R.drag = null; R.edit = false; R.draft = null;
     migrateMasks(p);
-    // v99: a page with masks opens on Mask 1; a page with nothing drawn opens with Mask switched off (no empty mask made).
-    var ms0 = masksOf(p), want = ms0.some(hasContent) ? ms0[0].id : '';
-    if ((S.get(p).am || '') !== want) setActive(want);
+    // v102: one layer per page, nothing to choose on open.
     if (R.sub === 'crop' || R.sub === 'join') R.sub = null;
     loadItems();
+    syncSec(); // the page's section, then that section's waiting count (if any)
     S.setLast(p, R.k);
     if (history.state && history.state.reader) history.replaceState({ reader: 1 }, '', '#p' + p);
     renderPanel(); Tally.render();
@@ -357,7 +343,7 @@
     if (R.edit && !lockL) divs.forEach(function (x) {
       s += '<polyline class="div' + (R.sel === x.i ? ' sel' : '') + '" points="' + divPts(x.m) + '" style="pointer-events:none"/><polyline class="hit" data-i="' + x.i + '" points="' + divPts(x.m) + '"/>';
     });
-    else if (!sec || lockL) divs.forEach(function (x) { s += '<polyline class="div view" points="' + divPts(x.m) + '"/>'; });
+    else if ((!sec || lockL) && !(am.hl && !R.edit)) divs.forEach(function (x) { s += '<polyline class="div view" points="' + divPts(x.m) + '"/>'; });
     var m = R.items[R.sel];
     if (R.edit && m && kindOK(m)) {
       // Handles are sized in screen pixels (not page units) so they stay easy to hold on a phone.
@@ -669,9 +655,13 @@
     var cur = ps.querySelector('.cur');
     var centre = function () { if (cur) { R.stripSet = true; ps.scrollLeft = cur.offsetLeft + cur.offsetWidth / 2 - ps.clientWidth / 2; } };
     centre(); requestAnimationFrame(centre);
-    var t = null;
+    var t = null, lastU = 0, mark = function () { lastU = Date.now(); };
+    // v102: only a scroll the person makes (touch, drag, wheel, then its momentum) may open another page.
+    // Layout shifts after a panel re-render also scroll the strip; those used to jump several pages.
+    ['pointerdown', 'pointermove', 'touchstart', 'touchmove', 'wheel'].forEach(function (ev) { ps.addEventListener(ev, mark, { passive: true }); });
     ps.addEventListener('scroll', function () {
       if (R.stripSet) { R.stripSet = false; return; }
+      if (Date.now() - lastU > 1500) { centre(); return; }
       var m = stripMid(ps);
       [].forEach.call(ps.querySelectorAll('.pc'), function (b) { b.classList.toggle('cur', b === m); });
       clearTimeout(t);
@@ -772,31 +762,20 @@
       ss.slice().reverse().map(function (n) { return '<button class="' + (n === R.n ? 'on' : '') + '" data-ract="surah" data-n="' + n + '">' + nm(n) + '</button>'; }).join('') +
       (pv ? '<button class="nb" data-ract="nbS" data-n="' + pv + '" data-d="-1" aria-label="Previous surah">' + nm(pv) + ' ›</button>' : '') + '</span>';
   }
-  /* v99 masks: "Mask" with a flip switch (off = no mask), then the masks as tabs 1–5 with + after the last;
-     the open tab carries × to delete it. The open mask's options sit on their own row below:
-     Boxes on/off and a Section oval (1 2 3 … All). */
-  var MAXM = 5;
-  function hasContent(m) { return !!(m && ((m.items && m.items.length) || m.jn)); }
+  /* Page layer row: Box and Line show/hide toggles, then the Section oval (1 2 3 … All, greyed when there are no lines). */
   function maskRows() {
-    var ms = masksOf(R.p), am = activeMask(), on = !!am;
-    var r = '<div class="rrow wrap mwrap"><div class="mrow scroll"><button class="jsw msw' + (on ? ' on' : '') + '" data-ract="mOn" role="switch" aria-checked="' + on + '">Mask<i></i></button>';
-    if (on) r += '<span class="mtabs">' + ms.map(function (m, k) {
-      var a = am.id === m.id;
-      return '<button class="mtab' + (a ? ' on' : '') + '" data-ract="mask" data-long="mask" data-slot="' + k + '">' + (k + 1) + '</button>';
-    }).join('') + (ms.length < MAXM ? '<button class="mtab add" data-ract="mAdd" aria-label="Add mask">+</button>' : '') + '</span>';
-    r += '</div>';
-    if (on) {
-      var nd = nDiv(R.items), hasBox = R.items.some(function (q) { return q.k === 'box'; }), sub = '';
-      if (hasBox) sub += '<button class="chip' + (!am.hb ? ' on' : '') + '" data-ract="hb">Boxes ' + (am.hb ? 'off' : 'on') + '</button>';
-      // One section at a time, or All. On Mask 1 this also picks what Tally counts.
-      var f = am.sec || 0, t = f;
-      if (t > nd + 1) f = t = 0;
-      sub += '<span class="soval' + (nd ? '' : ' off') + '"><span class="sovl">Section</span>';
-      for (var i = 1; i <= nd + 1 && nd; i++) sub += '<button class="' + (f && i >= f && i <= t ? 'on' : '') + '" data-ract="sec" data-s="' + i + '">' + i + '</button>';
-      sub += '<button class="' + (!f ? 'on' : '') + '" data-ract="sec" data-s="0"' + (nd ? '' : ' disabled') + '>All</button></span>';
-      r += '<div class="mrow scroll">' + sub + '</div>';
+    var am = activeMask(), it = R.items, nb = it.some(function (q) { return q.k === 'box'; }), nd = nDiv(it);
+    function tg(act, on, has, ic, lbl) {
+      return '<button class="vtog' + (on ? ' on' : '') + (has ? '' : ' none') + '" data-ract="' + act + '" role="switch" aria-checked="' + on + '" aria-label="' + lbl + (on ? ' shown' : ' hidden') + '"' + (has ? '' : ' disabled') + '>' + ic + '</button>';
     }
-    return r + '</div>';
+    // v102: Box / Line icons show or hide them (green outline = shown, grey with a slash = hidden).
+    var r = '<div class="rrow wrap mwrap"><div class="mrow scroll">' +
+      tg('hb', !(am && am.hb), nb, IC.box, 'Boxes') + tg('hl', !(am && am.hl), nd, IC.line, 'Lines');
+    var f = am ? am.sec || 0 : 0; if (f > nd + 1) f = 0;
+    r += '<span class="soval' + (nd ? '' : ' off') + '"><span class="sovl">Section</span>';
+    for (var i = 1; i <= nd + 1 && nd; i++) r += '<button class="' + (f === i ? 'on' : '') + '" data-ract="sec" data-s="' + i + '">' + i + '</button>';
+    r += '<button class="' + (!f ? 'on' : '') + '" data-ract="sec" data-s="0"' + (nd ? '' : ' disabled') + '>All</button></span>';
+    return r + '</div></div>';
   }
   function mainPanel() {
     var p = R.p, k = R.k, o = S.get(k), m = S.isMem(k), h = S.health(k);
@@ -820,9 +799,9 @@
     // Editing tools (Crop, Join, Box, Line, Clear) live behind one Edit button; opening it expands them inside the same oval.
     var busy = R.sub === 'crop' || R.sub === 'join' || R.edit, open = R.edOpen || busy;
     var grp = '<div class="egrp' + (open ? ' open' : '') + '">' + (open ?
-      tb('tCrop', 'Crop', IC.crop, R.sub === 'crop') + tb('join', 'Join', IC.join, R.sub === 'join', !am) +
-      tb('tBox', 'Box', IC.box, R.edit && R.etool === 'box', !am) + tb('tLine', 'Line', IC.line, R.edit && R.etool === 'line', !am) +
-      tb('delMask', 'Clear', IC.trash, false, !am || !R.items.length).replace('class="tb', 'class="tb danger') : '') +
+      tb('tCrop', 'Crop', IC.crop, R.sub === 'crop') + tb('join', 'Join', IC.join, R.sub === 'join') +
+      tb('tBox', 'Box', IC.box, R.edit && R.etool === 'box') + tb('tLine', 'Line', IC.line, R.edit && R.etool === 'line') +
+      tb('delMask', 'Clear', IC.trash, false, !R.items.length).replace('class="tb', 'class="tb danger') : '') +
       tb('edGrp', 'Edit', open ? IC.x : IC.pen, false).replace('class="tb', 'class="tb edbtn') + '</div>';
     // While Edit is open, the other tools step aside so all edit tools and Back fit on screen.
     return '<div class="rrow scroll tools' + (open ? ' edopen' : '') + '">' + (open ? '' :
@@ -879,7 +858,8 @@
     x += '<div class="rrow tcore"><span class="lbl">Count</span><b class="tlyn">' + T.n + '</b><span style="flex:1"></span>' +
       '<button class="btn sm" data-ract="tlyEdit">Edit</button><button class="btn sm danger" data-ract="tlyDel"' + (T.n ? '' : ' disabled') + '>Delete</button><button class="btn sm pri" data-ract="tlySave"' + (T.n ? '' : ' disabled') + '>Save</button>' +
       '<button class="jsw' + (Tally.on() ? ' on' : '') + '" data-ract="tlyHide" role="switch" aria-checked="' + Tally.on() + '"><i></i>Counter</button></div>';
-    var parts = (ns > 1 ? 'Counting ' + (sc.from ? 'section ' + sc.from + (sc.to > sc.from ? '–' + sc.to : '') : 'whole page') + ' · ' : '') + (ns > 1 ? t.sec.map(function (v, j) { return 'S' + (j + 1) + ' ' + v; }).join(' · ') + ' · ' : '');
+    var kf = Tally.keptFor(R.k), kl = Object.keys(kf).filter(function (q) { return +q !== (sc.from || 0); }).map(function (q) { return (+q ? 'S' + q : 'All') + ' ' + kf[q]; });
+    var parts = (kl.length ? 'Unsaved: ' + kl.join(', ') + ' · ' : '') + (ns > 1 ? 'Counting ' + (sc.from ? 'section ' + sc.from + (sc.to > sc.from ? '–' + sc.to : '') : 'whole page') + ' · ' : '') + (ns > 1 ? t.sec.map(function (v, j) { return 'S' + (j + 1) + ' ' + v; }).join(' · ') + ' · ' : '');
     var mo = S.month(), sn = R.tag && App.tagSince(R.tag), tm = S.tally(R.k, function (d) { return sn ? d >= sn : d.slice(0, 7) === mo; }).page;
     x += '<div class="small muted" style="padding:0 4px 4px">' + parts + 'Page read <b>' + tm + '×</b> ' + periodTxt() + ' · <b>' + t.page + '×</b> lifetime';
     var g = S.d.settings.tDay;
@@ -888,7 +868,7 @@
   }
   function tallyTint() {
     var sc = Tally.scope(); if (R.sub !== 'tally' || !sc.from) return '';
-    var am0 = activeMask(); if (am0 && masksOf(R.p).indexOf(am0) === 0) return ''; // Mask 1 already hides the rest
+    return ''; // v102: the chosen section is already the only part shown
     var m1 = masksOf(R.p)[0]; if (!m1) return '';
     var ds = shiftItems(viewItems(m1, R.p).filter(function (q) { return q.k === 'div'; }), R.oy).sort(function (a, b) { return (a.y1 + a.y2) - (b.y1 + b.y2); });
     var above = ds[sc.from - 2], below = ds[sc.to - 1], H = r1(R.Hu);
@@ -904,7 +884,7 @@
       '<button class="icb pri" data-ract="doneEdit" aria-label="Save">' + IC.check + '</button></div>';
     // The style row is always shown so the drawer keeps one height; with no box selected it sets the style for the next box.
     x += boxStyle(m && m.k === 'box' ? m : R.style, m && m.k === 'div');
-    x += '<div class="hint ehint"><b>' + (am ? 'Mask ' + (masksOf(R.p).indexOf(am) + 1) : '') + '</b> · ' + (m ? (m.k === 'box' ? (hLock() ? 'Drag the box to move it; drag a round handle to change its width.' : 'Drag the box to move it; drag a round handle to resize.') + '' : 'Drag the ⇕ grip on the right to move the line. Side dots make a step; the middle dot moves the step.') + (m.k === 'div' ? ' <button class="addlink" data-ract="straight">Straighten</button>' : '')
+    x += '<div class="hint ehint"><b>' + 'Edit' + '</b> · ' + (m ? (m.k === 'box' ? (hLock() ? 'Drag the box to move it; drag a round handle to change its width.' : 'Drag the box to move it; drag a round handle to resize.') + '' : 'Drag the ⇕ grip on the right to move the line. Side dots make a step; the middle dot moves the step.') + (m.k === 'div' ? ' <button class="addlink" data-ract="straight">Straighten</button>' : '')
       : 'Tap Box or Line to add one, or tap a shape to select it. Tip: long-press a shape while reading to edit it.') + '</div>';
     return x;
   }
@@ -950,7 +930,7 @@
   function selBox() { var m = R.items[R.sel]; return (R.edit && m && m.k === 'box') ? m : R.style; }
   function afterStyle() { var m = selBox(); if (m !== R.style) { R.style.c = m.c; R.style.o = m.o; R.style.b = m.b; commitItems(); } rememberStyle(m); draw(); renderPanel(); }
   function startEdit(sel) {
-    var am = activeMask(); if (!am) return false;
+    var am = ensureLayer(); if (!am) return false;
     if (!R.edit) { R.snap = { items: JSON.stringify(am.items || []), sec: am.sec || 0 }; R.edit = true; R.sub = null; R.sel = sel; renderPanel(); layout(); }
     return true;
   }
@@ -968,18 +948,11 @@
     if (i < 0) { add(); return; }
     if (!startEdit(i)) return; R.sel = i; draw(); renderPanel();
   }
-  /* Mask 1's section view and Tally's counted sections are one choice. A kept count brings its sections back;
-     otherwise Tally counts whatever Mask 1 shows. */
+  /* The section shown is the section Tally counts; each section's unsaved count waits on its own. */
   function syncSec() {
-    var m1 = masksOf(R.p)[0], sc = Tally.scope();
-    if (!m1) { if (!Tally.dirty()) Tally.setScope(0, 0); return; }
-    if (Tally.dirty()) {
-      if (sc.to !== sc.from) { Tally.state().to = sc.from; sc = Tally.scope(); } // an older range count opens on its first section
-      if ((m1.sec || 0) !== sc.from) saveMasks(function (ms) { ms[0].sec = sc.from; ms[0].sec2 = sc.from; });
-    } else {
-      var f = m1.sec || 0, t = f; if (t > nDiv(m1.items || []) + 1) f = t = 0;
-      Tally.setScope(f, t);
-    }
+    var m1 = masksOf(R.p)[0], f = m1 ? m1.sec || 0 : 0;
+    if (m1 && f > nDiv(m1.items || []) + 1) f = 0;
+    Tally.section(f, R.k);
   }
   function newMask(n) { return { id: 'm' + Date.now().toString(36) + n, name: 'Mask ' + n, items: [], sec: 0, pg: 1 }; }
   function setActive(id) { saveMasks(function (ms, o) { o.am = id || ''; }); loadItems(); }
@@ -989,7 +962,7 @@
     tally: function () {
       leaveModes();
       if (!Tally.on()) { Tally.show(true); toolSub('tally'); R.sub = 'tally'; } else R.sub = toolSub('tally');
-      Tally.resume(R.k);
+      syncSec();
       renderPanel(); draw();
     },
     tRem: function () { S.d.settings.tRem = !S.d.settings.tRem; S.saveSettings(); renderPanel(); },
@@ -1016,7 +989,7 @@
     // v93: the switch in the Tally row hides/shows the counter; the row stays open. The Tally icon only opens/closes the row
     // (and brings a hidden counter back), so the counter is hidden only from this switch.
     tlyHide: function () {
-      if (!Tally.on()) { Tally.show(true); Tally.resume(R.k); renderPanel(); return; }
+      if (!Tally.on()) { Tally.show(true); syncSec(); renderPanel(); return; }
       // v95: switching the counter off keeps an unsaved count for later on its page (no question asked).
       if (Tally.dirty()) { Tally.park(); App.toast('Tally kept for later'); }
       Tally.show(false); renderPanel(); draw();
@@ -1034,7 +1007,7 @@
       else { var s = QURAN.S[n - 1]; q = d > 0 ? s[3] : s[4]; }
       if (q) go(q, d, n);
     },
-    surah: function (el) { if (Tally.dirty()) Tally.park(); R.n = +el.dataset.n; R.k = S.uk(R.p, R.n); S.setLast(R.p, R.k); Tally.resume(R.k); renderPanel(); },
+    surah: function (el) { if (Tally.dirty()) Tally.park(); R.n = +el.dataset.n; R.k = S.uk(R.p, R.n); S.setLast(R.p, R.k); syncSec(); renderPanel(); },
     rev: function () {
       var p = R.k;
       if (S.get(p).lr === S.today()) { S.unreviewToday(p); renderPanel(); App.toast('Review for today removed'); return; }
@@ -1071,29 +1044,6 @@
     },
     health: function () { leaveModes(); R.sub = toolSub('health'); renderPanel(); },
     tag: function (el) { S.toggleTag(R.k, el.dataset.t); renderPanel(); },
-    mask: function (el) {
-      var k = el.dataset.slot;
-      if (k === '') { setActive(''); loadItems(); renderPanel(); layout(); return; }
-      k = +k; if (R.edit) RACT.doneEdit();
-      saveMasks(function (ms, o) {
-        while (ms.length <= k) { var n = ms.length + 1; ms.push({ id: 'm' + Date.now().toString(36) + n, name: 'Mask ' + n, items: [], sec: 0 }); }
-        o.am = ms[k].id;
-      });
-      loadItems(); renderPanel(); layout();
-    },
-    // v99: Mask switch — on opens Mask 1 (made if the page has none), off shows the plain page.
-    mOn: function () {
-      if (R.edit) RACT.doneEdit();
-      if (activeMask()) { setActive(''); if (R.sub === 'join') R.sub = null; }
-      else saveMasks(function (ms, o) { if (!ms.length) ms.push(newMask(1)); o.am = ms[0].id; });
-      loadItems(); renderPanel(); layout();
-    },
-    mAdd: function () {
-      if (R.edit) RACT.doneEdit();
-      if (masksOf(R.p).length >= MAXM) return;
-      saveMasks(function (ms, o) { var m = newMask(ms.length + 1); ms.push(m); o.am = m.id; });
-      loadItems(); renderPanel(); layout();
-    },
     editMask: function () { startEdit(-1); },
     doneEdit: function () { R.edit = false; R.sel = -1; R.tmp = null; R.snap = null; renderPanel(); layout(); },
     cancelEdit: function () {
@@ -1104,8 +1054,7 @@
     },
     delMask: function () {
       var am = activeMask(); if (!am) return;
-      var n = masksOf(R.p).indexOf(am) + 1;
-      if (!confirm('Clear everything on Mask ' + n + '? Its boxes and lines will be removed.')) return;
+      if (!confirm('Clear all boxes and lines on this page?')) return;
       saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) { m.items = []; m.sec = 0; } }); });
       loadItems(); R.edit = false; R.sel = -1; R.sub = null; draw(); renderPanel(); layout();
     },
@@ -1125,23 +1074,19 @@
     del: function () { if (R.sel < 0) return; R.items.splice(R.sel, 1); R.sel = -1; commitItems(); draw(); renderPanel(); },
     straight: function () { var m = R.items[R.sel]; if (!m) return; m.y2 = m.y1; m.x = 500; commitItems(); draw(); },
     sec: function (el) {
-      var i = +el.dataset.s, am = activeMask(); if (!am) return;
-      var nf = i, nt = i; // v101: one section at a time (or All)
-      // Mask 1's sections are Tally's sections: a running count is saved (after asking) before they change.
-      var one = masksOf(R.p).indexOf(am) === 0, T = Tally.state(), sc = Tally.scope();
-      if (one && T.n && (sc.from !== nf || sc.to !== nt) &&
-        !confirm('Save the count of ' + T.n + ' to ' + (sc.from ? 'section ' + sc.from + (sc.to > sc.from ? '–' + sc.to : '') : 'the whole page') + ' before switching?')) return;
-      saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) { m.sec = nf; m.sec2 = nt; } }); });
-      if (one) Tally.setScope(nf, nt);
+      var i = +el.dataset.s; if (!activeMask()) return;
+      saveMasks(function (ms) { ms[0].sec = i; ms[0].sec2 = i; });
+      Tally.section(i, R.k); // v102: each section keeps its own count; switching shows that section's count
       draw(); renderPanel();
     },
-    hb: function () { var am = activeMask(); saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) m.hb = !m.hb; }); }); draw(); renderPanel(); },
+    hb: function () { if (!activeMask()) return; saveMasks(function (ms) { ms[0].hb = !ms[0].hb; }); draw(); renderPanel(); },
+    hl: function () { if (!activeMask()) return; saveMasks(function (ms) { ms[0].hl = !ms[0].hl; }); draw(); renderPanel(); },
     bc: function (el) { selBox().c = el.dataset.c; R.palOpen = false; afterStyle(); },
     bo: function (el) { var m = selBox(); m.o = clamp(Math.round(m.o * 20) / 20 + (+el.dataset.d) * 0.05, 0.05, 1); m.o = Math.round(m.o * 100) / 100; afterStyle(); },
     pal: function () { R.palOpen = !R.palOpen; renderPanel(); },
     bb: function () { var m = selBox(); m.b = !m.b; afterStyle(); },
     join: function () {
-      if (!activeMask() && R.sub !== 'join') return;
+      if (R.sub !== 'join') ensureLayer();
       leaveModes(); R.sub = R.sub === 'join' ? null : 'join';
       // Remember the page's join settings so Cancel can put them back.
       if (R.sub === 'join') { R.jsnap = { p: R.p, jn: JSON.stringify(jnOf()) }; R.jt = R.jt || (R.p < 604 ? 'next' : 'this'); }

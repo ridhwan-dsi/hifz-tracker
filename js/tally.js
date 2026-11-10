@@ -12,7 +12,10 @@
   var KK = 'hifz.tallyKept', K = {};
   try { K = JSON.parse(localStorage.getItem(KK)) || {}; } catch (e) {}
   function keepK() { try { localStorage.setItem(KK, JSON.stringify(K)); } catch (e) {} }
-  function park() { if (!T.n || !T.k) return; K[T.k] = { n: T.n, from: T.from, to: T.to, at: Date.now() }; T.n = 0; T.k = null; keepK(); keep(); }
+  /* v102: kept counts are per section — key "unit|section" (0 = whole page). Older per-page entries move to their section. */
+  Object.keys(K).forEach(function (k) { if (k.indexOf('|') < 0) { var q = K[k], key = k + '|' + (q.from || 0); if (!K[key]) K[key] = { n: q.n, at: q.at }; delete K[k]; } });
+  keepK();
+  function park() { if (!T.n || !T.k) return; var key = T.k + '|' + (T.from || 0), q = K[key]; K[key] = { n: T.n + (q ? q.n : 0), at: Date.now() }; T.n = 0; T.k = null; keepK(); keep(); }
   if (T.n > 0) { park(); T.on = false; keep(); }
   function holdMs() { var h = +S.d.settings.tHold || 0.4; return Math.round(Math.max(0.2, Math.min(1.5, h)) * 1000); }
   function buzz() { try { navigator.vibrate && navigator.vibrate(35); } catch (e) {} }
@@ -111,12 +114,20 @@
     discard: function () { T.n = 0; T.k = null; keep(); Tally.render(); },
     // Keep for later: park the count on its page; it is not saved to the stats.
     park: function () { if (!T.k) T.k = Reader.unit(); park(); Tally.render(); },
-    kept: function (k) { return K[k] || null; },
-    // Resume a kept count on this page (only when nothing is counting now).
-    resume: function (k) {
-      var q = K[k]; if (!q || T.n) return false;
-      T.n = q.n; T.k = k; T.from = q.from || 0; T.to = q.to || 0; delete K[k]; keepK(); keep(); Tally.render(); return true;
+    kept: function (k) { for (var key in K) if (key.indexOf(k + '|') === 0) return K[key]; return null; },
+    // Unsaved counts waiting on this page, by section: { 0: n, 2: n, … }
+    keptFor: function (k) { var o = {}; for (var key in K) if (key.indexOf(k + '|') === 0) o[+key.split('|')[1]] = K[key].n; return o; },
+    /* v102: show section i of unit k. The running count stays with its own section; the new section's waiting count comes back. */
+    section: function (i, k) {
+      k = k || Reader.unit(); i = i || 0;
+      if (T.n && (T.k !== k || (T.from || 0) !== i)) park();
+      T.from = T.to = i;
+      var q = K[k + '|' + i];
+      if (q && !T.n) { T.n = q.n; T.k = k; delete K[k + '|' + i]; keepK(); }
+      keep(); Tally.render();
     },
+    // Resume a kept count on this page (only when nothing is counting now).
+    resume: function (k) { Tally.section(T.from || 0, k); return true; },
     edit: function () {
       var v = prompt('Count', T.n); if (v == null) return false;
       v = parseInt(v, 10); if (!(v >= 0)) return false;

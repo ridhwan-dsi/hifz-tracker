@@ -240,11 +240,6 @@
     var x = e.clientX, y = e.clientY;
     lp = { c: c, x: x, y: y, t: setTimeout(function () {
       lp = null; lpFired = Date.now(); try { navigator.vibrate && navigator.vibrate(25); } catch (er) {}
-      if (c.dataset.long === 'mask') { // v100: long-press a mask tab → Delete / Cancel
-        var k = +c.dataset.slot;
-        dialog({ title: 'Mask ' + (k + 1), msg: 'Delete this mask with its boxes, lines and join?' + (k === 0 ? ' The next mask becomes Mask 1 (Tally sections follow Mask 1).' : ''), btns: [['x', 'Cancel'], ['del', 'Delete', 'danger']] }, function (v, w) { if (w === 'del') Reader.delMaskAt(k); });
-        return;
-      }
       var id = c.dataset.t, t = S.d.tags.filter(function (q) { return q.id === id; })[0]; if (!t) return;
       dialog({ title: t.name, btns: [['x', 'Cancel'], ['del', 'Delete', 'danger'], ['ren', 'Rename', 'pri']] }, function (v, w) {
         if (w === 'ren') ACT.renTag(c); else if (w === 'del') ACT.delTag(c);
@@ -450,7 +445,7 @@
     var s = S.d.settings, cid = Sync.cid();
     var acct = !cid ? '<p class="small muted">Google sign-in has not been configured for this app yet, so your data is kept on this device only.</p>'
       : S.d.acct ? '<div class="frow"><label><b>' + esc(S.d.acct) + '</b><br><span class="small muted">' + ({ ok: 'Synced to your Google Drive', syncing: 'Syncing…', paused: 'Sync paused — tap Sync now', error: 'Last sync failed' }[Sync.state] || '') + '</span></label><button class="btn sm" data-act="syncNow">Sync now</button></div><button class="btn sm" data-act="signOut">Sign out</button>'
-        : '<p class="small muted">Sign in with Google to keep your progress and masks in your own Google Drive, on every device.</p><button class="btn pri" data-act="signIn">Sign in with Google</button>';
+        : '<p class="small muted">Sign in with Google to keep your progress, boxes and lines in your own Google Drive, on every device.</p><button class="btn pri" data-act="signIn">Sign in with Google</button>';
     var themes = [['green', '#1f7a52', 'Green'], ['blue', '#1d5ca6', 'Blue'], ['dark', '#111513', 'Dark']];
     var h = '<div class="sheetm" id="settingsSheet"><h3>Settings</h3>' +
       '<h4>Theme</h4><div class="themes">' + themes.map(function (t) { return '<button class="' + (s.theme === t[0] ? 'on' : '') + '" data-act="theme" data-t="' + t[0] + '"><span class="sq" style="background:' + t[1] + '"></span>' + t[2] + '</button>'; }).join('') + '</div>' +

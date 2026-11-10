@@ -439,3 +439,11 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 .soval.off { opacity: .45; } .soval.off button { pointer-events: none; }
 .soval button.on { background: var(--acc-soft); color: var(--acc); border-color: var(--acc); }
 #reader.desk .mainp > .mwrap { flex-wrap: nowrap; }
+/* v102 Box / Line show-hide toggles: green outline = shown, grey with a slash = hidden */
+.vtog { position: relative; flex: none; width: 46px; height: 38px; border-radius: 99px; border: 1.5px solid var(--acc); background: var(--card); color: var(--acc); display: inline-flex; align-items: center; justify-content: center; }
+.vtog svg { width: 20px; height: 20px; }
+.vtog:not(.on) { border-color: var(--line); color: var(--muted); background: var(--bg); }
+.vtog:not(.on)::after { content: ''; position: absolute; left: 50%; top: 50%; width: 30px; height: 2px; background: var(--muted); border-radius: 2px; transform: translate(-50%, -50%) rotate(-40deg); }
+.vtog.none { opacity: .35; }
+.mwrap .mrow { gap: 6px; }
+.mwrap .soval { gap: 4px; padding-left: 10px; } .mwrap .soval button { min-width: 34px; padding: 0 8px; }
