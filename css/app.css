@@ -450,7 +450,9 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 .mwrap .soval { gap: 4px; padding-left: 10px; } .mwrap .soval button { min-width: 34px; padding: 0 8px; }
 
 /* v109: one fixed-height tool slot in the Expanded drawer (tallest row = Timer wheel / icon buttons), so the drawer never changes size between tools */
-.rslot { height: 56px; border-top: 1px solid var(--line); margin-top: 4px; display: flex; align-items: center; }
+.rswap { height: 78px; display: flex; flex-direction: column; justify-content: center; }
+.rswap > .rrow.nav { padding: 0; }
+.rslot { display: flex; align-items: center; height: 100%; }
 .rslot > .rsub { border: 0; margin: 0; padding: 0; width: 100%; }
 .trow3 { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
 .trow3 .t3l { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -476,3 +478,4 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 .spage .shl { display: flex; align-items: center; gap: 10px; } .spage .sbar { flex: 1; height: 8px; margin: 0; }
 .spage .sfoot { display: flex; justify-content: flex-end; padding: 6px 12px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--card); }
 .statopen #tally { display: none !important; }
+#reader.desk .mainp .rswap { display: contents; height: auto; }

@@ -602,6 +602,9 @@
       var p2 = window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k !== 'hifz-pages'; }).map(function (k) { return caches.delete(k); })); }) : Promise.resolve();
       // Refetch the app files past the browser's HTTP cache so the reload gets fresh copies.
       var p3 = Promise.all(files.map(function (f) { return fetch(f, { cache: 'reload' }).catch(function () {}); }));
+      // v110: come back to Settings at the same scroll spot, so the result of the update is visible.
+      var sh = document.getElementById('settingsSheet');
+      try { sessionStorage.setItem('hifzUpd', JSON.stringify({ y: sh ? sh.scrollTop : 0, v: (window.HIFZ_CONFIG || {}).appVersion || '' })); } catch (e) {}
       Promise.all([p1, p2, p3]).catch(function () {}).then(function () { location.replace(location.pathname + '?v=' + Date.now() + location.hash); });
     },
     theme: function (el) { S.d.settings.theme = el.dataset.t; S.saveSettings(); App.render(); openSettings(); },
@@ -647,6 +650,14 @@
     var p0 = +location.hash.slice(2), lk = S.d.last && S.kp(S.d.last.k) === p0 ? S.d.last.k : S.uk(p0), sc0 = scope(lk);
     history.replaceState(null, '', location.pathname); Reader.open(p0, S.kn(lk), sc0 && sc0.rg, sc0 && sc0.tag);
   }
+  (function () {
+    var u = null; try { u = JSON.parse(sessionStorage.getItem('hifzUpd')); sessionStorage.removeItem('hifzUpd'); } catch (e) {}
+    if (!u) return;
+    openSettings();
+    var sh = document.getElementById('settingsSheet'); if (sh) { sh.scrollTop = u.y; requestAnimationFrame(function () { sh.scrollTop = u.y; }); }
+    var v = (window.HIFZ_CONFIG || {}).appVersion || '';
+    App.toast(v && v !== u.v ? 'Updated to ' + v.split(' ·')[0] : 'Already on the latest version (' + v.split(' ·')[0] + ')');
+  })();
   if ('serviceWorker' in navigator) {
     var hadSW = !!navigator.serviceWorker.controller, reloaded = false;
     // When a newer build takes over, reload once so the new code is used straight away.

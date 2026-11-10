@@ -786,20 +786,23 @@
   function mainPanel() {
     var p = R.p, k = R.k, o = S.get(k), m = S.isMem(k), h = S.health(k);
     var ms = masksOf(p), am = activeMask(), x = '';
-    x += '<div class="rrow nav">' + navBtns('in') + '<div class="rtitle tcol"><div class="tname">' + surahTitle(p) + '</div>' + pstrip() + '</div></div>';
+    if (R.sub === 'health') R.sub = null; // v109: health moved to the Stat page
+    var tool = R.sub === 'timer' || R.sub === 'tally' || R.sub === 'box' || R.sub === 'line';
+    // v110: one swap area of fixed height — the surah name and page strip, or the open tool's row in their place.
+    x += '<div class="rswap">';
+    if (!tool || desk()) x += '<div class="rrow nav">' + navBtns('in') + '<div class="rtitle tcol"><div class="tname">' + surahTitle(p) + '</div>' + pstrip() + '</div></div>';
+    if (tool) { x += '<div class="rslot">';
+      if (R.sub === 'timer') x += timerPanel();
+      if (R.sub === 'tally') x += tallyPanel();
+      if (R.sub === 'box' || R.sub === 'line') x += kindPanel(R.sub);
+      x += '</div>'; }
+    x += '</div>';
     // No Memorizing toggle here (pages are added/removed from the home tabs only, so nothing is removed by accident).
     // Page stats are automatic: tally reads, stopwatch time, days read (5 min or a tally that day).
     // v109: read/time numbers live only on the Stat page.
     x += maskRows();
     // Health and Tags live in the bottom toolbar and expand their row just above it.
-    if (R.sub === 'health') R.sub = null; // v109: health moved to the Stat page
-    // v109: one tool slot of fixed height (the tallest row), so moving between tools never resizes the drawer.
-    x += '<div class="rslot">';
-    if (false) x += '<div class="rsub hsub"><span class="lbl">Health</span><span class="hctl big"><button data-ract="hminus" aria-label="Lower health">−</button><span style="color:' + (h ? App.hcol(h) : 'var(--muted)') + '">' + h + '%</span><button data-ract="hplus" aria-label="Raise health">+</button></span></div>';
-    if (R.sub === 'timer') x += timerPanel();
-    if (R.sub === 'tally') x += tallyPanel();
-    if (R.sub === 'box' || R.sub === 'line') x += kindPanel(R.sub);
-    return x + '</div>' + toolsRow();
+    return x + toolsRow();
   }
   // The bottom toolbar stays put in every mode; each tool opens its row above it and a second tap closes it.
   function toolsRow() {
@@ -812,8 +815,8 @@
       tb('edGrp', 'Edit', open ? IC.x : IC.pen, false).replace('class="tb', 'class="tb edbtn') + '</div>';
     // While Edit is open, the other tools step aside so all edit tools and Back fit on screen.
     return '<div class="rrow scroll tools' + (open ? ' edopen' : '') + '">' + (open ? '' :
-      tb('tLine', 'Line', IC.line, R.sub === 'line' || (R.edit && R.etool === 'line')) + tb('tBox', 'Box', IC.box, R.sub === 'box' || (R.edit && R.etool === 'box')) +
-      timerTool() + tb('tally', (Tally.kept(R.k) || (Tally.dirty() && Tally.unit() === R.k) ? '<i class="tkdot"></i>' : '') + 'Tally', IC.tally, R.sub === 'tally') + tb('statOpen', 'Stat', IC.stat, false) +
+      tb('statOpen', 'Stat', IC.stat, false) + tb('tLine', 'Line', IC.line, R.sub === 'line' || (R.edit && R.etool === 'line')) + tb('tBox', 'Box', IC.box, R.sub === 'box' || (R.edit && R.etool === 'box')) +
+      timerTool() + tb('tally', (Tally.kept(R.k) || (Tally.dirty() && Tally.unit() === R.k) ? '<i class="tkdot"></i>' : '') + 'Tally', IC.tally, R.sub === 'tally') +
       (desk() ? tb('spread', '2 pages', IC.book, S.d.settings.spread !== false) : '') +
       (installed() ? '' : tb('fs', 'Full screen', IC.full, false))) + grp + tb('home', 'Back', IC.back, false) + '</div>';
   }
