@@ -159,7 +159,7 @@
     // range: optional list of unit keys (from the Memorizing tab) — swiping/arrows then stay within those pages.
     open: function (p, n, range, tag) {
       R.style = boxDef(); R.palOpen = false; R.wasDesk = desk();
-      if (!Reader.isOpen()) { R.wasPL = phoneLand(); if (R.wasPL) { R.panel = false; R.dszL = 'rib'; } } R.tag = tag || null; // custom tag: counts shown for the tag, not the month
+      if (!Reader.isOpen()) { R.wasPL = phoneLand(); if (R.wasPL) { R.panel = false; R.dszL = 'rib'; } } R.stat = false; R.tag = tag || null; // custom tag: counts shown for the tag, not the month
       p = clamp(p | 0, 1, 604); R.n = n || 0;
       R.range = range && range.length ? range.slice().sort(function (a, b) { return S.kp(a) - S.kp(b) || S.kn(a) - S.kn(b); }) : null;
       if (!Reader.isOpen()) history.pushState({ reader: 1 }, '', '#p' + p);
@@ -181,9 +181,10 @@
   window.Reader = Reader;
   window.addEventListener('popstate', function () {
     if (!Reader.isOpen()) return;
+    if (R.stat) { R.stat = false; renderPanel(); return; } // v109: phone back closes the Stat page first
     // v97: leaving the reader keeps an unsaved tally for later on its page (no question).
     if (Tally.dirty()) Tally.park();
-    Reader.close();
+    document.body.classList.remove('statopen'); Reader.close();
   });
 
   // Next/previous page: the next listed page when opened from Memorizing, otherwise the adjacent mushaf page.
@@ -581,6 +582,8 @@
   var IC = {
     box: I('<rect x="3" y="6" width="18" height="12" rx="2"/>'), line: I('<path d="M3 9h10v6h8"/>'),
     crop: I('<path d="M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2"/>'), join: I('<path d="M4 4h16v5H4zM4 15h16v5H4zM12 9v6"/>'),
+    plus: I('<path d="M12 5v14M5 12h14"/>'),
+    stat: I('<path d="M5 20V11M11 20V5M17 20v-7M3 20h18"/>'),
     heart: I('<path d="M12 2.5l8 3v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10v-6z"/><path d="M12 8.5v6M9 11.5h6"/>'),
     clock: I('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M10 2h4"/>'), pause: I('<path d="M8 5v14M16 5v14"/>'),
     play: I('<path d="M7 4l13 8-13 8z"/>'), stop: I('<rect x="6" y="6" width="12" height="12" rx="1.5"/>'),
@@ -594,11 +597,14 @@
   };
   function tb(id, label, icon, on, off) { return '<button class="tb' + (on ? ' on' : '') + '" data-ract="' + id + '"' + (off ? ' disabled' : '') + '>' + icon + label + '</button>'; }
   function navBtns(cls) {
+    if (cls !== 'edge') return ''; // v109: swiping and the page strip are the only page navigation on mobile
     return '<button class="navb ' + cls + ' l" data-ract="next" aria-label="Next page"' + (!stepTo(1) ? ' disabled' : '') + '>' + IC.left + '</button>' +
       '<button class="navb ' + cls + ' r" data-ract="prev" aria-label="Previous page"' + (!stepTo(-1) ? ' disabled' : '') + '>' + IC.right + '</button>';
   }
   function renderPanel() {
     var host = $('#rui'), p = R.p, x = '';
+    document.body.classList.toggle('statopen', !!R.stat);
+    if (R.stat) { host.innerHTML = statPage(); return; } // v109: page stats open as a full page over the reader
     if (!R.panel) {
       var ta = Timer.active(), tr = Timer.state().run;
       // One bottom pill: expand handle, then (when a session exists) the stopwatch chip — tap it to pause/resume.
@@ -675,7 +681,7 @@
     $('#reader').classList.toggle('desk', desk());
     var vs = $('#rui .vsw'); if (vs) vs.remove();
     if (wideScreen()) $('#rui').insertAdjacentHTML('beforeend', '<button class="vsw rv' + (desk() ? ' on' : '') + '" data-ract="viewFlip" title="Mobile view / Web view" aria-label="Switch between mobile view and web view"><span class="vm"><svg class="i" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span><span class="vd"><svg class="i" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8.5 21h7M12 17v4"/></svg></span></button>');
-    wireStrip();
+    wireStrip(); wireWheel();
     var zc = $('#rui .zchip'); if (land()) { if (zc) zc.outerHTML = zoomChip(); else $('#rui').insertAdjacentHTML('beforeend', zoomChip()); } else if (zc) zc.remove();
     // Keep the active tool visible when the toolbar is wider than the screen.
     var on = document.querySelector('.rpanel .tools .tb.on'), row = on && on.parentNode;
@@ -686,9 +692,9 @@
   }
   /* Drawer sizes: Full (all rows), Fit (shrinks to the gap under a full-width page), Ribbon (toolbar only).
      Tools that need room (Crop, Join, Box/Line) always open at Full. Rows for Health/Tags/Timer stay visible in every size. */
-  var DZ = ['hide', 'rib', 'fit', 'full'];
+  var DZ = ['hide', 'rib', 'full']; // v109: two sizes — Ribbon and Expanded (one fixed height for every tool)
   function dzCur() { return (R.sub === 'crop' || R.sub === 'join' || R.edit) ? 'full' : dzOk(phoneLand() ? (R.dszL || 'rib') : (S.d.settings.dsz || 'full')); }
-  function dzOk(z) { return DZ.indexOf(z) > 0 ? z : 'full'; } // v108: sizes saved by v106/v107 ('exp') read as Full
+  function dzOk(z) { return DZ.indexOf(z) > 0 ? z : 'full'; } // older 'fit'/'exp' read as Expanded // v108: sizes saved by v106/v107 ('exp') read as Full
   function setDz(z) {
     if (z === 'hide') { togglePanel(false); return; }
     if (phoneLand()) R.dszL = z; else { S.d.settings.dsz = z; S.saveSettings(); } R.fitU = R.U; R.panel = true; renderPanel();
@@ -696,7 +702,7 @@
   /* v98: in Ribbon the tool rows are hidden, so tapping Tally / Timer / Health there opens that row and grows the
      drawer to Fit (which keeps tool rows) instead of toggling a row nobody can see. Returns the new R.sub. */
   function toolSub(name) {
-    if (!desk() && R.panel && dzCur() === 'rib') { if (phoneLand()) R.dszL = 'fit'; else { S.d.settings.dsz = 'fit'; S.saveSettings(); } R.fitU = R.U; return name; }
+    if (!desk() && R.panel && dzCur() === 'rib') { if (phoneLand()) R.dszL = 'full'; else { S.d.settings.dsz = 'full'; S.saveSettings(); } R.fitU = R.U; return name; }
     return R.sub === name ? null : name;
   }
   function fitRows() {
@@ -704,7 +710,7 @@
     [].forEach.call(pn.querySelectorAll('.dzh'), function (e) { e.classList.remove('dzh'); });
     [].forEach.call(host.querySelectorAll('.navb.float,.navb.edge'), function (e) { e.remove(); });
     if (desk()) { host.insertAdjacentHTML('beforeend', navBtns('edge')); return; } // one bar, no drawer sizes; arrows at the screen edges
-    var dz = dzCur(); if (dz === 'full') return;
+    var dz = dzCur(); if (dz !== 'rib') return;
     var rows = [].filter.call(pn.children, function (e) { return !e.matches('.grab,.tools,.rsub,.subrow'); });
     if (dz === 'rib') {
       // v96: Ribbon is the thinnest size — only the arrow and the icon toolbar; an open tool row (Tally, Timer, Health) hides too.
@@ -733,7 +739,7 @@
       R.noTap = true; setTimeout(function () { R.noTap = false; }, 350);
       var dy = ev.clientY - y0; if (Math.abs(dy) < 40) return;
       var st = (dy < 0 ? 1 : -1) * (Math.abs(dy) > 160 ? 2 : 1), i = DZ.indexOf(dzCur());
-      setDz(DZ[Math.max(0, Math.min(3, i + st))]);
+      setDz(DZ[Math.max(0, Math.min(2, i + st))]);
     }
     document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
   });
@@ -783,16 +789,17 @@
     x += '<div class="rrow nav">' + navBtns('in') + '<div class="rtitle tcol"><div class="tname">' + surahTitle(p) + '</div>' + pstrip() + '</div></div>';
     // No Memorizing toggle here (pages are added/removed from the home tabs only, so nothing is removed by accident).
     // Page stats are automatic: tally reads, stopwatch time, days read (5 min or a tally that day).
-    var since = R.tag ? App.tagSince(R.tag) : null, prd = since ? function (d) { return d >= since; } : null;
-    var rd = S.tally(k, prd).page, tt = S.pageTime(p, prd), dn = S.activeDays(k, prd).length;
-    if (m || rd || tt >= 60) x += '<div class="rstat">' + rd + '× read · ' + Timer.mins(tt) + ' · ' + dn + ' day' + (dn === 1 ? '' : 's') + (since ? ' in ' + App.esc(R.tag.name) : '') + '</div>';
+    // v109: read/time numbers live only on the Stat page.
     x += maskRows();
     // Health and Tags live in the bottom toolbar and expand their row just above it.
-    if (m && R.sub === 'health') x += '<div class="rsub hsub"><span class="lbl">Health</span><span class="hctl big"><button data-ract="hminus" aria-label="Lower health">−</button><span style="color:' + (h ? App.hcol(h) : 'var(--muted)') + '">' + h + '%</span><button data-ract="hplus" aria-label="Raise health">+</button></span></div>';
+    if (R.sub === 'health') R.sub = null; // v109: health moved to the Stat page
+    // v109: one tool slot of fixed height (the tallest row), so moving between tools never resizes the drawer.
+    x += '<div class="rslot">';
+    if (false) x += '<div class="rsub hsub"><span class="lbl">Health</span><span class="hctl big"><button data-ract="hminus" aria-label="Lower health">−</button><span style="color:' + (h ? App.hcol(h) : 'var(--muted)') + '">' + h + '%</span><button data-ract="hplus" aria-label="Raise health">+</button></span></div>';
     if (R.sub === 'timer') x += timerPanel();
     if (R.sub === 'tally') x += tallyPanel();
     if (R.sub === 'box' || R.sub === 'line') x += kindPanel(R.sub);
-    return x + toolsRow();
+    return x + '</div>' + toolsRow();
   }
   // The bottom toolbar stays put in every mode; each tool opens its row above it and a second tap closes it.
   function toolsRow() {
@@ -801,13 +808,12 @@
     // v104: Edit holds Crop, Join and Health; Box and Line are their own tools (no Clear).
     var busy = R.sub === 'crop' || R.sub === 'join', open = (R.edOpen || busy) && !R.edit;
     var grp = '<div class="egrp' + (open ? ' open' : '') + '">' + (open ?
-      tb('tCrop', 'Crop', IC.crop, R.sub === 'crop') + tb('join', 'Join', IC.join, R.sub === 'join') +
-      tb('health', m ? h + '%' : 'Health', IC.heart, R.sub === 'health', !m) : '') +
+      tb('tCrop', 'Crop', IC.crop, R.sub === 'crop') + tb('join', 'Join', IC.join, R.sub === 'join') : '') +
       tb('edGrp', 'Edit', open ? IC.x : IC.pen, false).replace('class="tb', 'class="tb edbtn') + '</div>';
     // While Edit is open, the other tools step aside so all edit tools and Back fit on screen.
     return '<div class="rrow scroll tools' + (open ? ' edopen' : '') + '">' + (open ? '' :
       tb('tLine', 'Line', IC.line, R.sub === 'line' || (R.edit && R.etool === 'line')) + tb('tBox', 'Box', IC.box, R.sub === 'box' || (R.edit && R.etool === 'box')) +
-      timerTool() + tb('tally', (Tally.kept(R.k) || (Tally.dirty() && Tally.unit() === R.k) ? '<i class="tkdot"></i>' : '') + 'Tally', IC.tally, R.sub === 'tally') +
+      timerTool() + tb('tally', (Tally.kept(R.k) || (Tally.dirty() && Tally.unit() === R.k) ? '<i class="tkdot"></i>' : '') + 'Tally', IC.tally, R.sub === 'tally') + tb('statOpen', 'Stat', IC.stat, false) +
       (desk() ? tb('spread', '2 pages', IC.book, S.d.settings.spread !== false) : '') +
       (installed() ? '' : tb('fs', 'Full screen', IC.full, false))) + grp + tb('home', 'Back', IC.back, false) + '</div>';
   }
@@ -831,37 +837,49 @@
   function closePause() { var sc = document.getElementById('scrim'); if (sc) { sc.style.display = 'none'; sc.innerHTML = ''; } }
   // Close crop (keeping the crop) or mask editing (keeping the shapes) before switching to another tool.
   function leaveModes() { if (R.edit) RACT.doneEdit(); if (R.sub === 'crop') RACT.cropApply(); }
+  /* v109 Timer row: one line — target wheel (left), pause actions when paused (centre), Time left switch (right).
+     No "None": the wheel shows one value and scrolls vertically; the daily goal moved to the Stat page. */
+  var WHEEL = [5, 10, 15, 20, 25, 30, 45, 60];
   function timerPanel() {
-    var T = Timer.state(), s = S.d.settings, p = R.p, dd = Timer.day(S.today()), g = s.goalDay, ach = Timer.achieved();
-    var md = Timer.modeOf(R.k) === 'r' ? 'review' : 'memorizing';
-    var on = Timer.active(); // while running, the time and play/pause sit in the toolbar oval instead
-    // The session time and play/pause always live in the toolbar oval; pausing opens the Resume/Save box.
-    var x = '<div class="rsub tsub">';
-    if (on && !T.run) x += '<div class="rrow"><span class="small muted">Paused · <b class="tmr-t">' + Timer.shown(T.secs) + '</b> kept for later</span><span style="flex:1"></span>' +
-      '<button class="btn sm pdel" data-ract="tDel" aria-label="Delete session">' + IC.trash + '</button><button class="btn sm" data-ract="tSave">' + IC.check + 'Save</button></div>';
-    var opts = [0, 5, 10, 15, 20, 30], cur = s.sessT || 0;
-    if (opts.indexOf(cur) < 0) opts.push(cur);
-    x += '<div class="rrow scroll"><span class="lbl">Target</span>' + opts.map(function (v) { return '<button class="chip' + (cur === v ? ' on' : '') + '" data-ract="tT" data-v="' + v + '">' + (v ? v + ' min' : 'None') + '</button>'; }).join('') +
-      '<button class="chip" data-ract="tT" data-v="custom" aria-label="Custom target">+</button></div>';
+    var T = Timer.state(), s = S.d.settings, on = Timer.active();
+    if (!s.sessT) Timer.setTarget(5);
+    var cur = s.sessT, opts = WHEEL.slice(); if (opts.indexOf(cur) < 0) { opts.push(cur); opts.sort(function (a, b) { return a - b; }); }
+    var wh = '<div class="twheel" aria-label="Session target"><i class="wsp"></i>' + opts.map(function (v) { return '<b class="wv' + (v === cur ? ' on' : '') + '" data-v="' + v + '">' + v + ' min</b>'; }).join('') +
+      '<b class="wv wc" data-v="custom">Other…</b><i class="wsp"></i></div>';
+    var mid = on && !T.run ? '<button class="icb danger" data-ract="tDel" aria-label="Delete paused session">' + IC.trash + '</button><button class="icb pri" data-ract="tSave" aria-label="Save paused session">' + IC.check + '</button>' : '';
     var rm = !!s.tRem;
-    x += '<div class="rrow"><button class="jsw' + (rm ? ' on' : '') + '" data-ract="tRem" role="switch" aria-checked="' + rm + '"' + (cur ? '' : ' disabled') + '><i></i>Time left</button>' +
-      (cur ? '' : '<span class="small muted">set a target to count down</span>') + '</div>';
-    if (g) x += '<div class="rrow"><span class="small muted" style="white-space:nowrap">Today <span class="tmr-day">' + Math.floor(dd.t / 60) + '</span> / ' + g + ' min' + (dd.t >= g * 60 ? ' ✓' : '') + '</span><div class="hbar" style="flex:1;margin:0"><i class="tmr-bar" style="width:' + Math.min(100, dd.t / (g * 60) * 100) + '%;background:var(--acc)"></i></div></div>';
-    return x + '</div>';
+    return '<div class="rsub tsub"><div class="trow3"><span class="t3l"><span class="lbl">Target</span>' + wh + '</span><span class="t3m">' + mid + '</span>' +
+      '<span class="t3r"><button class="jsw' + (rm ? ' on' : '') + '" data-ract="tRem" role="switch" aria-checked="' + rm + '"><i></i>Time left</button></span></div></div>';
+  }
+  function wireWheel() {
+    var w = document.querySelector('.rpanel .twheel'); if (!w) return;
+    var on = w.querySelector('.wv.on'), t = null, lastU = 0, mark = function () { lastU = Date.now(); };
+    ['pointerdown', 'pointermove', 'touchstart', 'touchmove', 'wheel'].forEach(function (ev) { w.addEventListener(ev, mark, { passive: true }); });
+    var mid = function () { var c = w.scrollTop + w.clientHeight / 2, best = null, bd = 1e9; [].forEach.call(w.querySelectorAll('.wv'), function (b) { var d = Math.abs(b.offsetTop + b.offsetHeight / 2 - c); if (d < bd) { bd = d; best = b; } }); return best; };
+    if (on) w.scrollTop = on.offsetTop + on.offsetHeight / 2 - w.clientHeight / 2;
+    w.addEventListener('scroll', function () {
+      if (Date.now() - lastU > 1500) return; // only the person's own scroll changes the target
+      var m = mid(); [].forEach.call(w.querySelectorAll('.wv'), function (b) { b.classList.toggle('on', b === m); });
+      clearTimeout(t);
+      t = setTimeout(function () {
+        var b = mid(); if (!b) return; var v = b.dataset.v;
+        if (v === 'custom') { v = parseInt(prompt('Session target in minutes', S.d.settings.sessT || 45), 10); if (!(v > 0)) { renderPanel(); return; } }
+        if (+v !== S.d.settings.sessT) { Timer.setTarget(+v); renderPanel(); }
+      }, 250);
+    }, { passive: true });
+    w.addEventListener('click', function (e) { var b = e.target.closest('.wv'); if (b) w.scrollTo({ top: b.offsetTop + b.offsetHeight / 2 - w.clientHeight / 2, behavior: 'smooth' }); });
   }
   function revSince(k) { var sn = App.tagSince(R.tag); return (S.get(k).rl || []).filter(function (d) { return d >= sn; }).length; }
   function periodTxt(raw) { return R.tag ? 'in ' + (raw ? R.tag.name : App.esc(R.tag.name)) : 'this month'; }
   /* Tally row: the live count with Edit/Delete/Save; sections are picked in the mask Section oval (Mask 1's lines),
      and this page's reads per section (the page counts as read as many times as its least-read section). */
   function tallyPanel() {
-    var ns = S.nSec(R.p), sc = Tally.scope(), T = Tally.state(), t = S.tally(R.k), x = '<div class="rsub tlsub">';
-    x += '<div class="rrow tcore"><span class="lbl">Count</span><b class="tlyn">' + T.n + '</b><span style="flex:1"></span>' +
-      '<button class="btn sm" data-ract="tlyEdit">Edit</button><button class="btn sm danger" data-ract="tlyDel"' + (T.n ? '' : ' disabled') + '>Delete</button><button class="btn sm pri" data-ract="tlySave"' + (T.n ? '' : ' disabled') + '>Save</button>' +
-      '<button class="jsw' + (Tally.on() ? ' on' : '') + '" data-ract="tlyHide" role="switch" aria-checked="' + Tally.on() + '"><i></i>Counter</button></div>';
-    // v105: the note shows only the whole-page read count.
-    var mo = S.month(), sn = R.tag && App.tagSince(R.tag), tm = S.tally(R.k, function (d) { return sn ? d >= sn : d.slice(0, 7) === mo; }).page;
-    x += '<div class="small muted" style="padding:0 4px 4px">Page read <b>' + tm + '×</b> ' + periodTxt() + ' · <b>' + t.page + '×</b> lifetime';
-    return x + '</div></div>';
+    // v109: one line — count (left), Edit / Delete / Save icons centred, Counter switch (right). Read totals are on the Stat page.
+    var T = Tally.state();
+    return '<div class="rsub tlsub"><div class="trow3 tcore"><span class="t3l"><span class="lbl">Count</span><b class="tlyn">' + T.n + '</b></span>' +
+      '<span class="t3m"><button class="icb" data-ract="tlyEdit" aria-label="Edit count">' + IC.pen + '</button><button class="icb danger" data-ract="tlyDel" aria-label="Delete count"' + (T.n ? '' : ' disabled') + '>' + IC.trash + '</button>' +
+      '<button class="icb pri" data-ract="tlySave" aria-label="Save count"' + (T.n ? '' : ' disabled') + '>' + IC.check + '</button></span>' +
+      '<span class="t3r"><button class="jsw' + (Tally.on() ? ' on' : '') + '" data-ract="tlyHide" role="switch" aria-checked="' + Tally.on() + '"><i></i>Counter</button></span></div></div>';
   }
   function tallyTint() {
     var sc = Tally.scope(); if (R.sub !== 'tally' || !sc.from) return '';
@@ -875,15 +893,32 @@
   /* v104 Box / Line rows: Show switch (show or hide them on the page), + Box / + Line, Edit, and a trash that
      deletes them all when held. Only that kind's tools are here. */
   function kindPanel(kind) {
+    // v109: one line — Add / Edit / Delete-all (hold) icons centred, Show switch on the right.
     var am = activeMask(), isB = kind === 'box', k = isB ? 'box' : 'div', n = R.items.filter(function (q) { return q.k === k; }).length;
-    var shown = !(am && (isB ? am.hb : am.hl)), nm = isB ? 'Box' : 'Line', nms = isB ? 'boxes' : 'lines';
-    return '<div class="rsub ksub"><div class="rrow">' +
-      '<button class="jsw' + (shown ? ' on' : '') + '" data-ract="' + (isB ? 'hb' : 'hl') + '" role="switch" aria-checked="' + shown + '"' + (n ? '' : ' disabled') + '><i></i>Show</button>' +
-      '<span style="flex:1"></span>' +
-      (n ? '<button class="btn sm" data-ract="' + (isB ? 'edBoxes' : 'edLines') + '">' + IC.pen + 'Edit</button>' : '') +
-      '<button class="btn sm pri" data-ract="' + (isB ? 'addBox' : 'addLine') + '">+ ' + nm + '</button>' +
-      '<button class="icb danger" data-ract="delAll" data-k="' + k + '" aria-label="Hold to delete all ' + nms + '"' + (n ? '' : ' disabled') + '>' + IC.trash + '</button></div>' +
-      '<div class="small muted" style="padding:0 4px 4px">' + (n ? n + ' ' + (n === 1 ? nm.toLowerCase() : nms) + ' on this page' + (shown ? '' : ' (hidden)') + ' · hold the bin to delete all' : 'No ' + nms + ' on this page yet') + '</div></div>';
+    var shown = !(am && (isB ? am.hb : am.hl)), nm = isB ? 'box' : 'line', nms = isB ? 'boxes' : 'lines';
+    return '<div class="rsub ksub"><div class="trow3"><span class="t3l"></span><span class="t3m">' +
+      '<button class="icb pri" data-ract="' + (isB ? 'addBox' : 'addLine') + '" aria-label="Add ' + nm + '">' + IC.plus + '</button>' +
+      '<button class="icb" data-ract="' + (isB ? 'edBoxes' : 'edLines') + '" aria-label="Edit ' + nms + '"' + (n ? '' : ' disabled') + '>' + IC.pen + '</button>' +
+      '<button class="icb danger" data-ract="delAll" data-k="' + k + '" aria-label="Hold to delete all ' + nms + '"' + (n ? '' : ' disabled') + '>' + IC.trash + '</button></span>' +
+      '<span class="t3r"><button class="jsw' + (shown ? ' on' : '') + '" data-ract="' + (isB ? 'hb' : 'hl') + '" role="switch" aria-checked="' + shown + '"' + (n ? '' : ' disabled') + '><i></i>Show</button></span></div></div>';
+  }
+  /* v109 Stat page: this page's numbers on a full page; Back sits bottom-right where the reader's Back is. */
+  function statPage() {
+    var p = R.p, k = R.k, m = S.isMem(k), h = S.health(k), all = S.tally(k), mo = S.month();
+    var sn = R.tag && App.tagSince(R.tag), prd = function (d) { return sn ? d >= sn : d.slice(0, 7) === mo; };
+    var per = sn ? 'in ' + App.esc(R.tag.name) : 'this month', ns = S.nSec(p), g = S.d.settings.goalDay, dd = Timer.day(S.today()), la = S.lastActive(k);
+    var tile = function (l, v) { return '<div class="stile"><span>' + l + '</span><b>' + v + '</b></div>'; };
+    var bar = function (pc, col) { return '<div class="hbar sbar"><i style="width:' + Math.max(0, Math.min(100, pc)) + '%;background:' + col + '"></i></div>'; };
+    var x = '<div class="spage"><div class="sbody"><div class="shead"><b>P. ' + p + ' stats</b><span>' + App.esc(App.pageTitle(p)) + '</span></div>';
+    x += '<div class="sgrid">' + tile('Reads ' + per, S.tally(k, prd).page + '×') + tile('Reads lifetime', all.page + '×') +
+      tile('Time ' + per, Timer.mins(S.pageTime(p, prd))) + tile('Time lifetime', Timer.mins(S.pageTime(p))) +
+      tile('Days ' + per, S.activeDays(k, prd).length) + tile('Days lifetime', S.activeDays(k).length) + '</div>';
+    if (ns > 1) x += '<div class="slbl">Reads by section (lifetime)</div><div class="ssec">' + all.sec.map(function (c, i) { return '<span>S' + (i + 1) + ' · ' + c + '×</span>'; }).join('') + '</div>';
+    if (m) x += '<div class="slbl">Health</div><div class="shl"><button class="icb" data-ract="hminus" aria-label="Lower health">−</button>' + bar(h, h ? App.hcol(h) : 'var(--line)') +
+      '<button class="icb" data-ract="hplus" aria-label="Raise health">+</button><b>' + h + '%</b></div>';
+    if (g) x += '<div class="slbl">Today\'s goal</div><div class="shl">' + bar(dd.t / (g * 60) * 100, 'var(--acc)') + '<b>' + Math.floor(dd.t / 60) + ' / ' + g + ' min</b></div>';
+    x += '<div class="slbl">Last read</div><div>' + (la ? App.esc(new Date(la + 'T00:00:00').toDateString()) : 'Not yet') + '</div>';
+    return x + '</div><div class="sfoot"><button class="tb" data-ract="statBack">' + IC.back + 'Back</button></div></div>';
   }
   function editPanel() {
     var am = activeMask(), m = R.items[R.sel], x = '';
@@ -1004,6 +1039,8 @@
       syncSec();
       renderPanel(); draw();
     },
+    statOpen: function () { leaveModes(); R.stat = true; history.pushState({ stat: 1 }, '', location.href); renderPanel(); },
+    statBack: function () { if (R.stat) history.back(); },
     tRem: function () { S.d.settings.tRem = !S.d.settings.tRem; S.saveSettings(); renderPanel(); },
     tlySec: function (el) {
       var i = +el.dataset.s, sc = Tally.scope(), T = Tally.state();
@@ -1036,7 +1073,7 @@
     next: function () { step(1); }, prev: function () { step(-1); },
     pgo: function (el) { var q = +el.dataset.p; if (q !== R.p) go(q, q > R.p ? 1 : -1, +el.dataset.n); },
     collapse: function () { togglePanel(false); }, expand: function () { togglePanel(true); },
-    dsz: function () { if (R.noTap) return; var z = dzCur(); setDz(z === 'full' ? 'fit' : z === 'fit' ? 'rib' : 'full'); },
+    dsz: function () { if (R.noTap) return; var z = dzCur(); setDz(z === 'full' ? 'rib' : 'full'); },
     mem: function () { var on = !S.isMem(R.k); S.setMem(R.k, on); App.toast(on ? 'Added to Memorizing (New)' : 'Moved back to To Memorize'); renderPanel(); App.precache(); },
     hminus: function () { S.setHealth(R.k, S.health(R.k) - 5); renderPanel(); },
     hplus: function () { S.setHealth(R.k, S.health(R.k) + 5); renderPanel(); },
