@@ -687,7 +687,8 @@
   /* Drawer sizes: Full (all rows), Fit (shrinks to the gap under a full-width page), Ribbon (toolbar only).
      Tools that need room (Crop, Join, Box/Line) always open at Full. Rows for Health/Tags/Timer stay visible in every size. */
   var DZ = ['hide', 'rib', 'fit', 'full'];
-  function dzCur() { return (R.sub === 'crop' || R.sub === 'join' || R.edit) ? 'full' : phoneLand() ? (R.dszL || 'rib') : (S.d.settings.dsz || 'full'); }
+  function dzCur() { return (R.sub === 'crop' || R.sub === 'join' || R.edit) ? 'full' : dzOk(phoneLand() ? (R.dszL || 'rib') : (S.d.settings.dsz || 'full')); }
+  function dzOk(z) { return DZ.indexOf(z) > 0 ? z : 'full'; } // v108: sizes saved by v106/v107 ('exp') read as Full
   function setDz(z) {
     if (z === 'hide') { togglePanel(false); return; }
     if (phoneLand()) R.dszL = z; else { S.d.settings.dsz = z; S.saveSettings(); } R.fitU = R.U; R.panel = true; renderPanel();
