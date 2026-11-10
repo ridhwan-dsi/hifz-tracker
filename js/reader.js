@@ -933,13 +933,13 @@
     var am = activeMask(), m = R.items[R.sel], x = '';
     x += '<div class="rrow etop">' +
       (R.etool === 'line' ? '<button class="pill soft" data-ract="addLine">+ ' + IC.line + 'Line</button>' : '<button class="pill soft" data-ract="addBox">+ ' + IC.box + 'Box</button>') +
+      (m && m.k === 'div' ? '<button class="icb" data-ract="straight" aria-label="Straighten line" title="Straighten">' + IC.line.replace('M3 9h10v6h8', 'M3 12h18') + '</button>' : '') +
       '<button class="icb danger" data-ract="del" data-k="' + (R.etool === 'line' ? 'div' : 'box') + '" aria-label="Delete selected (hold to delete all)">' + IC.trash + '</button>' +
       '<button class="icb" data-ract="cancelEdit" aria-label="Cancel changes">' + IC.x + '</button>' +
       '<button class="icb pri" data-ract="doneEdit" aria-label="Save">' + IC.check + '</button></div>';
     // The style row is always shown so the drawer keeps one height; with no box selected it sets the style for the next box.
     if (R.etool !== 'line') x += boxStyle(m && m.k === 'box' ? m : R.style, false);
-    x += '<div class="hint ehint"><b>' + 'Edit' + '</b> · ' + (m ? (m.k === 'box' ? (hLock() ? 'Drag the box to move it; drag a round handle to change its width.' : 'Drag the box to move it; drag a round handle to resize.') + '' : 'Drag the ⇕ grip on the right to move the line. Side dots make a step; the middle dot moves the step.') + (m.k === 'div' ? ' <button class="addlink" data-ract="straight">Straighten</button>' : '')
-      : (R.etool === 'line' ? 'Tap a line to select it, or + Line to add one.' : 'Tap a box to select it, or + Box to add one.') + ' Hold the bin to delete all.') + '</div>';
+    // v112: no instruction line under Box/Line editing; Straighten sits in the top row while a line is selected.
     return x;
   }
   function cropPanel() {
