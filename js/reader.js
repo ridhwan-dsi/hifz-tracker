@@ -249,7 +249,7 @@
       if (desk()) vw = Math.max(240, vw - 2 * EDGE);
       if (two) vw = (vw - GAP) / 2; // each page gets half the width
       // Whole-page mode keeps the page's own width; a join that makes it taller than the screen scrolls instead of shrinking.
-      var fitAll = R.sub === 'crop' || R.sub === 'join' || R.edit, W;
+      var fitAll = R.sub === 'crop' || R.sub === 'join' || (R.edit && desk()), W; // v113: Box/Line editing on the phone keeps the page size
       if (fitAll) W = Math.min(vw, vh / U);
       // Phone on its side (mobile view): fit the width and scroll down the page; the zoom chip scales from there.
       else if (land() && !desk() && innerHeight < 600) W = vw;
@@ -281,13 +281,15 @@
         H = Math.max(H, fch * fk);
       } else face.innerHTML = '';
       sheet.style.order = 1;
-      var fit = (fitPage() || fitAll) && H <= vh + 2;
+      var fit = (fitPage() || fitAll) && H <= (desk() || fitAll ? vh : innerHeight - R.ph) + 2;
       sheet.style.width = W + 'px'; sheet.style.marginLeft = sheet.style.marginRight = sheet.style.marginTop = '';
       // v91: only web view centres the page vertically; the phone reader keeps it at the top, leaving the space below free (e.g. for the tally button)
       spr.style.marginTop = (fit && document.body.classList.contains('web') ? Math.max(top, (innerHeight - R.ph - H) / 2) : 0) + 'px';
       spr.style.transition = 'none'; spr.style.transform = '';
       sheet.innerHTML = html + '<svg id="ov" viewBox="0 0 1000 ' + R.Hu.toFixed(1) + '" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>';
       $('#rpad').style.height = fit ? '0px' : (R.ph + 20) + 'px';
+      // v113: the Expanded drawer fills exactly the empty space under the page, so every tool's drawer starts where the page ends.
+      if (!desk() && !fitAll) { var dh = Math.round(innerHeight - (sheet.getBoundingClientRect().bottom + sc.scrollTop)); if (dh !== R.dh) { R.dh = dh; $('#reader').style.setProperty('--dh', Math.max(0, dh) + 'px'); requestAnimationFrame(function () { if (measurePanel()) relayout(); }); } }
       sc.style.overflowY = fit ? 'hidden' : 'auto';
       sc.style.overflowX = desk() && !fit ? 'auto' : ''; // web view zoomed past the screen width scrolls sideways too
       sc.style.touchAction = fit || R.edit ? 'none' : 'pan-y';
@@ -623,7 +625,7 @@
     }
     var before = toolPos();
     var dz = dzCur();
-    x += '<div class="rpanel dz-' + dz + (R.sub === 'join' || R.sub === 'crop' || R.edit ? '' : ' mainp') + '"><button class="grab" data-ract="dsz" aria-label="Resize controls">' + (dz === 'rib' ? IC.up : IC.down) + '</button>';
+    x += '<div class="rpanel dz-' + dz + (R.sub === 'join' || R.sub === 'crop' ? ' cj' : '') + (R.sub === 'join' || R.sub === 'crop' || R.edit ? '' : ' mainp') + '"><button class="grab" data-ract="dsz" aria-label="Resize controls">' + (dz === 'rib' ? IC.up : IC.down) + '</button>';
     if (R.sub === 'join') x += joinPanel();
     else if (R.sub === 'crop') x += cropPanel() + toolsRow();
     else if (R.edit) x += editPanel() + toolsRow();
