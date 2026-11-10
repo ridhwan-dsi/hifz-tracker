@@ -447,3 +447,11 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 .vtog.none { opacity: .35; }
 .mwrap .mrow { gap: 6px; }
 .mwrap .soval { gap: 4px; padding-left: 10px; } .mwrap .soval button { min-width: 34px; padding: 0 8px; }
+
+/* v106 drawer: two sizes. Expanded has one fixed height (set in JS); its rows scroll between the pinned arrow and toolbar. */
+#reader:not(.desk) .rpanel { padding-bottom: 0; }
+#reader:not(.desk) .rpanel > .rrow.tools { padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+#reader:not(.desk) .rpanel.dz-exp { display: flex; flex-direction: column; max-height: none; overscroll-behavior: contain; }
+#reader:not(.desk) .rpanel.dz-exp > * { flex-shrink: 0; }
+#reader:not(.desk) .rpanel.dz-exp > .grab { position: sticky; top: 0; z-index: 3; background: var(--card); }
+#reader:not(.desk) .rpanel.dz-exp > .rrow.tools { position: sticky; bottom: 0; z-index: 3; background: var(--card); margin-top: auto; }

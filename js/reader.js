@@ -243,12 +243,14 @@
         return { im: im, c: c, nw: nw, nh: nh, cw: cw, ch: ch, u: (s.y1 - s.y0) * ch / cw };
       });
       var U = dims.reduce(function (a, d) { return a + d.u; }, 0);
-      var vw = sc.clientWidth || innerWidth, top = 8, vh = innerHeight - R.ph - top * 2, GAP = 12;
+      var vw = sc.clientWidth || innerWidth, top = 8, GAP = 12;
+      // v106: the page is sized against the Ribbon only, so opening the drawer or switching tools never zooms it.
+      var vh = innerHeight - (desk() ? R.ph : ribH()) - top * 2, vis = innerHeight - R.ph - top * 2;
       if (desk()) vw = Math.max(240, vw - 2 * EDGE);
       if (two) vw = (vw - GAP) / 2; // each page gets half the width
       // Whole-page mode keeps the page's own width; a join that makes it taller than the screen scrolls instead of shrinking.
       var fitAll = R.sub === 'crop' || R.sub === 'join' || R.edit, W;
-      if (fitAll) W = Math.min(vw, vh / U);
+      if (fitAll) W = Math.min(vw, (desk() ? vh : innerHeight - expH() - top * 2) / U); // a standard page comes out the same size; only joined pages shrink while cropping/joining/editing
       // Phone on its side (mobile view): fit the width and scroll down the page; the zoom chip scales from there.
       else if (land() && !desk() && innerHeight < 600) W = vw;
       else if (fitPage()) { var Ub = U; segs.forEach(function (s, i) { if (s.role === 'this') Ub = dims[i].ch / dims[i].cw; }); W = Math.min(vw, vh / Math.min(U, Ub)); }
@@ -279,7 +281,7 @@
         H = Math.max(H, fch * fk);
       } else face.innerHTML = '';
       sheet.style.order = 1;
-      var fit = (fitPage() || fitAll) && H <= vh + 2;
+      var fit = (fitPage() || fitAll) && H <= vis + 2; // page clear of the drawer: no scrolling needed
       sheet.style.width = W + 'px'; sheet.style.marginLeft = sheet.style.marginRight = sheet.style.marginTop = '';
       // v91: only web view centres the page vertically; the phone reader keeps it at the top, leaving the space below free (e.g. for the tally button)
       spr.style.marginTop = (fit && document.body.classList.contains('web') ? Math.max(top, (innerHeight - R.ph - H) / 2) : 0) + 'px';
@@ -293,7 +295,6 @@
       if (dir && !same) sc.scrollTop = 0;
       if (R.sub === 'crop') drawCrop(); else draw();
       bindOv();
-      if (R.U !== R.fitU && dzCur() === 'fit') { R.fitU = R.U; fitRows(); if (measurePanel()) relayout(); }
     }).catch(function () {
       if (seq === layoutSeq) $('#sheet').innerHTML = '<div style="padding:40px;text-align:center;color:#666;background:#fff">Couldn’t load this page. Check your connection.</div>';
     });
@@ -682,43 +683,55 @@
     if (on && (on.offsetLeft < row.scrollLeft || on.offsetLeft + on.offsetWidth > row.scrollLeft + row.clientWidth)) row.scrollLeft = on.offsetLeft - row.clientWidth / 2 + on.offsetWidth / 2;
     if (R.scrollEnd) { R.scrollEnd = false; var tr = document.querySelector('.rpanel .rrow.tools'); if (tr) tr.scrollLeft = tr.scrollWidth; }
     fitRows();
-    if (measurePanel()) relayout();
+    if (measurePanel() | R.ribDirty) { R.ribDirty = false; relayout(); }
   }
-  /* Drawer sizes: Full (all rows), Fit (shrinks to the gap under a full-width page), Ribbon (toolbar only).
-     Tools that need room (Crop, Join, Box/Line) always open at Full. Rows for Health/Tags/Timer stay visible in every size. */
-  var DZ = ['hide', 'rib', 'fit', 'full'];
-  function dzCur() { return (R.sub === 'crop' || R.sub === 'join' || R.edit) ? 'full' : phoneLand() ? (R.dszL || 'rib') : (S.d.settings.dsz || 'full'); }
+  /* v106 Drawer: exactly two sizes on mobile.
+     Ribbon = arrow + icon toolbar. Expanded = one fixed height for every tool: the space a standard (unjoined) page
+     leaves under it, so the page never zooms. Rows that don't fit scroll inside; arrow and toolbar stay pinned.
+     Joined pages are taller, so the expanded drawer simply sits over their lower part (the page scrolls). */
+  var DZ = ['hide', 'rib', 'exp'];
+  function dzCur() {
+    if (desk() || R.sub === 'crop' || R.sub === 'join' || R.edit) return 'exp';
+    return (phoneLand() ? R.dszL : S.d.settings.dsz) === 'rib' ? 'rib' : 'exp'; // older 'fit'/'full' read as Expanded
+  }
   function setDz(z) {
     if (z === 'hide') { togglePanel(false); return; }
-    if (phoneLand()) R.dszL = z; else { S.d.settings.dsz = z; S.saveSettings(); } R.fitU = R.U; R.panel = true; renderPanel();
+    if (phoneLand()) R.dszL = z; else { S.d.settings.dsz = z; S.saveSettings(); } R.panel = true; renderPanel();
   }
-  /* v98: in Ribbon the tool rows are hidden, so tapping Tally / Timer / Health there opens that row and grows the
-     drawer to Fit (which keeps tool rows) instead of toggling a row nobody can see. Returns the new R.sub. */
+  /* In Ribbon the tool rows are hidden, so tapping Tally / Timer / Health there opens that row and expands the drawer. */
   function toolSub(name) {
-    if (!desk() && R.panel && dzCur() === 'rib') { if (phoneLand()) R.dszL = 'fit'; else { S.d.settings.dsz = 'fit'; S.saveSettings(); } R.fitU = R.U; return name; }
+    if (!desk() && R.panel && dzCur() === 'rib') { if (phoneLand()) R.dszL = 'exp'; else { S.d.settings.dsz = 'exp'; S.saveSettings(); } return name; }
     return R.sub === name ? null : name;
+  }
+  function ribH() { return R.ribH || 84; }
+  // Height of a standard page relative to its width, from the default crop (pages 62–604 are 750×1072).
+  function refRatio() { var c = autoCrop(400); return (1 - c.t - c.b) * 1072 / ((1 - c.l - c.r) * 750); }
+  function expH() {
+    if (phoneLand()) return Math.round(innerHeight * 0.55);
+    var vw = ($('#rscroll') || {}).clientWidth || innerWidth, r = refRatio();
+    var W = Math.min(vw, 820, (innerHeight - 16 - ribH()) / r) * lzoom();
+    return Math.round(clamp(Math.floor(innerHeight - 16 - W * r), 170, innerHeight * 0.6));
   }
   function fitRows() {
     var pn = $('.rpanel'), host = $('#rui'); if (!pn) return;
     [].forEach.call(pn.querySelectorAll('.dzh'), function (e) { e.classList.remove('dzh'); });
     [].forEach.call(host.querySelectorAll('.navb.float,.navb.edge'), function (e) { e.remove(); });
+    pn.style.height = '';
     if (desk()) { host.insertAdjacentHTML('beforeend', navBtns('edge')); return; } // one bar, no drawer sizes; arrows at the screen edges
-    var dz = dzCur(); if (dz === 'full') return;
-    var rows = [].filter.call(pn.children, function (e) { return !e.matches('.grab,.tools,.rsub,.subrow'); });
-    if (dz === 'rib') {
-      // v96: Ribbon is the thinnest size — only the arrow and the icon toolbar; an open tool row (Tally, Timer, Health) hides too.
+    // Ribbon height (arrow + toolbar), measured the same way in both sizes; the page is laid out against it.
+    var gb = pn.querySelector('.grab'), tl = pn.querySelector('.rrow.tools');
+    if (gb && tl) { var rh = gb.offsetHeight + tl.offsetHeight + 4; if (Math.abs(rh - ribH()) > 1) { R.ribH = rh; R.ribDirty = true; } }
+    if (dzCur() === 'rib') {
       [].forEach.call(pn.children, function (e) { if (!e.matches('.grab,.tools')) e.classList.add('dzh'); });
-    }
-    else {
-      var vw = ($('#rscroll') || {}).clientWidth || innerWidth, gap = R.U ? Math.floor(innerHeight - 16 - R.U * Math.min(vw, 820)) - 1 : 0;
-      for (var i = 0; i < rows.length && pn.offsetHeight > gap; i++) rows[i].classList.add('dzh');
-    }
-    // With the nav row gone, keep the tactile page arrows floating just above the drawer.
-    var nav = pn.querySelector('.rrow.nav');
-    if (nav && nav.classList.contains('dzh')) {
+      // With the nav row gone, keep the tactile page arrows floating just above the drawer.
       host.insertAdjacentHTML('beforeend', navBtns('float'));
       [].forEach.call(host.querySelectorAll('.navb.float'), function (b) { b.style.bottom = (pn.offsetHeight + 12) + 'px'; });
+    } else {
+      pn.style.height = expH() + 'px';
+      // A newly opened tool row sits just above the toolbar; bring it into view if the drawer scrolls.
+      if (R.sub !== R.lastSub && R.sub && pn.scrollHeight > pn.clientHeight) pn.scrollTop = pn.scrollHeight;
     }
+    R.lastSub = R.sub;
   }
   // Hold the arrow and drag: up grows the drawer, down shrinks it (past Ribbon it hides); it snaps to the next size.
   document.addEventListener('pointerdown', function (e) {
@@ -732,7 +745,7 @@
       R.noTap = true; setTimeout(function () { R.noTap = false; }, 350);
       var dy = ev.clientY - y0; if (Math.abs(dy) < 40) return;
       var st = (dy < 0 ? 1 : -1) * (Math.abs(dy) > 160 ? 2 : 1), i = DZ.indexOf(dzCur());
-      setDz(DZ[Math.max(0, Math.min(3, i + st))]);
+      setDz(DZ[Math.max(0, Math.min(2, i + st))]);
     }
     document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
   });
@@ -1035,7 +1048,7 @@
     next: function () { step(1); }, prev: function () { step(-1); },
     pgo: function (el) { var q = +el.dataset.p; if (q !== R.p) go(q, q > R.p ? 1 : -1, +el.dataset.n); },
     collapse: function () { togglePanel(false); }, expand: function () { togglePanel(true); },
-    dsz: function () { if (R.noTap) return; var z = dzCur(); setDz(z === 'full' ? 'fit' : z === 'fit' ? 'rib' : 'full'); },
+    dsz: function () { if (R.noTap) return; setDz(dzCur() === 'rib' ? 'exp' : 'rib'); },
     mem: function () { var on = !S.isMem(R.k); S.setMem(R.k, on); App.toast(on ? 'Added to Memorizing (New)' : 'Moved back to To Memorize'); renderPanel(); App.precache(); },
     hminus: function () { S.setHealth(R.k, S.health(R.k) - 5); renderPanel(); },
     hplus: function () { S.setHealth(R.k, S.health(R.k) + 5); renderPanel(); },
