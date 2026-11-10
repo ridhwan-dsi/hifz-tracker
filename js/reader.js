@@ -45,7 +45,7 @@
     var m = masksOf(q)[slot]; if (!m || !m.items || !m.items.length) return '';
     var it = viewItems(m, q), s = '', cov = (S.d.settings.hideCol || '#f3e9d4');
     var ds = it.filter(function (x) { return x.k === 'div'; }).sort(function (a, b) { return (a.y1 + a.y2) - (b.y1 + b.y2); });
-    var sec = m.sec || 0, sec2 = Math.max(sec, m.sec2 || sec); if (sec2 > ds.length + 1) sec = sec2 = 0;
+    var sec = m.sec || 0, sec2 = sec; if (sec2 > ds.length + 1) sec = sec2 = 0;
     if (!m.hb) it.forEach(function (x) { if (x.k === 'box') s += '<rect x="' + r1(x.x) + '" y="' + r1(x.y) + '" width="' + r1(x.w) + '" height="' + r1(x.h) + '" rx="4" fill="' + x.c + '" fill-opacity="' + x.o + '"' + (x.b ? ' stroke="' + x.c + '" stroke-width="4"' : '') + '/>'; });
     if (sec && ds.length) {
       var above = ds[sec - 2], below = ds[sec2 - 1];
@@ -342,7 +342,7 @@
     var ov = $('#ov'); if (!ov) return;
     var am = activeMask(), cov = (S.d.settings.hideCol || '#f3e9d4'), divs = dividers(), H = R.Hu, s = '', tint = tallyTint();
     if (!am && !R.edit) { ov.innerHTML = tint; return; }
-    var sec = R.edit ? 0 : (am.sec || 0), sec2 = Math.max(sec, am.sec2 || sec), hb = !R.edit && am.hb;
+    var sec = R.edit ? 0 : (am.sec || 0), sec2 = sec, hb = !R.edit && am.hb;
     if (sec2 > divs.length + 1) sec = sec2 = 0;
     var lockB = R.edit && R.etool === 'line', lockL = R.edit && R.etool === 'box'; // v93: only the tool being edited is touchable
     if (!hb) R.items.forEach(function (m, i) {
@@ -788,8 +788,8 @@
     if (on) {
       var nd = nDiv(R.items), hasBox = R.items.some(function (q) { return q.k === 'box'; }), sub = '';
       if (hasBox) sub += '<button class="chip' + (!am.hb ? ' on' : '') + '" data-ract="hb">Boxes ' + (am.hb ? 'off' : 'on') + '</button>';
-      // Tap a section to show it; tap another to show the range between them. On Mask 1 this also picks what Tally counts.
-      var f = am.sec || 0, t = Math.max(f, am.sec2 || f);
+      // One section at a time, or All. On Mask 1 this also picks what Tally counts.
+      var f = am.sec || 0, t = f;
       if (t > nd + 1) f = t = 0;
       sub += '<span class="soval' + (nd ? '' : ' off') + '"><span class="sovl">Section</span>';
       for (var i = 1; i <= nd + 1 && nd; i++) sub += '<button class="' + (f && i >= f && i <= t ? 'on' : '') + '" data-ract="sec" data-s="' + i + '">' + i + '</button>';
@@ -974,9 +974,10 @@
     var m1 = masksOf(R.p)[0], sc = Tally.scope();
     if (!m1) { if (!Tally.dirty()) Tally.setScope(0, 0); return; }
     if (Tally.dirty()) {
-      if ((m1.sec || 0) !== sc.from || Math.max(m1.sec || 0, m1.sec2 || 0) !== sc.to) saveMasks(function (ms) { ms[0].sec = sc.from; ms[0].sec2 = sc.to; });
+      if (sc.to !== sc.from) { Tally.state().to = sc.from; sc = Tally.scope(); } // an older range count opens on its first section
+      if ((m1.sec || 0) !== sc.from) saveMasks(function (ms) { ms[0].sec = sc.from; ms[0].sec2 = sc.from; });
     } else {
-      var f = m1.sec || 0, t = Math.max(f, m1.sec2 || f); if (t > nDiv(m1.items || []) + 1) f = t = 0;
+      var f = m1.sec || 0, t = f; if (t > nDiv(m1.items || []) + 1) f = t = 0;
       Tally.setScope(f, t);
     }
   }
@@ -1125,10 +1126,7 @@
     straight: function () { var m = R.items[R.sel]; if (!m) return; m.y2 = m.y1; m.x = 500; commitItems(); draw(); },
     sec: function (el) {
       var i = +el.dataset.s, am = activeMask(); if (!am) return;
-      var f = am.sec || 0, t = Math.max(f, am.sec2 || f), nf, nt;
-      if (!i) nf = nt = 0;
-      else if (f && f === t && i !== f) { nf = Math.min(i, f); nt = Math.max(i, f); }
-      else nf = nt = i;
+      var nf = i, nt = i; // v101: one section at a time (or All)
       // Mask 1's sections are Tally's sections: a running count is saved (after asking) before they change.
       var one = masksOf(R.p).indexOf(am) === 0, T = Tally.state(), sc = Tally.scope();
       if (one && T.n && (sc.from !== nf || sc.to !== nt) &&
