@@ -613,7 +613,8 @@
     var before = toolPos();
     var dz = dzCur();
     x += '<div class="rpanel dz-' + dz + (R.sub === 'join' || R.sub === 'crop' || R.edit ? '' : ' mainp') + '"><button class="grab" data-ract="dsz" aria-label="Resize controls">' + (dz === 'rib' ? IC.up : IC.down) + '</button>';
-    if (R.sub === 'join') x += joinPanel();
+    if (!desk()) x += mobilePanel(); // v107: fixed bands on mobile; web view keeps its own bar
+    else if (R.sub === 'join') x += joinPanel();
     else if (R.sub === 'crop') x += cropPanel() + toolsRow();
     else if (R.edit) x += editPanel() + toolsRow();
     else x += mainPanel();
@@ -710,7 +711,7 @@
     if (phoneLand()) return Math.round(innerHeight * 0.55);
     var vw = ($('#rscroll') || {}).clientWidth || innerWidth, r = refRatio();
     var W = Math.min(vw, 820, (innerHeight - 16 - ribH()) / r) * lzoom();
-    return Math.round(clamp(Math.floor(innerHeight - 16 - W * r), 170, innerHeight * 0.6));
+    return Math.round(clamp(Math.floor(innerHeight - 16 - W * r), ribH() + 102, innerHeight * 0.6)); // 102 = header 40 + deck 62
   }
   function fitRows() {
     var pn = $('.rpanel'), host = $('#rui'); if (!pn) return;
@@ -720,7 +721,7 @@
     if (desk()) { host.insertAdjacentHTML('beforeend', navBtns('edge')); return; } // one bar, no drawer sizes; arrows at the screen edges
     // Ribbon height (arrow + toolbar), measured the same way in both sizes; the page is laid out against it.
     var gb = pn.querySelector('.grab'), tl = pn.querySelector('.rrow.tools');
-    if (gb && tl) { var rh = gb.offsetHeight + tl.offsetHeight + 4; if (Math.abs(rh - ribH()) > 1) { R.ribH = rh; R.ribDirty = true; } }
+    if (gb && tl) { var rh = gb.offsetHeight + tl.offsetHeight; if (Math.abs(rh - ribH()) > 1) { R.ribH = rh; R.ribDirty = true; } }
     if (dzCur() === 'rib') {
       [].forEach.call(pn.children, function (e) { if (!e.matches('.grab,.tools')) e.classList.add('dzh'); });
       // With the nav row gone, keep the tactile page arrows floating just above the drawer.
@@ -896,6 +897,92 @@
       '<button class="btn sm pri" data-ract="' + (isB ? 'addBox' : 'addLine') + '">+ ' + nm + '</button>' +
       '<button class="icb danger" data-ract="delAll" data-k="' + k + '" aria-label="Hold to delete all ' + nms + '"' + (n ? '' : ' disabled') + '>' + IC.trash + '</button></div>' +
       '<div class="small muted" style="padding:0 4px 4px">' + (n ? n + ' ' + (n === 1 ? nm.toLowerCase() : nms) + ' on this page' + (shown ? '' : ' (hidden)') + ' · hold the bin to delete all' : 'No ' + nms + ' on this page yet') + '</div></div>';
+  }
+  /* ---------- v107 mobile drawer: four fixed bands ----------
+     Handle · header (surah + page strip, or the mode's title with Cancel/Done) · one deck slot · toolbar.
+     Every tool fits the deck as one control line plus one info line, so the Expanded drawer is one height for all. */
+  function mobilePanel() {
+    var x;
+    if (R.sub === 'join') x = mHead('Join', 'joinCancel', 'subDone') + joinDeck();
+    else if (R.sub === 'crop') x = mHead('Crop', 'cropCancel', 'cropApply') + cropDeck();
+    else if (R.edit) x = mHead(R.etool === 'line' ? 'Edit lines' : 'Edit boxes', 'cancelEdit', 'doneEdit') + editDeck();
+    else x = '<div class="rrow nav mnav">' + navBtns('in') + '<div class="rtitle tcol"><div class="tname">' + surahTitle(R.p) + '</div>' + pstrip() + '</div></div>' + mainDeck();
+    return x + toolsRow();
+  }
+  function mHead(t, cancel, done) {
+    return '<div class="rrow mhead"><span class="mht">' + t + ' <span class="plabel">P. ' + R.p + '</span></span><span style="flex:1"></span>' +
+      '<button class="icb" data-ract="' + cancel + '" aria-label="Cancel">' + IC.x + '</button><button class="icb pri" data-ract="' + done + '" aria-label="Done">' + IC.check + '</button></div>';
+  }
+  function deck(l1, l2) { return '<div class="deck"><div class="dl">' + l1 + '</div><div class="dl d2">' + (l2 || '') + '</div></div>'; }
+  var SP = '<span class="dsp"></span>';
+  function pageStats() {
+    var k = R.k, since = R.tag ? App.tagSince(R.tag) : null, prd = since ? function (d) { return d >= since; } : null;
+    var rd = S.tally(k, prd).page, tt = S.pageTime(R.p, prd), dn = S.activeDays(k, prd).length;
+    return '<span class="dnote">' + rd + '× read · ' + Timer.mins(tt) + ' · ' + dn + ' day' + (dn === 1 ? '' : 's') + ' ' + periodTxt() + '</span>';
+  }
+  function secOval() {
+    var am = activeMask(), nd = nDiv(R.items), f = am ? am.sec || 0 : 0; if (f > nd + 1) f = 0;
+    var r = '<span class="soval' + (nd ? '' : ' off') + '"><span class="sovl">Section</span>';
+    for (var i = 1; i <= nd + 1 && nd; i++) r += '<button class="' + (f === i ? 'on' : '') + '" data-ract="sec" data-s="' + i + '">' + i + '</button>';
+    return r + '<button class="' + (!f ? 'on' : '') + '" data-ract="sec" data-s="0"' + (nd ? '' : ' disabled') + '>All</button></span>';
+  }
+  function mainDeck() {
+    var sub = R.sub, m = S.isMem(R.k), h = S.health(R.k), s = S.d.settings;
+    if (sub === 'tally') {
+      var T = Tally.state(), t = S.tally(R.k), mo = S.month(), sn = R.tag && App.tagSince(R.tag);
+      var tm = S.tally(R.k, function (d) { return sn ? d >= sn : d.slice(0, 7) === mo; }).page;
+      return deck('<b class="tlyn">' + T.n + '</b><button class="btn sm pri" data-ract="tlySave"' + (T.n ? '' : ' disabled') + '>Save</button>' +
+        '<button class="btn sm" data-ract="tlyEdit">Edit</button><button class="icb sm danger" data-ract="tlyDel" aria-label="Delete count"' + (T.n ? '' : ' disabled') + '>' + IC.trash + '</button>' + SP +
+        '<button class="jsw' + (Tally.on() ? ' on' : '') + '" data-ract="tlyHide" role="switch" aria-checked="' + Tally.on() + '"><i></i>Counter</button>',
+        '<span class="dnote">Page read <b>' + tm + '×</b> ' + periodTxt() + ' · <b>' + t.page + '×</b> lifetime</span>');
+    }
+    if (sub === 'timer') {
+      var TT = Timer.state(), dd = Timer.day(S.today()), g = s.goalDay, opts = [0, 5, 10, 15, 20, 30], cur = s.sessT || 0, rm = !!s.tRem;
+      if (opts.indexOf(cur) < 0) opts.push(cur);
+      var l1 = '<span class="lbl">Min</span><div class="dscroll">' + opts.map(function (v) { return '<button class="chip sm' + (cur === v ? ' on' : '') + '" data-ract="tT" data-v="' + v + '">' + (v || 'None') + '</button>'; }).join('') +
+        '<button class="chip sm" data-ract="tT" data-v="custom" aria-label="Custom target">+</button></div>';
+      var l2 = Timer.active() && !TT.run
+        ? '<span class="dnote">Paused · <b class="tmr-t">' + Timer.shown(TT.secs) + '</b> kept for later</span>' + SP + '<button class="icb sm danger" data-ract="tDel" aria-label="Delete session">' + IC.trash + '</button><button class="btn sm" data-ract="tSave">Save</button>'
+        : '<button class="jsw' + (rm ? ' on' : '') + '" data-ract="tRem" role="switch" aria-checked="' + rm + '"' + (cur ? '' : ' disabled') + '><i></i>Time left</button>' + SP +
+          (g ? '<span class="dnote">Today <span class="tmr-day">' + Math.floor(dd.t / 60) + '</span> / ' + g + ' min' + (dd.t >= g * 60 ? ' ✓' : '') + '</span>' : '');
+      return deck(l1, l2);
+    }
+    if (sub === 'box' || sub === 'line') {
+      var am = activeMask(), isB = sub === 'box', k = isB ? 'box' : 'div', n = R.items.filter(function (q) { return q.k === k; }).length;
+      var shown = !(am && (isB ? am.hb : am.hl)), nm = isB ? 'Box' : 'Line', nms = isB ? 'boxes' : 'lines';
+      return deck('<button class="jsw' + (shown ? ' on' : '') + '" data-ract="' + (isB ? 'hb' : 'hl') + '" role="switch" aria-checked="' + shown + '"' + (n ? '' : ' disabled') + '><i></i>Show</button>' + SP +
+        (n ? '<button class="btn sm" data-ract="' + (isB ? 'edBoxes' : 'edLines') + '">' + IC.pen + 'Edit</button>' : '') +
+        '<button class="btn sm pri" data-ract="' + (isB ? 'addBox' : 'addLine') + '">+ ' + nm + '</button>' +
+        '<button class="icb sm danger" data-ract="delAll" data-k="' + k + '" aria-label="Hold to delete all ' + nms + '"' + (n ? '' : ' disabled') + '>' + IC.trash + '</button>',
+        '<span class="dnote">' + (n ? n + ' ' + (n === 1 ? nm.toLowerCase() : nms) + ' on this page' + (shown ? '' : ' (hidden)') + ' · hold the bin to delete all' : 'No ' + nms + ' on this page yet') + '</span>');
+    }
+    if (sub === 'health' && m) return deck('<span class="lbl">Health</span><span class="hctl big"><button data-ract="hminus" aria-label="Lower health">−</button><span style="color:' + (h ? App.hcol(h) : 'var(--muted)') + '">' + h + '%</span><button data-ract="hplus" aria-label="Raise health">+</button></span>', pageStats());
+    return deck(secOval(), pageStats());
+  }
+  function cropDeck() {
+    return deck('<div class="dscroll"><button class="btn sm" data-ract="cropAuto">Auto</button><button class="btn sm" data-ract="cropNone">Whole</button>' +
+      (R.p > 1 ? '<button class="btn sm" data-ract="cropPrev">Like P. ' + (R.p - 1) + '</button>' : '') + '<button class="btn sm" data-ract="cropDef">Set default</button></div>',
+      '<span class="dnote">Drag the edges or corners · drag inside to move</span>');
+  }
+  function joinDeck() {
+    var p = R.p, j = joinOf(p, true), t = R.jt, off = !!(jnOf() || {}).off;
+    if ((t === 'prev' && p <= 1) || (t === 'next' && p >= 604)) t = R.jt = 'this';
+    var opt = []; if (p > 1) opt.push(['prev', IC.up + (p - 1)]); opt.push(['this', 'This']); if (p < 604) opt.push(['next', '<span class="jdn">' + IC.up + '</span>' + (p + 1)]);
+    var l1 = '<div class="seg jseg mini' + (off ? ' joff' : '') + '">' + opt.map(function (o) { return '<button class="' + (t === o[0] ? 'on' : '') + '" data-ract="jT" data-t="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>' + SP +
+      '<button class="jsw' + (off ? '' : ' on') + '" data-ract="joinOff" role="switch" aria-checked="' + !off + '"><i></i>Join</button><button class="btn sm" data-ract="joinReset">Reset</button>';
+    var l2 = t === 'prev' ? slider('jn.prev', 'Show', j.prev, 60, 1) + slider('jn.prevCut', 'Cut', j.prevCut, 30, 1)
+      : t === 'next' ? slider('jn.next', 'Show', j.next, 60, 1) + slider('jn.nextCut', 'Cut', j.nextCut, 30, 1)
+      : slider('jn.trimT', 'Top', j.trimT, 60, 1) + slider('jn.trimB', 'Bottom', j.trimB, 60, 1);
+    return deck(l1, '<div class="jsl2' + (off ? ' joff' : '') + '">' + l2 + '</div>');
+  }
+  function editDeck() {
+    var m = R.items[R.sel], ln = R.etool === 'line';
+    var hint = m ? (m.k === 'box' ? (hLock() ? 'Drag to move · handles change width' : 'Drag to move · handles resize') : 'Drag ⇕ to move · side dots make a step')
+      : (ln ? 'Tap a line to select it' : 'Tap a box to select it');
+    var l1 = (ln ? '<button class="btn sm pri" data-ract="addLine">+ Line</button>' : '<button class="btn sm pri" data-ract="addBox">+ Box</button>') +
+      '<button class="icb sm danger" data-ract="del" data-k="' + (ln ? 'div' : 'box') + '" aria-label="Delete selected (hold to delete all)">' + IC.trash + '</button>' +
+      (m && m.k === 'div' ? '<button class="btn sm" data-ract="straight">Straighten</button>' : '') + '<span class="dnote ell">' + hint + '</span>';
+    return deck(l1, ln ? '<span class="dnote">Hold the bin to delete all lines</span>' : boxStyle(m && m.k === 'box' ? m : R.style, false));
   }
   function editPanel() {
     var am = activeMask(), m = R.items[R.sel], x = '';

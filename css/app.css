@@ -455,3 +455,43 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 #reader:not(.desk) .rpanel.dz-exp > * { flex-shrink: 0; }
 #reader:not(.desk) .rpanel.dz-exp > .grab { position: sticky; top: 0; z-index: 3; background: var(--card); }
 #reader:not(.desk) .rpanel.dz-exp > .rrow.tools { position: sticky; bottom: 0; z-index: 3; background: var(--card); margin-top: auto; }
+
+/* v107 mobile drawer bands: handle 18 · header 44 · deck (fills, min 68, never scrolls) · toolbar */
+#reader:not(.desk) .rpanel.dz-exp { overflow: hidden; }
+#reader:not(.desk) .rpanel > .grab { height: 16px; }
+#reader:not(.desk) .rpanel > .grab svg.i { height: 16px; width: 30px; }
+#reader:not(.desk) .rpanel > .mnav, #reader:not(.desk) .rpanel > .mhead { height: 40px; padding: 0; gap: 6px; flex: none; }
+#reader:not(.desk) .mnav .navb.in { width: 34px; height: 34px; box-shadow: none; }
+#reader:not(.desk) .mnav .navb svg.i { width: 18px; height: 18px; }
+#reader:not(.desk) .mnav .rtitle.tcol { flex-direction: row; align-items: center; gap: 6px; }
+#reader:not(.desk) .mnav .tname { flex: 0 1 auto; max-width: 38%; font-size: 13.5px; text-align: left; }
+#reader:not(.desk) .mnav .pswrap { flex: 1; min-width: 0; }
+#reader:not(.desk) .mnav .pstrip { padding: 2px 0; gap: 8px; }
+#reader:not(.desk) .mnav .pc { width: 28px; height: 28px; font-size: 11px; }
+.mhead .mht { font-weight: 800; font-size: 15px; white-space: nowrap; }
+.mhead .icb { width: 38px; height: 34px; }
+.deck { flex: 1 0 62px; min-height: 62px; display: flex; flex-direction: column; justify-content: center; gap: 3px; border-top: 1px solid var(--line); padding: 2px 0; overflow: hidden; }
+.deck .dl { display: flex; align-items: center; gap: 6px; min-width: 0; min-height: 32px; white-space: nowrap; }
+.deck .dl.d2 { min-height: 20px; max-height: 32px; }
+.deck .dl.d2:empty { display: none; }
+.deck .dsp { flex: 1; }
+.deck .dnote { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.deck .dnote.ell { flex: 1; }
+.deck .dscroll { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; min-width: 0; flex: 1; }
+.deck .dscroll::-webkit-scrollbar { display: none; }
+.deck .chip.sm { padding: 5px 11px; font-size: 13px; }
+.deck .icb.sm { width: 36px; height: 32px; }
+.deck .tlyn { font-size: 24px; min-width: 34px; text-align: center; }
+.deck .soval { padding: 2px 4px 2px 10px; } .deck .soval button { height: 30px; min-width: 34px; padding: 0 8px; }
+.deck .hctl.big button { height: 34px; }
+.deck .bstyle { padding: 0; flex: 1; min-width: 0; }
+.deck .jsl2 { display: flex; gap: 18px; flex: 1; min-width: 0; }
+.deck .jsl2 .sl { flex: 1; min-width: 0; gap: 6px; padding: 0; font-size: 12px; }
+.deck .jsl2 .sl span { width: auto; }
+.deck .jsl2 .sl b { width: 30px; font-size: 11.5px; text-align: left; } .deck .jsl2 .sl input { min-width: 0; }
+.deck .joff { opacity: .45; }
+.deck .seg.mini button { padding: 5px 8px; }
+#reader:not(.desk) .rpanel > .rrow.tools { margin-top: 0; height: calc(62px + env(safe-area-inset-bottom)); box-sizing: border-box; flex: none; }
+.deck .bstyle .sw-c, .deck .bstyle .sw-more { width: 26px; height: 26px; } .deck .bstyle .hctl button { height: 28px; } .deck .bstyle .pill { padding-top: 4px; padding-bottom: 4px; }
+.deck .bstyle, .deck .bstyle .cscroll { padding-top: 0; padding-bottom: 0; margin: 0; max-height: 32px; align-items: center; } .deck .bstyle .sw-c.on { outline-offset: 1px; }
+.deck .bstyle .cscroll { padding-left: 4px; }
