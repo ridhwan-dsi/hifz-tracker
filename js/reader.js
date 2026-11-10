@@ -762,15 +762,14 @@
       ss.slice().reverse().map(function (n) { return '<button class="' + (n === R.n ? 'on' : '') + '" data-ract="surah" data-n="' + n + '">' + nm(n) + '</button>'; }).join('') +
       (pv ? '<button class="nb" data-ract="nbS" data-n="' + pv + '" data-d="-1" aria-label="Previous surah">' + nm(pv) + ' ›</button>' : '') + '</span>';
   }
-  /* Page layer row: Box and Line show/hide toggles, then the Section oval (1 2 3 … All, greyed when there are no lines). */
+  /* Section oval (1 2 3 … All, greyed when there are no lines). */
   function maskRows() {
     var am = activeMask(), it = R.items, nb = it.some(function (q) { return q.k === 'box'; }), nd = nDiv(it);
     function tg(act, on, has, ic, lbl) {
       return '<button class="vtog' + (on ? ' on' : '') + (has ? '' : ' none') + '" data-ract="' + act + '" role="switch" aria-checked="' + on + '" aria-label="' + lbl + (on ? ' shown' : ' hidden') + '"' + (has ? '' : ' disabled') + '>' + ic + '</button>';
     }
-    // v102: Box / Line icons show or hide them (green outline = shown, grey with a slash = hidden).
-    var r = '<div class="rrow wrap mwrap"><div class="mrow scroll">' +
-      (nb ? tg('hb', !(am && am.hb), nb, IC.box, 'Boxes') : '') + (nd ? tg('hl', !(am && am.hl), nd, IC.line, 'Lines') : ''); // v103: only when the page has them
+    // v104: Box / Line show-hide switches live in their own rows (bottom bar); this row is the Section oval only.
+    var r = '<div class="rrow wrap mwrap"><div class="mrow scroll">';
     var f = am ? am.sec || 0 : 0; if (f > nd + 1) f = 0;
     r += '<span class="soval' + (nd ? '' : ' off') + '"><span class="sovl">Section</span>';
     for (var i = 1; i <= nd + 1 && nd; i++) r += '<button class="' + (f === i ? 'on' : '') + '" data-ract="sec" data-s="' + i + '">' + i + '</button>';
@@ -791,23 +790,23 @@
     if (m && R.sub === 'health') x += '<div class="rsub hsub"><span class="lbl">Health</span><span class="hctl big"><button data-ract="hminus" aria-label="Lower health">−</button><span style="color:' + (h ? App.hcol(h) : 'var(--muted)') + '">' + h + '%</span><button data-ract="hplus" aria-label="Raise health">+</button></span></div>';
     if (R.sub === 'timer') x += timerPanel();
     if (R.sub === 'tally') x += tallyPanel();
+    if (R.sub === 'box' || R.sub === 'line') x += kindPanel(R.sub);
     return x + toolsRow();
   }
   // The bottom toolbar stays put in every mode; each tool opens its row above it and a second tap closes it.
   function toolsRow() {
     var p = R.p, m = S.isMem(R.k), h = S.health(R.k), am = activeMask();
     // Editing tools (Crop, Join, Box, Line, Clear) live behind one Edit button; opening it expands them inside the same oval.
-    var busy = R.sub === 'crop' || R.sub === 'join' || R.edit, open = R.edOpen || busy;
+    // v104: Edit holds Crop, Join and Health; Box and Line are their own tools (no Clear).
+    var busy = R.sub === 'crop' || R.sub === 'join', open = (R.edOpen || busy) && !R.edit;
     var grp = '<div class="egrp' + (open ? ' open' : '') + '">' + (open ?
       tb('tCrop', 'Crop', IC.crop, R.sub === 'crop') + tb('join', 'Join', IC.join, R.sub === 'join') +
-      tb('tBox', 'Box', IC.box, R.edit && R.etool === 'box') + tb('tLine', 'Line', IC.line, R.edit && R.etool === 'line') +
-      tb('delMask', 'Clear', IC.trash, false, !R.items.length).replace('class="tb', 'class="tb danger') : '') +
+      tb('health', m ? h + '%' : 'Health', IC.heart, R.sub === 'health', !m) : '') +
       tb('edGrp', 'Edit', open ? IC.x : IC.pen, false).replace('class="tb', 'class="tb edbtn') + '</div>';
     // While Edit is open, the other tools step aside so all edit tools and Back fit on screen.
     return '<div class="rrow scroll tools' + (open ? ' edopen' : '') + '">' + (open ? '' :
-      tb('health', m ? h + '%' : 'Health', IC.heart, R.sub === 'health', !m) + // no Tags here: tags are set from the home screen only (no accidental removals while reading)
-      
       timerTool() + tb('tally', (Tally.kept(R.k) || (Tally.dirty() && Tally.unit() === R.k) ? '<i class="tkdot"></i>' : '') + 'Tally', IC.tally, R.sub === 'tally') +
+      tb('tBox', 'Box', IC.box, R.sub === 'box' || (R.edit && R.etool === 'box')) + tb('tLine', 'Line', IC.line, R.sub === 'line' || (R.edit && R.etool === 'line')) +
       (desk() ? tb('spread', '2 pages', IC.book, S.d.settings.spread !== false) : '') +
       (installed() ? '' : tb('fs', 'Full screen', IC.full, false))) + grp + tb('home', 'Back', IC.back, false) + '</div>';
   }
@@ -875,17 +874,30 @@
     var top = above ? divPts(above) : '1000,0 0,0', bot = below ? divPts(below).split(' ').reverse().join(' ') : '0,' + H + ' 1000,' + H;
     return '<polygon points="' + top + ' ' + bot + '" style="fill:var(--acc);fill-opacity:.14;pointer-events:none"/>';
   }
+  /* v104 Box / Line rows: Show switch (show or hide them on the page), + Box / + Line, Edit, and a trash that
+     deletes them all when held. Only that kind's tools are here. */
+  function kindPanel(kind) {
+    var am = activeMask(), isB = kind === 'box', k = isB ? 'box' : 'div', n = R.items.filter(function (q) { return q.k === k; }).length;
+    var shown = !(am && (isB ? am.hb : am.hl)), nm = isB ? 'Box' : 'Line', nms = isB ? 'boxes' : 'lines';
+    return '<div class="rsub ksub"><div class="rrow">' +
+      '<button class="jsw' + (shown ? ' on' : '') + '" data-ract="' + (isB ? 'hb' : 'hl') + '" role="switch" aria-checked="' + shown + '"' + (n ? '' : ' disabled') + '><i></i>Show</button>' +
+      '<span style="flex:1"></span>' +
+      (n ? '<button class="btn sm" data-ract="' + (isB ? 'edBoxes' : 'edLines') + '">' + IC.pen + 'Edit</button>' : '') +
+      '<button class="btn sm pri" data-ract="' + (isB ? 'addBox' : 'addLine') + '">+ ' + nm + '</button>' +
+      '<button class="icb danger" data-ract="delAll" data-k="' + k + '" aria-label="Hold to delete all ' + nms + '"' + (n ? '' : ' disabled') + '>' + IC.trash + '</button></div>' +
+      '<div class="small muted" style="padding:0 4px 4px">' + (n ? n + ' ' + (n === 1 ? nm.toLowerCase() : nms) + ' on this page' + (shown ? '' : ' (hidden)') + ' · hold the bin to delete all' : 'No ' + nms + ' on this page yet') + '</div></div>';
+  }
   function editPanel() {
     var am = activeMask(), m = R.items[R.sel], x = '';
     x += '<div class="rrow etop">' +
-      '<button class="pill soft" data-ract="addBox">+ ' + IC.box + 'Box</button><button class="pill soft" data-ract="addLine">+ ' + IC.line + 'Line</button>' +
-      '<button class="icb danger" data-ract="del" aria-label="Delete selected"' + (m ? '' : ' disabled') + '>' + IC.trash + '</button>' +
+      (R.etool === 'line' ? '<button class="pill soft" data-ract="addLine">+ ' + IC.line + 'Line</button>' : '<button class="pill soft" data-ract="addBox">+ ' + IC.box + 'Box</button>') +
+      '<button class="icb danger" data-ract="del" data-k="' + (R.etool === 'line' ? 'div' : 'box') + '" aria-label="Delete selected (hold to delete all)">' + IC.trash + '</button>' +
       '<button class="icb" data-ract="cancelEdit" aria-label="Cancel changes">' + IC.x + '</button>' +
       '<button class="icb pri" data-ract="doneEdit" aria-label="Save">' + IC.check + '</button></div>';
     // The style row is always shown so the drawer keeps one height; with no box selected it sets the style for the next box.
-    x += boxStyle(m && m.k === 'box' ? m : R.style, m && m.k === 'div');
+    if (R.etool !== 'line') x += boxStyle(m && m.k === 'box' ? m : R.style, false);
     x += '<div class="hint ehint"><b>' + 'Edit' + '</b> · ' + (m ? (m.k === 'box' ? (hLock() ? 'Drag the box to move it; drag a round handle to change its width.' : 'Drag the box to move it; drag a round handle to resize.') + '' : 'Drag the ⇕ grip on the right to move the line. Side dots make a step; the middle dot moves the step.') + (m.k === 'div' ? ' <button class="addlink" data-ract="straight">Straighten</button>' : '')
-      : 'Tap Box or Line to add one, or tap a shape to select it. Tip: long-press a shape while reading to edit it.') + '</div>';
+      : (R.etool === 'line' ? 'Tap a line to select it, or + Line to add one.' : 'Tap a box to select it, or + Box to add one.') + ' Hold the bin to delete all.') + '</div>';
     return x;
   }
   function cropPanel() {
@@ -931,7 +943,7 @@
   function afterStyle() { var m = selBox(); if (m !== R.style) { R.style.c = m.c; R.style.o = m.o; R.style.b = m.b; commitItems(); } rememberStyle(m); draw(); renderPanel(); }
   function startEdit(sel) {
     var am = ensureLayer(); if (!am) return false;
-    if (!R.edit) { R.snap = { items: JSON.stringify(am.items || []), sec: am.sec || 0 }; R.edit = true; R.sub = null; R.sel = sel; renderPanel(); layout(); }
+    if (!R.edit) { R.snap = { items: JSON.stringify(am.items || []), sec: am.sec || 0 }; R.edit = true; R.sub = R.sub === 'box' || R.sub === 'line' ? R.sub : null; R.etool = R.sub === 'line' ? 'line' : R.sub === 'box' ? 'box' : R.etool; R.sel = sel; renderPanel(); layout(); }
     return true;
   }
   // Long-press in read mode: which shape (if any) is under the finger.
@@ -942,6 +954,15 @@
       if (m.k === 'div' && Math.abs(pt.y - (pt.x >= m.x ? m.y1 : m.y2)) < 35) return i;
     }
     return -1;
+  }
+  function kindTap(kind) {
+    var was = R.edit ? R.etool : R.sub;
+    if (R.edit) RACT.doneEdit();
+    if (R.sub === 'crop') RACT.cropApply();
+    R.edOpen = false; if (R.sub === 'join') R.sub = null;
+    R.sub = was === kind ? null : toolSub(kind) || kind;
+    if (was === kind) R.sub = null;
+    renderPanel(); draw();
   }
   function openOrAdd(k, add) {
     var i = -1; R.items.forEach(function (q, n) { if (q.k === k) i = n; });
@@ -956,6 +977,26 @@
   }
   function newMask(n) { return { id: 'm' + Date.now().toString(36) + n, name: 'Mask ' + n, items: [], sec: 0, pg: 1 }; }
   function setActive(id) { saveMasks(function (ms, o) { o.am = id || ''; }); loadItems(); }
+  /* v104: hold the bin (in the Box or Line row, or while editing) to delete every box, or every line, on the page. */
+  (function () {
+    var t = null, fired = 0;
+    document.addEventListener('pointerdown', function (e) {
+      var b = e.target.closest && e.target.closest('.rpanel [data-k][data-ract="del"], .rpanel [data-k][data-ract="delAll"]'); if (!b || b.disabled) return;
+      var k = b.dataset.k;
+      t = setTimeout(function () {
+        t = null; fired = Date.now(); buzz();
+        var isB = k === 'box', n = R.items.filter(function (q) { return q.k === k; }).length; if (!n) return;
+        if (!confirm('Delete all ' + n + ' ' + (isB ? (n === 1 ? 'box' : 'boxes') : (n === 1 ? 'line' : 'lines')) + ' on this page?')) return;
+        R.items = R.items.filter(function (q) { return q.k !== k; }); R.sel = -1;
+        commitItems();
+        if (R.edit) { var am = activeMask(); if (am && R.snap) R.snap.items = JSON.stringify(am.items || []); }
+        loadItems(); draw(); renderPanel(); layout();
+      }, 600);
+    }, true);
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { document.addEventListener(ev, function () { if (t) { clearTimeout(t); t = null; } }, true); });
+    document.addEventListener('click', function (e) { if (Date.now() - fired < 700 && e.target.closest && e.target.closest('[data-k]')) { e.stopPropagation(); e.preventDefault(); } }, true);
+    document.addEventListener('contextmenu', function (e) { if (e.target.closest && e.target.closest('.rpanel [data-k]')) e.preventDefault(); }, true);
+  })();
   var RACT = {
     // v97: Back pauses the stopwatch (closing the reader does) and keeps an unsaved tally for later — no questions.
     home: function () { if (Tally.dirty()) Tally.park(); history.back(); },
@@ -1016,8 +1057,8 @@
     },
     edGrp: function () {
       if (R.edOpen || R.sub === 'crop' || R.sub === 'join' || R.edit) {
-        leaveModes(); if (R.sub === 'join') R.sub = null; R.edOpen = false;
-      } else { R.edOpen = true; R.scrollEnd = true; }
+        leaveModes(); if (R.sub === 'join' || R.sub === 'health') R.sub = null; R.edOpen = false;
+      } else { if (R.sub === 'box' || R.sub === 'line') R.sub = null; R.edOpen = true; R.scrollEnd = true; }
       renderPanel();
     },
     tags: function () { leaveModes(); R.sub = R.sub === 'tags' ? null : 'tags'; renderPanel(); },
@@ -1042,7 +1083,7 @@
       if (v === 'custom') { v = parseInt(prompt('Session target in minutes', S.d.settings.sessT || 45), 10); if (!(v > 0)) return; }
       Timer.setTarget(+v); renderPanel();
     },
-    health: function () { leaveModes(); R.sub = toolSub('health'); renderPanel(); },
+    health: function () { leaveModes(); R.sub = toolSub('health'); R.edOpen = true; renderPanel(); },
     tag: function (el) { S.toggleTag(R.k, el.dataset.t); renderPanel(); },
     editMask: function () { startEdit(-1); },
     doneEdit: function () { R.edit = false; R.sel = -1; R.tmp = null; R.snap = null; renderPanel(); layout(); },
@@ -1112,8 +1153,11 @@
     },
     crop: function () { R.draft = cropOf(R.p); R.sub = 'crop'; R.edit = false; renderPanel(); layout(); },
     tCrop: function () { if (R.sub === 'crop') { RACT.cropApply(); return; } leaveModes(); RACT.crop(); },
-    tBox: function () { if (R.edit && R.etool === 'box') { RACT.doneEdit(); return; } if (R.sub === 'crop') RACT.cropApply(); R.etool = 'box'; openOrAdd('box', RACT.addBox); },
-    tLine: function () { if (R.edit && R.etool === 'line') { RACT.doneEdit(); return; } if (R.sub === 'crop') RACT.cropApply(); R.etool = 'line'; openOrAdd('div', RACT.addLine); },
+    tBox: function () { kindTap('box'); },
+    tLine: function () { kindTap('line'); },
+    edBoxes: function () { R.etool = 'box'; openOrAdd('box', RACT.addBox); },
+    edLines: function () { R.etool = 'line'; openOrAdd('div', RACT.addLine); },
+    delAll: function () { App.toast('Hold the bin to delete all'); },
     cropAuto: function () { R.draft = autoCrop(R.p); drawCrop(); },
     cropNone: function () { R.draft = { l: 0, t: 0, r: 0, b: 0 }; drawCrop(); },
     cropPrev: function () { R.draft = cropOf(R.p - 1); drawCrop(); },
