@@ -45,10 +45,10 @@
     var m = masksOf(q)[slot]; if (!m || !m.items || !m.items.length) return '';
     var it = viewItems(m, q), s = '', cov = (S.d.settings.hideCol || '#f3e9d4');
     var ds = it.filter(function (x) { return x.k === 'div'; }).sort(function (a, b) { return (a.y1 + a.y2) - (b.y1 + b.y2); });
-    var sec = m.sec || 0; if (sec > ds.length + 1) sec = 0;
+    var sec = m.sec || 0, sec2 = Math.max(sec, m.sec2 || sec); if (sec2 > ds.length + 1) sec = sec2 = 0;
     if (!m.hb) it.forEach(function (x) { if (x.k === 'box') s += '<rect x="' + r1(x.x) + '" y="' + r1(x.y) + '" width="' + r1(x.w) + '" height="' + r1(x.h) + '" rx="4" fill="' + x.c + '" fill-opacity="' + x.o + '"' + (x.b ? ' stroke="' + x.c + '" stroke-width="4"' : '') + '/>'; });
     if (sec && ds.length) {
-      var above = ds[sec - 2], below = ds[sec - 1];
+      var above = ds[sec - 2], below = ds[sec2 - 1];
       if (above) s += '<polygon points="0,0 1000,0 ' + divPts(above) + '" fill="' + cov + '"/>';
       if (below) s += '<polygon points="' + divPts(below) + ' 0,' + r1(Hu) + ' 1000,' + r1(Hu) + '" fill="' + cov + '"/>';
     } else ds.forEach(function (x) { s += '<polyline points="' + divPts(x) + '" style="fill:none;stroke:#e0662c;stroke-width:2.5;stroke-dasharray:10 7;opacity:.75"/>'; });
@@ -131,7 +131,7 @@
   function rnd(m) { var c = {}; for (var k in m) c[k] = typeof m[k] === 'number' ? r1(m[k]) : m[k]; return c; }
   function commitItems() {
     var am = S.get(R.p).am, items = conv(shiftItems(R.items, -R.oy), cropOf(R.p), R.p, false).map(function (m) { var c = {}; for (var k in m) c[k] = typeof m[k] === 'number' ? r1(m[k]) : m[k]; return c; });
-    saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am) { m.items = items; m.pg = 1; if (m.sec > nDiv(items) + 1) m.sec = 0; } }); });
+    saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am) { m.items = items; m.pg = 1; if (Math.max(m.sec || 0, m.sec2 || 0) > nDiv(items) + 1) m.sec = m.sec2 = 0; } }); });
   }
   function nDiv(items) { return items.filter(function (m) { return m.k === 'div'; }).length; }
   function loadItems() { var m = activeMask(); R.items = shiftItems(m ? viewItems(m, R.p) : [], R.oy); }
@@ -169,6 +169,18 @@
       if (window.Timer) Timer.pause();
       $('#reader').classList.remove('on'); document.body.style.overflow = '';
       R.sub = null; R.edit = false; R.sel = -1; App.render(); if (window.Tally) Tally.render();
+    },
+    // v100: long-press a mask tab → Delete (that dialog is the confirmation).
+    delMaskAt: function (k) {
+      var ms = masksOf(R.p); if (!ms[k]) return;
+      if (R.edit) RACT.doneEdit();
+      var cur = S.get(R.p).am;
+      saveMasks(function (ms, o) {
+        ms.splice(k, 1);
+        if (!ms.some(function (m) { return m.id === cur; })) o.am = ms.length ? ms[Math.min(k, ms.length - 1)].id : '';
+      });
+      if (R.sub === 'join') R.sub = null;
+      loadItems(); R.sel = -1; syncSec(); draw(); renderPanel(); layout(); App.toast('Mask ' + (k + 1) + ' deleted');
     },
     isOpen: function () { return $('#reader').classList.contains('on'); },
     desk: function () { return desk(); },
@@ -217,6 +229,7 @@
     R.k = S.uk(p, R.n);
     if (p !== R.p) Tally.newPage();
     Tally.resume(R.k); // v99: the page's last unsaved count is always waiting where it was left
+    syncSec();
     R.p = p; R.sel = -1; R.drag = null; R.edit = false; R.draft = null;
     migrateMasks(p);
     // v99: a page with masks opens on Mask 1; a page with nothing drawn opens with Mask switched off (no empty mask made).
@@ -329,15 +342,15 @@
     var ov = $('#ov'); if (!ov) return;
     var am = activeMask(), cov = (S.d.settings.hideCol || '#f3e9d4'), divs = dividers(), H = R.Hu, s = '', tint = tallyTint();
     if (!am && !R.edit) { ov.innerHTML = tint; return; }
-    var sec = R.edit ? 0 : (am.sec || 0), hb = !R.edit && am.hb;
-    if (sec > divs.length + 1) sec = 0;
+    var sec = R.edit ? 0 : (am.sec || 0), sec2 = Math.max(sec, am.sec2 || sec), hb = !R.edit && am.hb;
+    if (sec2 > divs.length + 1) sec = sec2 = 0;
     var lockB = R.edit && R.etool === 'line', lockL = R.edit && R.etool === 'box'; // v93: only the tool being edited is touchable
     if (!hb) R.items.forEach(function (m, i) {
       if (m.k !== 'box') return;
       s += '<rect' + (lockB ? ' style="pointer-events:none"' : ' data-i="' + i + '"') + ' class="' + (R.edit && R.sel === i ? 'sel' : '') + '" x="' + r1(m.x) + '" y="' + r1(m.y) + '" width="' + r1(m.w) + '" height="' + r1(m.h) + '" rx="4" fill="' + m.c + '" fill-opacity="' + m.o + '"' + (m.b ? ' stroke="' + m.c + '" stroke-width="4"' : '') + '/>';
     });
     if (sec && divs.length) {
-      var above = divs[sec - 2], below = divs[sec - 1];
+      var above = divs[sec - 2], below = divs[sec2 - 1];
       if (above) s += '<polygon points="0,0 1000,0 ' + divPts(above.m) + '" fill="' + cov + '"/>';
       if (below) s += '<polygon points="' + divPts(below.m) + ' 0,' + r1(H) + ' 1000,' + r1(H) + '" fill="' + cov + '"/>';
     }
@@ -769,18 +782,19 @@
     var r = '<div class="rrow wrap mwrap"><div class="mrow scroll"><button class="jsw msw' + (on ? ' on' : '') + '" data-ract="mOn" role="switch" aria-checked="' + on + '">Mask<i></i></button>';
     if (on) r += '<span class="mtabs">' + ms.map(function (m, k) {
       var a = am.id === m.id;
-      return '<button class="mtab' + (a ? ' on' : '') + '" data-ract="mask" data-slot="' + k + '">' + (k + 1) + (a && !R.edit ? '<i class="mx" data-ract="mDel" aria-label="Delete mask ' + (k + 1) + '">×</i>' : '') + '</button>';
+      return '<button class="mtab' + (a ? ' on' : '') + '" data-ract="mask" data-long="mask" data-slot="' + k + '">' + (k + 1) + '</button>';
     }).join('') + (ms.length < MAXM ? '<button class="mtab add" data-ract="mAdd" aria-label="Add mask">+</button>' : '') + '</span>';
     r += '</div>';
     if (on) {
       var nd = nDiv(R.items), hasBox = R.items.some(function (q) { return q.k === 'box'; }), sub = '';
       if (hasBox) sub += '<button class="chip' + (!am.hb ? ' on' : '') + '" data-ract="hb">Boxes ' + (am.hb ? 'off' : 'on') + '</button>';
-      if (nd) {
-        sub += '<span class="soval"><span class="sovl">Section</span>';
-        for (var i = 1; i <= nd + 1; i++) sub += '<button class="' + (am.sec === i ? 'on' : '') + '" data-ract="sec" data-s="' + i + '">' + i + '</button>';
-        sub += '<button class="' + (!am.sec ? 'on' : '') + '" data-ract="sec" data-s="0">All</button></span>';
-      }
-      if (sub) r += '<div class="mrow scroll">' + sub + '</div>';
+      // Tap a section to show it; tap another to show the range between them. On Mask 1 this also picks what Tally counts.
+      var f = am.sec || 0, t = Math.max(f, am.sec2 || f);
+      if (t > nd + 1) f = t = 0;
+      sub += '<span class="soval' + (nd ? '' : ' off') + '"><span class="sovl">Section</span>';
+      for (var i = 1; i <= nd + 1 && nd; i++) sub += '<button class="' + (f && i >= f && i <= t ? 'on' : '') + '" data-ract="sec" data-s="' + i + '">' + i + '</button>';
+      sub += '<button class="' + (!f ? 'on' : '') + '" data-ract="sec" data-s="0"' + (nd ? '' : ' disabled') + '>All</button></span>';
+      r += '<div class="mrow scroll">' + sub + '</div>';
     }
     return r + '</div>';
   }
@@ -858,19 +872,14 @@
   }
   function revSince(k) { var sn = App.tagSince(R.tag); return (S.get(k).rl || []).filter(function (d) { return d >= sn; }).length; }
   function periodTxt(raw) { return R.tag ? 'in ' + (raw ? R.tag.name : App.esc(R.tag.name)) : 'this month'; }
-  /* Tally row: sections from Mask 1's lines (tap one, then another to take a range), the live count with Edit/Save,
+  /* Tally row: the live count with Edit/Delete/Save; sections are picked in the mask Section oval (Mask 1's lines),
      and this page's reads per section (the page counts as read as many times as its least-read section). */
   function tallyPanel() {
     var ns = S.nSec(R.p), sc = Tally.scope(), T = Tally.state(), t = S.tally(R.k), x = '<div class="rsub tlsub">';
-    if (ns > 1) {
-      x += '<div class="rrow scroll"><button class="chip' + (!sc.from ? ' on' : '') + '" data-ract="tlySec" data-s="0">Whole page</button>';
-      for (var i = 1; i <= ns; i++) x += '<button class="chip num' + (sc.from && i >= sc.from && i <= sc.to ? ' on' : '') + '" data-ract="tlySec" data-s="' + i + '">S' + i + '</button>';
-      x += '</div>';
-    }
     x += '<div class="rrow tcore"><span class="lbl">Count</span><b class="tlyn">' + T.n + '</b><span style="flex:1"></span>' +
       '<button class="btn sm" data-ract="tlyEdit">Edit</button><button class="btn sm danger" data-ract="tlyDel"' + (T.n ? '' : ' disabled') + '>Delete</button><button class="btn sm pri" data-ract="tlySave"' + (T.n ? '' : ' disabled') + '>Save</button>' +
       '<button class="jsw' + (Tally.on() ? ' on' : '') + '" data-ract="tlyHide" role="switch" aria-checked="' + Tally.on() + '"><i></i>Counter</button></div>';
-    var parts = ns > 1 ? t.sec.map(function (v, j) { return 'S' + (j + 1) + ' ' + v; }).join(' · ') + ' · ' : '';
+    var parts = (ns > 1 ? 'Counting ' + (sc.from ? 'section ' + sc.from + (sc.to > sc.from ? '–' + sc.to : '') : 'whole page') + ' · ' : '') + (ns > 1 ? t.sec.map(function (v, j) { return 'S' + (j + 1) + ' ' + v; }).join(' · ') + ' · ' : '');
     var mo = S.month(), sn = R.tag && App.tagSince(R.tag), tm = S.tally(R.k, function (d) { return sn ? d >= sn : d.slice(0, 7) === mo; }).page;
     x += '<div class="small muted" style="padding:0 4px 4px">' + parts + 'Page read <b>' + tm + '×</b> ' + periodTxt() + ' · <b>' + t.page + '×</b> lifetime';
     var g = S.d.settings.tDay;
@@ -879,6 +888,7 @@
   }
   function tallyTint() {
     var sc = Tally.scope(); if (R.sub !== 'tally' || !sc.from) return '';
+    var am0 = activeMask(); if (am0 && masksOf(R.p).indexOf(am0) === 0) return ''; // Mask 1 already hides the rest
     var m1 = masksOf(R.p)[0]; if (!m1) return '';
     var ds = shiftItems(viewItems(m1, R.p).filter(function (q) { return q.k === 'div'; }), R.oy).sort(function (a, b) { return (a.y1 + a.y2) - (b.y1 + b.y2); });
     var above = ds[sc.from - 2], below = ds[sc.to - 1], H = r1(R.Hu);
@@ -957,6 +967,18 @@
     var i = -1; R.items.forEach(function (q, n) { if (q.k === k) i = n; });
     if (i < 0) { add(); return; }
     if (!startEdit(i)) return; R.sel = i; draw(); renderPanel();
+  }
+  /* Mask 1's section view and Tally's counted sections are one choice. A kept count brings its sections back;
+     otherwise Tally counts whatever Mask 1 shows. */
+  function syncSec() {
+    var m1 = masksOf(R.p)[0], sc = Tally.scope();
+    if (!m1) { if (!Tally.dirty()) Tally.setScope(0, 0); return; }
+    if (Tally.dirty()) {
+      if ((m1.sec || 0) !== sc.from || Math.max(m1.sec || 0, m1.sec2 || 0) !== sc.to) saveMasks(function (ms) { ms[0].sec = sc.from; ms[0].sec2 = sc.to; });
+    } else {
+      var f = m1.sec || 0, t = Math.max(f, m1.sec2 || f); if (t > nDiv(m1.items || []) + 1) f = t = 0;
+      Tally.setScope(f, t);
+    }
   }
   function newMask(n) { return { id: 'm' + Date.now().toString(36) + n, name: 'Mask ' + n, items: [], sec: 0, pg: 1 }; }
   function setActive(id) { saveMasks(function (ms, o) { o.am = id || ''; }); loadItems(); }
@@ -1071,18 +1093,6 @@
       saveMasks(function (ms, o) { var m = newMask(ms.length + 1); ms.push(m); o.am = m.id; });
       loadItems(); renderPanel(); layout();
     },
-    mDel: function (el, e) {
-      if (e) e.stopPropagation();
-      var am = activeMask(); if (!am) return;
-      var ms = masksOf(R.p), k = ms.indexOf(am);
-      if (!confirm('Delete Mask ' + (k + 1) + '? Its boxes, lines and join are removed.' + (k === 0 && ms.length > 1 ? ' Mask 2 becomes Mask 1 (Tally sections follow Mask 1).' : ''))) return;
-      saveMasks(function (ms, o) {
-        ms.splice(k, 1);
-        o.am = ms.length ? ms[Math.min(k, ms.length - 1)].id : '';
-      });
-      if (R.sub === 'join') R.sub = null;
-      loadItems(); R.sel = -1; draw(); renderPanel(); layout();
-    },
     editMask: function () { startEdit(-1); },
     doneEdit: function () { R.edit = false; R.sel = -1; R.tmp = null; R.snap = null; renderPanel(); layout(); },
     cancelEdit: function () {
@@ -1113,7 +1123,20 @@
     },
     del: function () { if (R.sel < 0) return; R.items.splice(R.sel, 1); R.sel = -1; commitItems(); draw(); renderPanel(); },
     straight: function () { var m = R.items[R.sel]; if (!m) return; m.y2 = m.y1; m.x = 500; commitItems(); draw(); },
-    sec: function (el) { var s = +el.dataset.s, am = activeMask(); saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) m.sec = s; }); }); draw(); renderPanel(); },
+    sec: function (el) {
+      var i = +el.dataset.s, am = activeMask(); if (!am) return;
+      var f = am.sec || 0, t = Math.max(f, am.sec2 || f), nf, nt;
+      if (!i) nf = nt = 0;
+      else if (f && f === t && i !== f) { nf = Math.min(i, f); nt = Math.max(i, f); }
+      else nf = nt = i;
+      // Mask 1's sections are Tally's sections: a running count is saved (after asking) before they change.
+      var one = masksOf(R.p).indexOf(am) === 0, T = Tally.state(), sc = Tally.scope();
+      if (one && T.n && (sc.from !== nf || sc.to !== nt) &&
+        !confirm('Save the count of ' + T.n + ' to ' + (sc.from ? 'section ' + sc.from + (sc.to > sc.from ? '–' + sc.to : '') : 'the whole page') + ' before switching?')) return;
+      saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) { m.sec = nf; m.sec2 = nt; } }); });
+      if (one) Tally.setScope(nf, nt);
+      draw(); renderPanel();
+    },
     hb: function () { var am = activeMask(); saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) m.hb = !m.hb; }); }); draw(); renderPanel(); },
     bc: function (el) { selBox().c = el.dataset.c; R.palOpen = false; afterStyle(); },
     bo: function (el) { var m = selBox(); m.o = clamp(Math.round(m.o * 20) / 20 + (+el.dataset.d) * 0.05, 0.05, 1); m.o = Math.round(m.o * 100) / 100; afterStyle(); },

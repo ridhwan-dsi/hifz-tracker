@@ -236,10 +236,15 @@
   /* Long-press a custom tag chip: Rename / Delete menu. The click that ends the press is swallowed. */
   var lp = null, lpFired = 0;
   document.addEventListener('pointerdown', function (e) {
-    var c = e.target.closest && e.target.closest('[data-long=tag]'); if (!c) return;
+    var c = e.target.closest && e.target.closest('[data-long]'); if (!c) return;
     var x = e.clientX, y = e.clientY;
     lp = { c: c, x: x, y: y, t: setTimeout(function () {
       lp = null; lpFired = Date.now(); try { navigator.vibrate && navigator.vibrate(25); } catch (er) {}
+      if (c.dataset.long === 'mask') { // v100: long-press a mask tab → Delete / Cancel
+        var k = +c.dataset.slot;
+        dialog({ title: 'Mask ' + (k + 1), msg: 'Delete this mask with its boxes, lines and join?' + (k === 0 ? ' The next mask becomes Mask 1 (Tally sections follow Mask 1).' : ''), btns: [['x', 'Cancel'], ['del', 'Delete', 'danger']] }, function (v, w) { if (w === 'del') Reader.delMaskAt(k); });
+        return;
+      }
       var id = c.dataset.t, t = S.d.tags.filter(function (q) { return q.id === id; })[0]; if (!t) return;
       dialog({ title: t.name, btns: [['x', 'Cancel'], ['del', 'Delete', 'danger'], ['ren', 'Rename', 'pri']] }, function (v, w) {
         if (w === 'ren') ACT.renTag(c); else if (w === 'del') ACT.delTag(c);
