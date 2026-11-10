@@ -115,8 +115,7 @@
     // Resume a kept count on this page (only when nothing is counting now).
     resume: function (k) {
       var q = K[k]; if (!q || T.n) return false;
-      T.n = q.n; T.k = k; T.from = q.from || 0; T.to = q.to || 0; delete K[k]; keepK(); keep(); Tally.render();
-      App.toast('Resumed kept tally · ' + q.n); return true;
+      T.n = q.n; T.k = k; T.from = q.from || 0; T.to = q.to || 0; delete K[k]; keepK(); keep(); Tally.render(); return true;
     },
     edit: function () {
       var v = prompt('Count', T.n); if (v == null) return false;

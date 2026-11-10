@@ -422,3 +422,19 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 .tgrp .tgl2 { font-size: 10.5px; font-weight: 700; opacity: .6; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pbox .tbig .tgl { font-size: 18px; font-weight: 700; opacity: .6; margin-left: 6px; }
 .jsw[disabled] { opacity: .45; }
+
+/* v99 masks: Mask switch + tabs (1–5, + after the last); the open mask's options on the row below */
+.mwrap { flex-direction: column; align-items: stretch; flex-wrap: nowrap; row-gap: 4px; gap: 4px; }
+.mrow { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.mrow.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-right: 8px; } .mrow.scroll::-webkit-scrollbar { display: none; }
+.msw { flex: none; text-transform: uppercase; font-size: 12px; letter-spacing: .3px; margin-right: 2px; }
+.mtabs { display: inline-flex; align-items: flex-end; gap: 2px; flex: none; border-bottom: 1px solid var(--line); padding: 0 2px; }
+.mtab { position: relative; flex: none; min-width: 38px; height: 30px; padding: 0 12px; border: 1px solid var(--line); border-bottom: none; border-radius: 9px 9px 0 0; background: var(--bg, transparent); color: var(--muted); font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: -1px; }
+.mtab.on { background: var(--card); color: var(--acc); border-color: var(--acc); box-shadow: inset 0 2px 0 var(--acc); border-bottom: 1px solid var(--card); }
+.mtab.add { border-style: dashed; border-bottom-style: none; font-size: 18px; font-weight: 600; min-width: 34px; padding: 0 9px; }
+.mtab .mx { font-style: normal; font-size: 16px; line-height: 1; color: var(--muted); padding: 2px 0 2px 4px; margin-right: -4px; }
+.soval { display: inline-flex; align-items: center; flex: none; gap: 2px; padding: 2px 3px 2px 10px; border: 1px solid var(--line); border-radius: 99px; background: var(--card); }
+.sovl { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; margin-right: 4px; }
+.soval button { min-width: 30px; height: 28px; padding: 0 8px; border: none; border-radius: 99px; background: none; font-size: 13.5px; font-weight: 700; color: var(--muted); }
+.soval button.on { background: var(--acc-soft); color: var(--acc); }
+#reader.desk .mainp > .mwrap { flex-wrap: nowrap; }

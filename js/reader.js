@@ -43,7 +43,7 @@
     var ms0 = masksOf(R.p), am = activeMask(), slot = am ? ms0.indexOf(am) : -1; if (slot < 0) return '';
     migrateMasks(q);
     var m = masksOf(q)[slot]; if (!m || !m.items || !m.items.length) return '';
-    var it = viewItems(m, q), s = '', cov = S.d.settings.cover;
+    var it = viewItems(m, q), s = '', cov = (S.d.settings.hideCol || '#f3e9d4');
     var ds = it.filter(function (x) { return x.k === 'div'; }).sort(function (a, b) { return (a.y1 + a.y2) - (b.y1 + b.y2); });
     var sec = m.sec || 0; if (sec > ds.length + 1) sec = 0;
     if (!m.hb) it.forEach(function (x) { if (x.k === 'box') s += '<rect x="' + r1(x.x) + '" y="' + r1(x.y) + '" width="' + r1(x.w) + '" height="' + r1(x.h) + '" rx="4" fill="' + x.c + '" fill-opacity="' + x.o + '"' + (x.b ? ' stroke="' + x.c + '" stroke-width="4"' : '') + '/>'; });
@@ -206,10 +206,8 @@
   function go(p, dir, n) {
     if (p < 1 || p > 604) return;
     var ss0 = S.onPage(p), n0 = n || R.n; if (ss0.indexOf(n0) < 0) n0 = dir < 0 ? ss0[ss0.length - 1] : ss0[0];
-    if (Tally.dirty() && Tally.unit() !== S.uk(p, n0)) {
-      Tally.ask(function () { go(p, dir, n); }, function () { var sh = $('#spr'); sh.style.transition = 'transform .18s'; sh.style.transform = ''; renderPanel(); });
-      return;
-    }
+    // v99: an unsaved count stays with its page (no question); opening that page again brings it back.
+    if (Tally.dirty() && Tally.unit() !== S.uk(p, n0)) Tally.park();
     if (n) R.n = n;
     if (dir) buzz();
     // Which surah's portion of the page this is. A shared page keeps the surah you came from if it is on it;
@@ -218,13 +216,12 @@
     if (ss.indexOf(R.n) < 0) R.n = dir < 0 ? ss[ss.length - 1] : ss[0];
     R.k = S.uk(p, R.n);
     if (p !== R.p) Tally.newPage();
-    if (Tally.on()) Tally.resume(R.k); // a kept count on this page comes back while the counter is out
+    Tally.resume(R.k); // v99: the page's last unsaved count is always waiting where it was left
     R.p = p; R.sel = -1; R.drag = null; R.edit = false; R.draft = null;
     migrateMasks(p);
-    // Every page opens on Mask 1 (created the first time it's needed).
-    var ms0 = masksOf(p);
-    if (!ms0.length) saveMasks(function (ms, o) { ms.push({ id: 'm' + Date.now().toString(36) + '1', name: 'Mask 1', items: [], sec: 0 }); o.am = ms[0].id; });
-    else if (S.get(p).am !== ms0[0].id) setActive(ms0[0].id);
+    // v99: a page with masks opens on Mask 1; a page with nothing drawn opens with Mask switched off (no empty mask made).
+    var ms0 = masksOf(p), want = ms0.some(hasContent) ? ms0[0].id : '';
+    if ((S.get(p).am || '') !== want) setActive(want);
     if (R.sub === 'crop' || R.sub === 'join') R.sub = null;
     loadItems();
     S.setLast(p, R.k);
@@ -330,7 +327,7 @@
   function divPts(m) { return '1000,' + r1(m.y1) + ' ' + r1(m.x) + ',' + r1(m.y1) + ' ' + r1(m.x) + ',' + r1(m.y2) + ' 0,' + r1(m.y2); }
   function draw() {
     var ov = $('#ov'); if (!ov) return;
-    var am = activeMask(), cov = S.d.settings.cover, divs = dividers(), H = R.Hu, s = '', tint = tallyTint();
+    var am = activeMask(), cov = (S.d.settings.hideCol || '#f3e9d4'), divs = dividers(), H = R.Hu, s = '', tint = tallyTint();
     if (!am && !R.edit) { ov.innerHTML = tint; return; }
     var sec = R.edit ? 0 : (am.sec || 0), hb = !R.edit && am.hb;
     if (sec > divs.length + 1) sec = 0;
@@ -762,6 +759,31 @@
       ss.slice().reverse().map(function (n) { return '<button class="' + (n === R.n ? 'on' : '') + '" data-ract="surah" data-n="' + n + '">' + nm(n) + '</button>'; }).join('') +
       (pv ? '<button class="nb" data-ract="nbS" data-n="' + pv + '" data-d="-1" aria-label="Previous surah">' + nm(pv) + ' ›</button>' : '') + '</span>';
   }
+  /* v99 masks: "Mask" with a flip switch (off = no mask), then the masks as tabs 1–5 with + after the last;
+     the open tab carries × to delete it. The open mask's options sit on their own row below:
+     Boxes on/off and a Section oval (1 2 3 … All). */
+  var MAXM = 5;
+  function hasContent(m) { return !!(m && ((m.items && m.items.length) || m.jn)); }
+  function maskRows() {
+    var ms = masksOf(R.p), am = activeMask(), on = !!am;
+    var r = '<div class="rrow wrap mwrap"><div class="mrow scroll"><button class="jsw msw' + (on ? ' on' : '') + '" data-ract="mOn" role="switch" aria-checked="' + on + '">Mask<i></i></button>';
+    if (on) r += '<span class="mtabs">' + ms.map(function (m, k) {
+      var a = am.id === m.id;
+      return '<button class="mtab' + (a ? ' on' : '') + '" data-ract="mask" data-slot="' + k + '">' + (k + 1) + (a && !R.edit ? '<i class="mx" data-ract="mDel" aria-label="Delete mask ' + (k + 1) + '">×</i>' : '') + '</button>';
+    }).join('') + (ms.length < MAXM ? '<button class="mtab add" data-ract="mAdd" aria-label="Add mask">+</button>' : '') + '</span>';
+    r += '</div>';
+    if (on) {
+      var nd = nDiv(R.items), hasBox = R.items.some(function (q) { return q.k === 'box'; }), sub = '';
+      if (hasBox) sub += '<button class="chip' + (!am.hb ? ' on' : '') + '" data-ract="hb">Boxes ' + (am.hb ? 'off' : 'on') + '</button>';
+      if (nd) {
+        sub += '<span class="soval"><span class="sovl">Section</span>';
+        for (var i = 1; i <= nd + 1; i++) sub += '<button class="' + (am.sec === i ? 'on' : '') + '" data-ract="sec" data-s="' + i + '">' + i + '</button>';
+        sub += '<button class="' + (!am.sec ? 'on' : '') + '" data-ract="sec" data-s="0">All</button></span>';
+      }
+      if (sub) r += '<div class="mrow scroll">' + sub + '</div>';
+    }
+    return r + '</div>';
+  }
   function mainPanel() {
     var p = R.p, k = R.k, o = S.get(k), m = S.isMem(k), h = S.health(k);
     var ms = masksOf(p), am = activeMask(), x = '';
@@ -771,16 +793,7 @@
     var since = R.tag ? App.tagSince(R.tag) : null, prd = since ? function (d) { return d >= since; } : null;
     var rd = S.tally(k, prd).page, tt = S.pageTime(p, prd), dn = S.activeDays(k, prd).length;
     if (m || rd || tt >= 60) x += '<div class="rstat">' + rd + '× read · ' + Timer.mins(tt) + ' · ' + dn + ' day' + (dn === 1 ? '' : 's') + (since ? ' in ' + App.esc(R.tag.name) : '') + '</div>';
-    // One wrapping row: masks, then Boxes and section chips flow on after them, so there are no half-empty rows.
-    x += '<div class="rrow wrap"><span class="lbl">Masks</span>' + [0, 1, 2].map(function (k) {
-      return '<button class="chip num' + (am && ms[k] && am.id === ms[k].id ? ' on' : '') + '" data-ract="mask" data-slot="' + k + '">' + (k + 1) + '</button>';
-    }).join('') + '<button class="chip' + (!am ? ' on' : '') + '" data-ract="mask" data-slot="">None</button>';
-    if (am) {
-      var nd = nDiv(R.items), hasBox = R.items.some(function (q) { return q.k === 'box'; });
-      if (hasBox) x += '<button class="chip' + (!am.hb ? ' on' : '') + '" data-ract="hb">Boxes ' + (am.hb ? 'off' : 'on') + '</button>';
-      if (nd) { x += '<button class="chip' + (!am.sec ? ' on' : '') + '" data-ract="sec" data-s="0">Whole page</button>'; for (var i = 1; i <= nd + 1; i++) x += '<button class="chip' + (am.sec === i ? ' on' : '') + '" data-ract="sec" data-s="' + i + '">Section ' + i + '</button>'; }
-    }
-    x += '</div>';
+    x += maskRows();
     // Health and Tags live in the bottom toolbar and expand their row just above it.
     if (m && R.sub === 'health') x += '<div class="rsub hsub"><span class="lbl">Health</span><span class="hctl big"><button data-ract="hminus" aria-label="Lower health">−</button><span style="color:' + (h ? App.hcol(h) : 'var(--muted)') + '">' + h + '%</span><button data-ract="hplus" aria-label="Raise health">+</button></span></div>';
     if (R.sub === 'timer') x += timerPanel();
@@ -801,7 +814,7 @@
     return '<div class="rrow scroll tools' + (open ? ' edopen' : '') + '">' + (open ? '' :
       tb('health', m ? h + '%' : 'Health', IC.heart, R.sub === 'health', !m) + // no Tags here: tags are set from the home screen only (no accidental removals while reading)
       
-      timerTool() + tb('tally', (Tally.kept(R.k) && !Tally.dirty() ? '<i class="tkdot"></i>' : '') + 'Tally', IC.tally, R.sub === 'tally') +
+      timerTool() + tb('tally', (Tally.kept(R.k) || (Tally.dirty() && Tally.unit() === R.k) ? '<i class="tkdot"></i>' : '') + 'Tally', IC.tally, R.sub === 'tally') +
       (desk() ? tb('spread', '2 pages', IC.book, S.d.settings.spread !== false) : '') +
       (installed() ? '' : tb('fs', 'Full screen', IC.full, false))) + grp + tb('home', 'Back', IC.back, false) + '</div>';
   }
@@ -855,7 +868,7 @@
       x += '</div>';
     }
     x += '<div class="rrow tcore"><span class="lbl">Count</span><b class="tlyn">' + T.n + '</b><span style="flex:1"></span>' +
-      '<button class="btn sm" data-ract="tlyEdit">Edit</button><button class="btn sm pri" data-ract="tlySave"' + (T.n ? '' : ' disabled') + '>Save</button>' +
+      '<button class="btn sm" data-ract="tlyEdit">Edit</button><button class="btn sm danger" data-ract="tlyDel"' + (T.n ? '' : ' disabled') + '>Delete</button><button class="btn sm pri" data-ract="tlySave"' + (T.n ? '' : ' disabled') + '>Save</button>' +
       '<button class="jsw' + (Tally.on() ? ' on' : '') + '" data-ract="tlyHide" role="switch" aria-checked="' + Tally.on() + '"><i></i>Counter</button></div>';
     var parts = ns > 1 ? t.sec.map(function (v, j) { return 'S' + (j + 1) + ' ' + v; }).join(' · ') + ' · ' : '';
     var mo = S.month(), sn = R.tag && App.tagSince(R.tag), tm = S.tally(R.k, function (d) { return sn ? d >= sn : d.slice(0, 7) === mo; }).page;
@@ -945,6 +958,7 @@
     if (i < 0) { add(); return; }
     if (!startEdit(i)) return; R.sel = i; draw(); renderPanel();
   }
+  function newMask(n) { return { id: 'm' + Date.now().toString(36) + n, name: 'Mask ' + n, items: [], sec: 0, pg: 1 }; }
   function setActive(id) { saveMasks(function (ms, o) { o.am = id || ''; }); loadItems(); }
   var RACT = {
     // v97: Back pauses the stopwatch (closing the reader does) and keeps an unsaved tally for later — no questions.
@@ -957,14 +971,25 @@
     },
     tRem: function () { S.d.settings.tRem = !S.d.settings.tRem; S.saveSettings(); renderPanel(); },
     tlySec: function (el) {
-      var i = +el.dataset.s, sc = Tally.scope();
+      var i = +el.dataset.s, sc = Tally.scope(), T = Tally.state();
+      // A running count belongs to the current sections, so it is saved (after asking) before switching.
+      if (T.n && !confirm('Save the count of ' + T.n + ' to ' + (sc.from ? 'section ' + sc.from + (sc.to > sc.from ? '–' + sc.to : '') : 'the whole page') + ' before switching?')) return;
       if (!i) Tally.setScope(0, 0);
       else if (sc.from && sc.from === sc.to && i !== sc.from) Tally.setScope(Math.min(i, sc.from), Math.max(i, sc.from));
       else Tally.setScope(i, i);
       renderPanel(); draw();
     },
     tlyEdit: function () { Tally.edit(); renderPanel(); },
-    tlySave: function () { Tally.save(); renderPanel(); },
+    tlySave: function () {
+      var T = Tally.state(); if (!T.n) return;
+      if (!confirm('Save ' + T.n + ' read' + (T.n === 1 ? '' : 's') + ' to P. ' + R.p + (T.from ? ' (section ' + T.from + (T.to > T.from ? '–' + T.to : '') + ')' : '') + '?')) return;
+      Tally.save(); renderPanel();
+    },
+    tlyDel: function () {
+      var T = Tally.state(); if (!T.n) return;
+      if (!confirm('Delete this count of ' + T.n + '? It will not be saved.')) return;
+      Tally.discard(); App.toast('Count deleted'); renderPanel();
+    },
     // v93: the switch in the Tally row hides/shows the counter; the row stays open. The Tally icon only opens/closes the row
     // (and brings a hidden counter back), so the counter is hidden only from this switch.
     tlyHide: function () {
@@ -986,7 +1011,7 @@
       else { var s = QURAN.S[n - 1]; q = d > 0 ? s[3] : s[4]; }
       if (q) go(q, d, n);
     },
-    surah: function (el) { if (Tally.dirty()) { Tally.ask(function () { RACT.surah(el); }); return; } R.n = +el.dataset.n; R.k = S.uk(R.p, R.n); S.setLast(R.p, R.k); if (Tally.on()) Tally.resume(R.k); renderPanel(); },
+    surah: function (el) { if (Tally.dirty()) Tally.park(); R.n = +el.dataset.n; R.k = S.uk(R.p, R.n); S.setLast(R.p, R.k); Tally.resume(R.k); renderPanel(); },
     rev: function () {
       var p = R.k;
       if (S.get(p).lr === S.today()) { S.unreviewToday(p); renderPanel(); App.toast('Review for today removed'); return; }
@@ -1026,12 +1051,37 @@
     mask: function (el) {
       var k = el.dataset.slot;
       if (k === '') { setActive(''); loadItems(); renderPanel(); layout(); return; }
-      k = +k;
+      k = +k; if (R.edit) RACT.doneEdit();
       saveMasks(function (ms, o) {
         while (ms.length <= k) { var n = ms.length + 1; ms.push({ id: 'm' + Date.now().toString(36) + n, name: 'Mask ' + n, items: [], sec: 0 }); }
         o.am = ms[k].id;
       });
       loadItems(); renderPanel(); layout();
+    },
+    // v99: Mask switch — on opens Mask 1 (made if the page has none), off shows the plain page.
+    mOn: function () {
+      if (R.edit) RACT.doneEdit();
+      if (activeMask()) { setActive(''); if (R.sub === 'join') R.sub = null; }
+      else saveMasks(function (ms, o) { if (!ms.length) ms.push(newMask(1)); o.am = ms[0].id; });
+      loadItems(); renderPanel(); layout();
+    },
+    mAdd: function () {
+      if (R.edit) RACT.doneEdit();
+      if (masksOf(R.p).length >= MAXM) return;
+      saveMasks(function (ms, o) { var m = newMask(ms.length + 1); ms.push(m); o.am = m.id; });
+      loadItems(); renderPanel(); layout();
+    },
+    mDel: function (el, e) {
+      if (e) e.stopPropagation();
+      var am = activeMask(); if (!am) return;
+      var ms = masksOf(R.p), k = ms.indexOf(am);
+      if (!confirm('Delete Mask ' + (k + 1) + '? Its boxes, lines and join are removed.' + (k === 0 && ms.length > 1 ? ' Mask 2 becomes Mask 1 (Tally sections follow Mask 1).' : ''))) return;
+      saveMasks(function (ms, o) {
+        ms.splice(k, 1);
+        o.am = ms.length ? ms[Math.min(k, ms.length - 1)].id : '';
+      });
+      if (R.sub === 'join') R.sub = null;
+      loadItems(); R.sel = -1; draw(); renderPanel(); layout();
     },
     editMask: function () { startEdit(-1); },
     doneEdit: function () { R.edit = false; R.sel = -1; R.tmp = null; R.snap = null; renderPanel(); layout(); },

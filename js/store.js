@@ -7,7 +7,7 @@
   function blank() {
     return {
       v: 2, acct: null, pages: {}, tags: [], time: {}, su: 0, last: null,
-      settings: { theme: 'green', decayOn: true, decayAfter: 14, decayPct: 5, cover: '#ffffff', fit: 'page', trim: 'full', trimPad: 0.01, goalDay: 30, autoRev: 10, sessT: 0, tHold: 0.4, tDay: 0, tRuleN: 0, tRulePct: 5, tapShow: false },
+      settings: { theme: 'green', decayOn: true, decayAfter: 14, decayPct: 5, cover: '#ffffff', hideCol: '#f3e9d4', fit: 'page', trim: 'full', trimPad: 0.01, goalDay: 30, autoRev: 10, sessT: 0, tHold: 0.4, tDay: 0, tRuleN: 0, tRulePct: 5, tapShow: false },
       ui: { tab: 'mem', contMin: false, chips: [] }
     };
   }
