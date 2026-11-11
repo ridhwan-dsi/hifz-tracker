@@ -91,13 +91,18 @@
   function header() {
     var rec = isRec();
     return '<header class="top"><div class="brand"><span class="dot">' + ICON.book + '</span>' + (rec ? 'Recitation' : 'Hifz Tracker') + '</div>' + syncChip() +
-      (rec ? '' : '<button class="ib" data-act="stats" aria-label="Stats">' + ICON.stats + '</button>') +
+      '<button class="ib" data-act="stats" aria-label="Stats">' + ICON.stats + '</button>' +
       '<button class="ib modesw' + (rec ? ' on' : '') + '" data-act="mode" aria-label="' + (rec ? 'Switch to Memorization' : 'Switch to Recitation') + '" title="' + (rec ? 'Memorization mode' : 'Recitation mode') + '">' + ICON.read + '</button>' +
       '<button class="ib" data-act="settings" aria-label="Settings">' + ICON.gear + '</button>' + viewSw() + '</header>';
   }
+  function rtag() { var id = S.d.ui.rtag || 'def'; return S.rtag(id).id; }
   function recHome() {
     var d = S.d, h = header(), rl = d.rlast;
-    var bm = S.bm();
+    var rt = rtag(), bm = S.bm(rt);
+    // v119 (SL6): tags — Main plus his own readings (e.g. a Ramadan khatm), each with its own bookmark, log and stats.
+    h += '<div class="chips">' + S.rtags().map(function (t) {
+      return '<button class="chip ' + (t.id === rt ? 'on' : '') + '" data-act="rchip" data-t="' + esc(t.id) + '"' + (t.id === 'def' ? '' : ' data-long="rtag"') + '>' + esc(t.name) + '</button>';
+    }).join('') + '<button class="chip add" data-act="raddTag">+ Tag</button></div>';
     // v117: Continue (last page read) and the bookmark (where the reading really stands) side by side.
     if ((rl && rl.p) || bm.p) h += '<div class="rconts">' + (rl && rl.p ? '<div class="cont min"><button class="go" data-act="ropen" data-p="' + rl.p + '" data-n="' + (rl.n || 0) + '">' + ICON.play + ' Continue · ' + esc(SUR[(rl.n || onPage(rl.p)[0]) - 1][0]) + ' · P. ' + rl.p + '</button></div>' : '') +
       (bm.p && !(rl && rl.p === bm.p) ? '<div class="cont min bmc"><button class="go" data-act="ropen" data-p="' + bm.p + '" data-n="' + (bm.n || 0) + '">' + ICON.bmk + ' P. ' + bm.p + '</button></div>' : '') + '</div>';
@@ -107,7 +112,7 @@
   }
   // v117 Bookmark log: every move of the bookmark, newest first, grouped by day. Tap a row to open that page.
   function bmTab() {
-    var b = S.bm(), log = (b.log || []).slice().reverse(), rows = '', lastD = '';
+    var b = S.bm(rtag()), log = (b.log || []).slice().reverse(), rows = '', lastD = '';
     if (!log.length) return '<div class="list"><div class="empty">No bookmarks yet. In the reader, tap ' + ICON.bmk + ' Bookmark to mark where you stopped.</div></div>';
     log.forEach(function (e, i) {
       var dt = new Date(e[0]), day = dt.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: dt.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
@@ -143,6 +148,44 @@
       if (open) { var b = ''; for (var p = p0; p <= p1; p++) b += '<button class="pl" data-act="ropen" data-p="' + p + '">P. ' + p + '</button>'; rows += '<div class="pages">' + b + '</div>'; }
     });
     return '<div class="list">' + rows + '</div>';
+  }
+  function tagFields(start, target, noStart) {
+    return '<div class="dflds">' + (noStart ? '' : '<label>Start page<input class="dinp" data-f="start" inputmode="numeric" value="' + start + '"></label>') +
+      '<label>Target date <span class="muted">(optional)</span><input class="dinp" type="date" data-f="target" value="' + esc(target) + '"></label></div>';
+  }
+  /* v119 (SL9) Recitation stats: pages and juz read per day / week / month / year, for one tag or all tags.
+     Pages read on a day = that day's last bookmark minus the previous reading day's (S.rread). */
+  function recStats() {
+    var pd = st.rp, td = S.today(), a = st.ra || td, r = repRange(pd, a), s0 = r[0], s1 = r[1], all = st.rall, rt = rtag();
+    var tags = all ? S.rtags() : [S.rtag(rt)], D = {};
+    tags.forEach(function (t) { var dd = S.rread(t.id).days; for (var k in dd) { var q = D[k] || (D[k] = { pg: 0, jz: 0 }); q.pg += dd[k].pg; q.jz += dd[k].jz; } });
+    var PG = 0, JZ = 0, ND = 0; for (var k in D) if (k >= s0 && k <= s1) { PG += D[k].pg; JZ += D[k].jz; if (D[k].pg) ND++; }
+    var jf = function (j) { return j >= 10 ? Math.round(j) : Math.round(j * 10) / 10; };
+    var h = '<header class="top"><button class="ib" data-act="home" aria-label="Back">' + ICON.back + '</button><div class="brand">Recitation stats</div>' + viewSw() + '</header>';
+    h += '<div class="seg"><button class="' + (all ? '' : 'on') + '" data-act="rall" data-v="0">' + esc(S.rtag(rt).name) + '</button><button class="' + (all ? 'on' : '') + '" data-act="rall" data-v="1">All readings</button></div>';
+    h += '<div class="seg mini" style="margin-top:4px">' + [['day', 'Daily'], ['week', 'Weekly'], ['month', 'Monthly'], ['year', 'Yearly']].map(function (x) { return '<button class="' + (pd === x[0] ? 'on' : '') + '" data-act="rp" data-p="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
+    var nxt = addD(s1, 1);
+    h += '<div class="calhd"><button class="ib" data-act="ra" data-d="' + addD(s0, -1) + '" aria-label="Previous">' + ICON.back + '</button><b>' + repLabel(pd, r) + '</b><button class="ib" data-act="ra" data-d="' + nxt + '" aria-label="Next"' + (nxt > td ? ' disabled style="opacity:.3"' : '') + '>' + ICON.fwd + '</button></div>';
+    h += '<div class="cards"><div class="card"><div class="v">' + PG + '</div><div class="k">Pages read</div></div><div class="card"><div class="v">' + jf(JZ) + '</div><div class="k">Juz read</div></div>' +
+      (pd === 'day' ? '' : '<div class="card"><div class="v">' + ND + '</div><div class="k">Days read</div></div><div class="card"><div class="v">' + (ND ? Math.round(PG / ND) : 0) + '</div><div class="k">Pages per reading day</div></div>') + '</div>';
+    if (pd !== 'day') {
+      var B = [];
+      if (pd === 'year') for (var mi = 0; mi < 12; mi++) B.push({ k: s0.slice(0, 4) + '-' + String(mi + 1).padStart(2, '0'), l: 'JFMAMJJASOND'[mi], v: 0 });
+      else for (var d = s0; d <= s1; d = addD(d, 1)) B.push({ k: d, l: pd === 'week' ? new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'narrow' }) : String(+d.slice(8)), v: 0 });
+      for (var k2 in D) if (k2 >= s0 && k2 <= s1) { var bb = B.filter(function (x) { return k2.indexOf(x.k) === 0; })[0]; if (bb) bb.v += D[k2].pg; }
+      var mx = Math.max.apply(null, B.map(function (x) { return x.v; }).concat([5]));
+      h += '<div class="rbars' + (B.length > 12 ? ' dense' : '') + '">' + B.map(function (x) {
+        var fut = (pd === 'year' ? x.k + '-01' : x.k) > td;
+        return '<button class="rb' + (x.v ? ' on' : '') + '"' + (fut ? ' disabled' : ' data-act="rdrill" data-k="' + x.k + '"') + '><span class="rbv">' + (x.v || '') + '</span><i style="height:' + (x.v ? Math.max(4, x.v / mx * 100) : 0) + '%"></i><span class="rbl">' + x.l + '</span></button>';
+      }).join('') + '</div><div class="small muted callg">Pages read per ' + (pd === 'year' ? 'month' : 'day') + '</div>';
+    }
+    // Every reading's progress from its bookmark.
+    h += '<div class="bar" style="margin-top:14px"><b style="align-self:center">Readings</b></div><div class="list">' + S.rtags().map(function (t) {
+      var b = S.bm(t.id), base = t.start || S.rread(t.id).base || 1, tot = 605 - base, pc = b.p && tot > 0 ? Math.round(Math.max(0, b.p - base) / tot * 100) : 0;
+      return '<div class="prow"><button class="pl" data-act="rchipGo" data-t="' + esc(t.id) + '">' + esc(t.name) + '</button><div class="grow small">' + (b.p ? 'Bookmark P. ' + b.p : 'No bookmark yet') +
+        (t.target ? '<br><span class="muted">Target ' + esc(t.target) + '</span>' : '') + '</div><div style="text-align:right"><b>' + pc + '%</b></div></div>';
+    }).join('') + '</div>';
+    return h;
   }
   function home() {
     if (isRec()) return recHome();
@@ -268,7 +311,7 @@
     var sc = document.getElementById('scrim'); dlg = cb; dlgO = o;
     sc.innerHTML = '<div class="sheetm pbox"><div class="pbt">' + esc(o.title) + '</div>' + (o.msg ? '<p class="small">' + o.msg + '</p>' : '') +
       (o.input != null ? '<input class="dinp" id="dinp" maxlength="40" enterkeyhint="done"' + (o.num ? ' inputmode="numeric"' : '') + ' value="' + esc(o.input) + '" autocomplete="off">' : '') +
-      '<div class="pbtns' + (o.col ? ' col' : '') + '">' + (o.btns ? o.btns.map(function (b) { return '<button class="btn ' + (b[2] || '') + '" data-dg="' + b[0] + '">' + esc(b[1]) + '</button>'; }).join('') :
+      (o.html || '') + '<div class="pbtns' + (o.col ? ' col' : '') + '">' + (o.btns ? o.btns.map(function (b) { return '<button class="btn ' + (b[2] || '') + '" data-dg="' + b[0] + '">' + esc(b[1]) + '</button>'; }).join('') :
         '<button class="btn" data-dg="x">Cancel</button><button class="btn ' + (o.danger ? 'danger' : 'pri') + '" data-dg="ok">' + esc(o.ok) + '</button>') + '</div></div>';
     sc.classList.toggle('top', o.input != null); sc.style.display = 'flex'; fitScrim();
     var inp = document.getElementById('dinp');
@@ -283,10 +326,11 @@
   }
   if (window.visualViewport) { visualViewport.addEventListener('resize', fitScrim); visualViewport.addEventListener('scroll', fitScrim); }
   function endDlg(ok, id) {
-    var sc = document.getElementById('scrim'), inp = document.getElementById('dinp'), v = inp ? inp.value : null, cb = dlg, o = dlgO || {};
+    var sc = document.getElementById('scrim'), inp = document.getElementById('dinp'), v = inp ? inp.value : null, cb = dlg, o = dlgO || {}, f = {};
+    Array.prototype.forEach.call(sc.querySelectorAll('[data-f]'), function (q) { f[q.dataset.f] = q.value; });
     if (!ok && o.always) { ok = true; id = id || 'x'; } // a question that must be answered: dismissing counts as the first button
     dlg = null; dlgO = null; sc.style.display = 'none'; sc.innerHTML = ''; sc.style.top = sc.style.height = sc.style.bottom = '';
-    if (ok && cb) cb(v, id);
+    if (ok && cb) cb(v, id, f);
   }
   document.addEventListener('click', function (e) {
     if (!dlg) return;
@@ -302,6 +346,7 @@
     var x = e.clientX, y = e.clientY;
     lp = { c: c, x: x, y: y, t: setTimeout(function () {
       lp = null; lpFired = Date.now(); try { navigator.vibrate && navigator.vibrate(25); } catch (er) {}
+      if (c.dataset.long === 'rtag') { ACT.rtagMenu(c); return; }
       var id = c.dataset.t, t = S.d.tags.filter(function (q) { return q.id === id; })[0]; if (!t) return;
       dialog({ title: t.name, btns: [['x', 'Cancel'], ['del', 'Delete', 'danger'], ['ren', 'Rename', 'pri']] }, function (v, w) {
         if (w === 'ren') ACT.renTag(c); else if (w === 'del') ACT.delTag(c);
@@ -315,6 +360,7 @@
 
   /* ---------------- Stats ---------------- */
   function stats() {
+    if (isRec()) return recStats();
     var mem = Object.keys(S.d.pages).filter(function (k) { return S.d.pages[k].m; }).sort(byUnit);
     var m = S.month(), monthTotal = 0, all = 0, sumH = 0, months = {};
     Object.keys(S.d.pages).forEach(function (k) { var rv = S.d.pages[k].rv || {}; for (var mm in rv) { months[mm] = (months[mm] || 0) + rv[mm]; all += rv[mm]; if (mm === m) monthTotal += rv[mm]; } });
@@ -627,6 +673,32 @@
       var r = document.getElementById('s' + n); if (r) r.scrollIntoView({ block: 'start' });
     },
     mode: function () { S.d.ui.mode = isRec() ? 'mem' : 'rec'; st.q = ''; st.view = 'home'; S.saveUi(); App.render(); window.scrollTo(0, 0); },
+    rall: function (el) { st.rall = el.dataset.v === '1'; App.render(); },
+    rchipGo: function (el) { S.d.ui.rtag = el.dataset.t; S.saveUi(); st.view = 'home'; App.render(); },
+    rchip: function (el) { S.d.ui.rtag = el.dataset.t; S.saveUi(); App.render(); },
+    // v119 (SL6): new recitation tag — name, start page (default 1) and an optional target date.
+    raddTag: function () {
+      dialog({ title: 'New reading', input: '', ok: 'Create', html: tagFields(1, '') }, function (name, w, f) {
+        name = (name || '').trim(); if (!name) { App.toast('Give it a name'); return; }
+        var sp = parseInt(f.start, 10); if (!(sp >= 1 && sp <= 604)) sp = 1;
+        var id = 'r' + Date.now().toString(36);
+        S.d.rtags.push({ id: id, name: name, start: sp, target: f.target || '', c: S.today() });
+        var b = S.bm(id); b.p = sp; b.n = onPage(sp)[0]; b.t = Date.now();
+        S.d.ui.rtag = id; S.saveRtags(); App.render(); App.toast(name + ' · starts at P. ' + sp);
+      });
+    },
+    rtagMenu: function (c) {
+      var t = S.d.rtags.filter(function (q) { return q.id === c.dataset.t; })[0]; if (!t) return;
+      dialog({ title: t.name, btns: [['x', 'Cancel'], ['del', 'Delete', 'danger'], ['ed', 'Edit', 'pri']] }, function (v, w) {
+        if (w === 'ed') dialog({ title: 'Edit reading', input: t.name, ok: 'Save', html: tagFields(t.start || 1, t.target || '', true) }, function (name, w2, f) {
+          name = (name || '').trim(); if (name) t.name = name; t.target = f.target || ''; S.saveRtags(); App.render();
+        });
+        else if (w === 'del') dialog({ title: 'Delete reading', msg: 'Delete “' + esc(t.name) + '” with its bookmark and log?', ok: 'Delete', danger: true }, function () {
+          S.d.rtags = S.d.rtags.filter(function (q) { return q.id !== t.id; }); delete S.d.rbm[t.id];
+          if (S.d.ui.rtag === t.id) S.d.ui.rtag = 'def'; S.saveRtags(); App.render(); App.toast('Reading deleted');
+        });
+      });
+    },
     rtab: function (el) { S.d.ui.rtab = el.dataset.t; S.saveUi(); App.render(); },
     ropen: function (el) { closeSheet(); var p = +el.dataset.p, n = +el.dataset.n || 0; Reader.open(p, n, null, null, true); },
     contMin: function () { S.d.ui.contMin = !S.d.ui.contMin; S.saveUi(); App.render(); },

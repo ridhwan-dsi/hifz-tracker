@@ -54,6 +54,7 @@
       this.d.pages = this.d.pages || {};
       this.d.time = this.d.time || {};
       this.d.rtime = this.d.rtime || {}; // v116: Recitation mode's stopwatch time (never mixed with memorization)
+      this.d.rtags = this.d.rtags || []; // v119: Recitation tags [{ id, name, start, target, c }] — 'def' (Main) is built in
       this.d.rbm = this.d.rbm || {}; // v117: Recitation bookmarks per tag id ('def' = default tag): { p, n, t, log: [[t, p, n]] }
       if (this.d.last && this.d.last.p && !this.d.last.k) this.d.last.k = uk(this.d.last.p);
       if (this.migrateUnits()) this.persist();
@@ -124,6 +125,21 @@
     },
     /* v117 Recitation bookmark: one moving bookmark per tag ("resume at p, finished up to p-1"), every move logged. */
     bm: function (tag) { var B = this.d.rbm || (this.d.rbm = {}); return B[tag || 'def'] || (B[tag || 'def'] = { p: 0, n: 0, t: 0, log: [] }); },
+    // v119: Recitation tags. 'def' = Main (can't be renamed or deleted). Each tag = one cover-to-cover reading.
+    rtags: function () { return [{ id: 'def', name: 'Main' }].concat(this.d.rtags || []); },
+    rtag: function (id) { return this.rtags().filter(function (t) { return t.id === id; })[0] || this.rtags()[0]; },
+    saveRtags: function () { this.d.rtu = Date.now(); this.save(); },
+    // Position in juz (0–30) of page p, from the juz start pages, for "juz read".
+    juzPos: function (p) { var J = QURAN.J, i = 0; while (i < 29 && p >= J[i + 1]) i++; var e = i < 29 ? J[i + 1] : 605; return i + Math.max(0, Math.min(1, (p - J[i]) / (e - J[i]))); },
+    /* v119 (SL9) pages read per day for a tag: the day's last bookmark minus the last bookmark of the previous
+       reading day (never negative). Baseline = the tag's start page, else its first bookmark. */
+    rread: function (tag) {
+      var b = this.bm(tag), t = this.rtag(tag), log = (b.log || []).slice().sort(function (x, y) { return x[0] - y[0]; }), last = {}, order = [], self = this;
+      log.forEach(function (e) { var d = new Date(e[0]), k = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); if (!(k in last)) order.push(k); last[k] = e[1]; });
+      var prev = t.start || (log[0] ? log[0][1] : 0), out = {};
+      order.forEach(function (k) { var pg = Math.max(0, last[k] - prev); out[k] = { pg: pg, jz: Math.max(0, self.juzPos(last[k]) - self.juzPos(prev)), to: last[k] }; prev = last[k]; });
+      return { days: out, base: t.start || (log[0] ? log[0][1] : 0) };
+    },
     setBm: function (p, n, tag) {
       var b = this.bm(tag), prev = { p: b.p, n: b.n, t: b.t }, t = Date.now();
       b.p = p; b.n = n || 0; b.t = t; b.log.push([t, p, n || 0]); this.save();
@@ -147,6 +163,7 @@
           });
         });
       });
+      if ((r.rtu || 0) > (L.rtu || 0)) { L.rtags = r.rtags || []; L.rtu = r.rtu; } // v119: Recitation tags
       // v117: bookmarks — the later move wins; logs are merged by time, minus entries undone on either side (del).
       Object.keys(r.rbm || {}).forEach(function (id) {
         var rb = r.rbm[id], lb = (L.rbm || (L.rbm = {}))[id];

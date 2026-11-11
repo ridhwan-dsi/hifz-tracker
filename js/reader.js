@@ -159,7 +159,7 @@
     // range: optional list of unit keys (from the Memorizing tab) — swiping/arrows then stay within those pages.
     // v116: rec = Recitation mode — plain pages (no boxes, lines, joins or sections), free swipe, Timer + Back only.
     open: function (p, n, range, tag, rec) {
-      R.rec = !!rec; if (R.rec) { range = null; tag = null; R.sub = R.sub === 'timer' ? 'timer' : null; R.edOpen = false; }
+      R.rec = !!rec; R.rtag = S.d.ui.rtag || 'def'; if (R.rec) { range = null; tag = null; R.sub = R.sub === 'timer' ? 'timer' : null; R.edOpen = false; }
       R.style = boxDef(); R.palOpen = false; R.wasDesk = desk();
       if (!Reader.isOpen()) { R.wasPL = phoneLand(); if (R.wasPL) { R.panel = false; R.dszL = 'rib'; } } R.stat = false; R.tag = tag || null; // custom tag: counts shown for the tag, not the month
       p = clamp(p | 0, 1, 604); R.n = n || 0;
@@ -190,10 +190,10 @@
     if (R.stat) { R.stat = false; renderPanel(); return; } // v109: phone back closes the Stat page first
     // v117: leaving Recitation on a page other than the bookmark asks whether to bookmark it. Either answer closes.
     if (R.rec && R.asking) { App.dialogClose(); return; }
-    if (R.rec && S.bm().p !== R.p) {
+    if (R.rec && S.bm(R.rtag).p !== R.p) {
       R.asking = true; if (window.Timer) Timer.pause();
-      App.dialog({ title: 'Bookmark P. ' + R.p + '?', msg: 'Resume here next time.', always: true, btns: [['no', 'No'], ['yes', 'Bookmark', 'pri']] }, function (v, w) {
-        R.asking = false; if (w === 'yes') { S.setBm(R.p, R.n); App.toast('Bookmarked P. ' + R.p); }
+      App.dialog({ title: 'Bookmark P. ' + R.p + '?', msg: 'Resume here next time.', always: true, btns: [['yes', 'Bookmark', 'pri'], ['no', 'No']] }, function (v, w) {
+        R.asking = false; if (w === 'yes') { S.setBm(R.p, R.n, R.rtag); App.toast('Bookmarked P. ' + R.p); }
         Reader.close();
       });
       return;
@@ -897,14 +897,14 @@
       tb('edGrp', 'Edit', open ? IC.x : IC.pen, false).replace('class="tb', 'class="tb edbtn') + '</div>';
     // While Edit is open, the other tools step aside so all edit tools and Back fit on screen.
     // v117: Recitation toolbar — Bookmark sits in the exact centre (thumb's home); tools left and right of it spread evenly.
-    // v118: each side must fit its half, so when the Timer opens into its wide oval, Crop moves to the right side.
-    // Jump-to-bookmark lives in the Go to dialog (the separate To mark icon left no room for Crop).
+    // v119: Stat, Timer | Bookmark | Crop, Back. The Timer stays a plain icon until it is running or tapped open;
+    // while its wide oval shows, Stat moves to the right side so each half still fits.
     if (R.rec) {
-      var bm = S.bm(), here = bm.p === p, oval = Timer.active() || R.sub === 'timer', crop = tb('tCrop', 'Crop', IC.crop, R.sub === 'crop');
-      return '<div class="rrow tools rtools"><div class="rside">' + timerTool() + (oval ? '' : crop) +
+      var bm = S.bm(R.rtag), here = bm.p === p, oval = recOval(), stat = tb('statOpen', 'Stat', IC.stat, false);
+      return '<div class="rrow tools rtools"><div class="rside">' + (oval ? '' : stat) + timerTool() +
         (desk() ? tb('spread', '2 pages', IC.book, S.d.settings.spread !== false) : '') + '</div>' +
         '<button class="tb bmk' + (here ? ' on' : '') + '" data-ract="bmSet" aria-label="' + (here ? 'Bookmarked page' : 'Bookmark this page') + '"><span class="bmc">' + IC.bmk + '</span>' + (here ? 'Marked' : 'Bookmark') + '</button>' +
-        '<div class="rside">' + (oval ? crop : '') + tb('goPage', 'Go to', IC.hash, false) + tb('home', 'Back', IC.back, false) + '</div></div>';
+        '<div class="rside">' + (oval ? stat : '') + tb('tCrop', 'Crop', IC.crop, R.sub === 'crop') + tb('home', 'Back', IC.back, false) + '</div></div>';
     }
     return '<div class="rrow scroll tools' + (open ? ' edopen' : '') + '">' + (open ? '' :
       tb('statOpen', 'Stat', IC.stat, false) + tb('tLine', 'Line', IC.line, R.sub === 'line' || (R.edit && R.etool === 'line')) + tb('tBox', 'Box', IC.box, R.sub === 'box' || (R.edit && R.etool === 'box')) +
@@ -913,8 +913,11 @@
       (installed() ? '' : tb('fs', 'Full screen', IC.full, false))) + grp + tb('home', 'Back', IC.back, false) + '</div>';
   }
   // Once a session is running, Timer expands into an oval with the running time and play/pause beside it.
+  // v119: in Recitation the oval shows only while the stopwatch runs or its row is open; a paused session keeps an amber dot.
+  function recOval() { return Timer.state().run || R.sub === 'timer'; }
   function timerTool() {
     var T = Timer.state(), b = tb('timer', 'Timer', IC.clock, R.sub === 'timer').replace('class="tb', 'class="tb' + (T.run ? ' live' : ''));
+    if (R.rec && !recOval()) return Timer.active() ? b.replace(IC.clock, '<i class="tkdot"></i>' + IC.clock) : b;
     if (!Timer.active() && R.sub !== 'timer') return b; // opened but not started: shows 0:00 with play
     return '<div class="egrp tgrp">' + b + (Timer.rem() ? '<span class="tgst"><span class="tgt tmr-t">' + Timer.shown(T.secs) + '</span><span class="tgl2">/ ' + Timer.rem() + ':00</span></span>' : '<span class="tgt tmr-t">' + Timer.shown(T.secs) + '</span>') +
       '<button class="tb tgo" data-ract="tGo" aria-label="' + (T.run ? 'Pause' : 'Start') + '">' + (T.run ? IC.pause : IC.play) + '</button></div>';
@@ -999,6 +1002,7 @@
   }
   /* v109 Stat page: this page's numbers on a full page; Back sits bottom-right where the reader's Back is. */
   function statPage() {
+    if (R.rec) return recStatPage();
     var p = R.p, k = R.k, m = S.isMem(k), h = S.health(k), all = S.tally(k), mo = S.month();
     var sn = R.tag && App.tagSince(R.tag), prd = function (d) { return sn ? d >= sn : d.slice(0, 7) === mo; };
     var per = sn ? 'in ' + App.esc(R.tag.name) : 'this month', ns = S.nSec(p), g = S.d.settings.goalDay, dd = Timer.day(S.today()), la = S.lastActive(k);
@@ -1013,6 +1017,31 @@
       '<button class="icb" data-ract="hplus" aria-label="Raise health">+</button><b>' + h + '%</b></div>';
     if (g) x += '<div class="slbl">Today\'s goal</div><div class="shl">' + bar(dd.t / (g * 60) * 100, 'var(--acc)') + '<b>' + Math.floor(dd.t / 60) + ' / ' + g + ' min</b></div>';
     x += '<div class="slbl">Last read</div><div>' + (la ? App.esc(new Date(la + 'T00:00:00').toDateString()) : 'Not yet') + '</div>';
+    return x + '</div><div class="sfoot"><button class="tb" data-ract="statBack">' + IC.back + 'Back</button></div></div>';
+  }
+  /* v119 (SL9) Recitation Stat page for the open tag: progress from its bookmark and pages read per day. */
+  function recStatPage() {
+    var t = S.rtag(R.rtag), b = S.bm(R.rtag), rr = S.rread(R.rtag), D = rr.days, td = S.today(), now = new Date();
+    var dk = function (d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    var ws = new Date(now); ws.setDate(now.getDate() - (now.getDay() + 1) % 7); ws = dk(ws); var mo = td.slice(0, 7);
+    var sum = function (f) { var o = { pg: 0, jz: 0, d: 0 }; for (var k in D) if (f(k)) { o.pg += D[k].pg; o.jz += D[k].jz; if (D[k].pg) o.d++; } return o; };
+    var T = sum(function (k) { return k === td; }), W = sum(function (k) { return k >= ws; }), M = sum(function (k) { return k.slice(0, 7) === mo; }), A = sum(function () { return true; });
+    var base = t.start || rr.base || 1, done = b.p ? Math.max(0, b.p - base) : 0, tot = 605 - base, pc = tot > 0 ? Math.round(done / tot * 100) : 0;
+    var jf = function (j) { return j >= 10 ? Math.round(j) : Math.round(j * 10) / 10; };
+    var tile = function (l, v) { return '<div class="stile"><span>' + l + '</span><b>' + v + '</b></div>'; };
+    var x = '<div class="spage"><div class="sbody"><div class="shead"><b>' + App.esc(t.name) + '</b><span>' + (b.p ? 'Bookmark P. ' + b.p + ' · ' + App.esc(App.pageTitle(b.p)) : 'No bookmark yet') + '</span></div>';
+    x += '<div class="slbl">Progress</div><div class="shl"><div class="hbar sbar"><i style="width:' + pc + '%;background:var(--acc)"></i></div><b>' + pc + '%</b></div>' +
+      '<div class="small muted" style="margin-top:2px">' + done + ' of ' + tot + ' pages from P. ' + base + '</div>';
+    if (t.target) {
+      var dl = Math.round((new Date(t.target + 'T00:00:00') - new Date(td + 'T00:00:00')) / 864e5) + 1;
+      x += '<div class="small" style="margin-top:6px">Target ' + new Date(t.target + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + ' · ' + (dl > 0 ? dl + ' day' + (dl === 1 ? '' : 's') + ' left' : 'passed') + '</div>';
+    }
+    x += '<div class="sgrid" style="margin-top:12px">' + tile('Pages today', T.pg) + tile('Pages this week', W.pg) + tile('Pages this month', M.pg) +
+      tile('Juz this month', jf(M.jz)) + tile('Days read this month', M.d) + tile('Average per reading day', A.d ? Math.round(A.pg / A.d) + ' pages' : '–') + '</div>';
+    var rows = '';
+    for (var i = 0; i < 7; i++) { var d = new Date(now); d.setDate(now.getDate() - i); var k = dk(d), v = D[k];
+      rows += '<div class="rsday"><span>' + (i === 0 ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })) + '</span><b>' + (v && v.pg ? v.pg + ' page' + (v.pg === 1 ? '' : 's') + (v.to ? ' <span class="muted">→ P. ' + v.to + '</span>' : '') : '–') + '</b></div>'; }
+    x += '<div class="slbl">Last 7 days</div><div class="rsdays">' + rows + '</div>';
     return x + '</div><div class="sfoot"><button class="tb" data-ract="statBack">' + IC.back + 'Back</button></div></div>';
   }
   function editPanel() {
@@ -1303,21 +1332,12 @@
     viewFlip: function () { if (R.edit) RACT.doneEdit(); if (R.sub === 'crop') RACT.cropApply(); S.d.settings.view = desk() ? 'mobile' : 'web'; S.saveSettings(); R.wasDesk = desk(); R.panel = true; loadItems(); renderPanel(); layout(); },
     // v117 Recitation bookmark: tap = resume here next time (replaces the old one; logged). Undo in the toast.
     bmSet: function () {
-      var b = S.bm();
+      var b = S.bm(R.rtag);
       if (b.p === R.p) { App.toast('Bookmark is on P. ' + R.p); return; }
-      var undo = S.setBm(R.p, R.n); buzz(); renderPanel();
+      var undo = S.setBm(R.p, R.n, R.rtag); buzz(); renderPanel();
       App.toast('Bookmarked P. ' + R.p, function () { undo(); renderPanel(); });
     },
-    bmGo: function () { var b = S.bm(); if (b.p && b.p !== R.p) go(b.p, b.p > R.p ? 1 : -1, b.n); },
-    goPage: function () {
-      var b = S.bm(), bb = b.p && b.p !== R.p;
-      App.dialog({ title: 'Go to page', input: '', num: true, msg: 'Page 1 – 604', col: false,
-        btns: [['x', 'Cancel']].concat(bb ? [['bm', 'Bookmark · P. ' + b.p]] : []).concat([['go', 'Go', 'pri']]) }, function (v, w) {
-        if (w === 'bm') { RACT.bmGo(); return; }
-        var q = parseInt(v, 10); if (!(q >= 1 && q <= 604)) { App.toast('Type a page from 1 to 604'); return; }
-        if (q !== R.p) go(q, q > R.p ? 1 : -1);
-      });
-    },
+    bmGo: function () { var b = S.bm(R.rtag); if (b.p && b.p !== R.p) go(b.p, b.p > R.p ? 1 : -1, b.n); },
     spread: function () { S.d.settings.spread = S.d.settings.spread === false; S.saveSettings(); renderPanel(); layout(); },
     fit: function () { S.d.settings.fit = fitPage() ? 'width' : 'page'; S.saveSettings(); renderPanel(); layout(); },
     fs: function () {
