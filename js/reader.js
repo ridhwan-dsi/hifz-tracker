@@ -188,6 +188,16 @@
   window.addEventListener('popstate', function () {
     if (!Reader.isOpen()) return;
     if (R.stat) { R.stat = false; renderPanel(); return; } // v109: phone back closes the Stat page first
+    // v117: leaving Recitation on a page other than the bookmark asks whether to bookmark it. Either answer closes.
+    if (R.rec && R.asking) { App.dialogClose(); return; }
+    if (R.rec && S.bm().p !== R.p) {
+      R.asking = true; if (window.Timer) Timer.pause();
+      App.dialog({ title: 'Bookmark P. ' + R.p + '?', msg: 'Resume here next time.', always: true, btns: [['no', 'No'], ['yes', 'Bookmark', 'pri']] }, function (v, w) {
+        R.asking = false; if (w === 'yes') { S.setBm(R.p, R.n); App.toast('Bookmarked P. ' + R.p); }
+        Reader.close();
+      });
+      return;
+    }
     // v97: leaving the reader keeps an unsaved tally for later on its page (no question).
     if (Tally.dirty()) Tally.park();
     document.body.classList.remove('statopen'); Reader.close();
@@ -659,6 +669,8 @@
     left: I('<path d="M15 18l-6-6 6-6"/>'), right: I('<path d="M9 18l6-6-6-6"/>'), check: I('<path d="M20 6L9 17l-5-5"/>'),
     pen: I('<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), up: I('<path d="M18 15l-6-6-6 6"/>'), down: I('<path d="M6 9l6 6 6-6"/>'), trash: I('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'), x: I('<path d="M6 6l12 12M18 6L6 18"/>'), back: I('<path d="M19 12H5M12 19l-7-7 7-7"/>'), tally: I('<circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/>'),
     phone: I('<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/>'),
+    bmk: I('<path d="M6.5 3h11v18l-5.5-4.2L6.5 21z"/>'), bmgo: I('<path d="M5 3h9v18l-4.5-3.4L5 21z"/><path d="M15 12h6M18.5 9l2.5 3-2.5 3"/>'),
+    hash: I('<path d="M9 3L7 21M17 3l-2 18M4 8.5h17M3 15.5h17"/>'),
     book: I('<path d="M2 5.5C4.5 4.3 7.5 4.3 12 6c4.5-1.7 7.5-1.7 10-.5v13c-2.5-1.2-5.5-1.2-10 .5-4.5-1.7-7.5-1.7-10-.5zM12 6v13.5"/>')
   };
   function tb(id, label, icon, on, off) { return '<button class="tb' + (on ? ' on' : '') + '" data-ract="' + id + '"' + (off ? ' disabled' : '') + '>' + icon + label + '</button>'; }
@@ -884,8 +896,14 @@
       tb('tCrop', 'Crop', IC.crop, R.sub === 'crop') + tb('join', 'Join', IC.join, R.sub === 'join') : '') +
       tb('edGrp', 'Edit', open ? IC.x : IC.pen, false).replace('class="tb', 'class="tb edbtn') + '</div>';
     // While Edit is open, the other tools step aside so all edit tools and Back fit on screen.
-    if (R.rec) return '<div class="rrow scroll tools">' + timerTool() + (desk() ? tb('spread', '2 pages', IC.book, S.d.settings.spread !== false) : '') +
-      (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + tb('home', 'Back', IC.back, false) + '</div>';
+    // v117: Recitation toolbar — Bookmark sits in the exact centre (thumb's home); tools left and right of it spread evenly.
+    if (R.rec) {
+      var bm = S.bm(), here = bm.p === p;
+      return '<div class="rrow tools rtools"><div class="rside">' + timerTool() + tb('goPage', 'Go to', IC.hash, false) +
+        (desk() ? tb('spread', '2 pages', IC.book, S.d.settings.spread !== false) : '') + '</div>' +
+        '<button class="tb bmk' + (here ? ' on' : '') + '" data-ract="bmSet" aria-label="' + (here ? 'Bookmarked page' : 'Bookmark this page') + '"><span class="bmc">' + IC.bmk + '</span>' + (here ? 'Marked' : 'Bookmark') + '</button>' +
+        '<div class="rside">' + tb('bmGo', 'To mark', IC.bmgo, false, !bm.p || here) + (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + tb('home', 'Back', IC.back, false) + '</div></div>';
+    }
     return '<div class="rrow scroll tools' + (open ? ' edopen' : '') + '">' + (open ? '' :
       tb('statOpen', 'Stat', IC.stat, false) + tb('tLine', 'Line', IC.line, R.sub === 'line' || (R.edit && R.etool === 'line')) + tb('tBox', 'Box', IC.box, R.sub === 'box' || (R.edit && R.etool === 'box')) +
       timerTool() + tb('tally', (Tally.kept(R.k) || (Tally.dirty() && Tally.unit() === R.k) ? '<i class="tkdot"></i>' : '') + 'Tally', IC.tally, R.sub === 'tally') +
@@ -1281,6 +1299,20 @@
     joinReset: function () { setJn(function () { return null; }); renderPanel(); relayout(); },
     // Mobile ⇄ Web flip switch (top-right on wide screens). Items are re-read because web view shows uncropped pages.
     viewFlip: function () { if (R.edit) RACT.doneEdit(); if (R.sub === 'crop') RACT.cropApply(); S.d.settings.view = desk() ? 'mobile' : 'web'; S.saveSettings(); R.wasDesk = desk(); R.panel = true; loadItems(); renderPanel(); layout(); },
+    // v117 Recitation bookmark: tap = resume here next time (replaces the old one; logged). Undo in the toast.
+    bmSet: function () {
+      var b = S.bm();
+      if (b.p === R.p) { App.toast('Bookmark is on P. ' + R.p); return; }
+      var undo = S.setBm(R.p, R.n); buzz(); renderPanel();
+      App.toast('Bookmarked P. ' + R.p, function () { undo(); renderPanel(); });
+    },
+    bmGo: function () { var b = S.bm(); if (b.p && b.p !== R.p) go(b.p, b.p > R.p ? 1 : -1, b.n); },
+    goPage: function () {
+      App.dialog({ title: 'Go to page', input: String(R.p), num: true, ok: 'Go', msg: '1 – 604' }, function (v) {
+        var q = parseInt(v, 10); if (!(q >= 1 && q <= 604)) { App.toast('Type a page from 1 to 604'); return; }
+        if (q !== R.p) go(q, q > R.p ? 1 : -1);
+      });
+    },
     spread: function () { S.d.settings.spread = S.d.settings.spread === false; S.saveSettings(); renderPanel(); layout(); },
     fit: function () { S.d.settings.fit = fitPage() ? 'width' : 'page'; S.saveSettings(); renderPanel(); layout(); },
     fs: function () {

@@ -17,6 +17,8 @@
   var ICON = {
     chev: I('<path d="M6 9l6 6 6-6"/>'), back: I('<path d="M15 18l-6-6 6-6"/>'), fwd: I('<path d="M9 18l6-6-6-6"/>'),
     stats: I('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'), gear: I('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
+    inst: I('<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'),
+    bmk: I('<path d="M6.5 3h11v18l-5.5-4.2L6.5 21z"/>'),
     book: I('<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>'),
     read: I('<path d="M2 5.5C4.5 4.3 7.5 4.3 12 6c4.5-1.7 7.5-1.7 10-.5v13c-2.5-1.2-5.5-1.2-10 .5-4.5-1.7-7.5-1.7-10-.5zM12 6v13.5"/>'),
     check: I('<path d="M20 6L9 17l-5-5"/>'), pen: I('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), play: I('<path d="M6 4l14 8-14 8z"/>')
@@ -45,6 +47,7 @@
   var st = { view: 'home', exp: { mem: {}, tom: {}, rec: {}, juz: {} }, edit: false, tedit: null, sel: {}, q: '', sf: 'all', srt: 'page', sdir: 0, sprd: 'all', ssel: {}, month: null, stab: 'rep', rp: 'day', ra: null, cal: null, cday: null, sper: 'all' };
 
   var App = {
+    dialog: function (o, cb) { dialog(o, cb); }, dialogClose: function () { if (dlg) endDlg(false); },
     esc: esc, ICON: ICON, tagSince: tagSince, sPages: sPages, onPage: onPage, pageTitle: pageTitle, hcol: hcol, allTags: allTags,
     render: function () {
       document.documentElement.dataset.theme = S.d.settings.theme;
@@ -94,10 +97,26 @@
   }
   function recHome() {
     var d = S.d, h = header(), rl = d.rlast;
-    if (rl && rl.p) h += '<div class="cont min"><button class="go" data-act="ropen" data-p="' + rl.p + '" data-n="' + (rl.n || 0) + '">' + ICON.play + ' Continue · ' + esc(SUR[(rl.n || onPage(rl.p)[0]) - 1][0]) + ' · P. ' + rl.p + '</button></div>';
-    var t = d.ui.rtab === 'juz' ? 'juz' : 'sur';
-    h += '<nav class="tabs"><button class="' + (t === 'sur' ? 'on' : '') + '" data-act="rtab" data-t="sur">Surah</button><button class="' + (t === 'juz' ? 'on' : '') + '" data-act="rtab" data-t="juz">Juz</button></nav>';
-    return h + (t === 'juz' ? juzTab() : recSurTab());
+    var bm = S.bm();
+    // v117: Continue (last page read) and the bookmark (where the reading really stands) side by side.
+    if ((rl && rl.p) || bm.p) h += '<div class="rconts">' + (rl && rl.p ? '<div class="cont min"><button class="go" data-act="ropen" data-p="' + rl.p + '" data-n="' + (rl.n || 0) + '">' + ICON.play + ' Continue · ' + esc(SUR[(rl.n || onPage(rl.p)[0]) - 1][0]) + ' · P. ' + rl.p + '</button></div>' : '') +
+      (bm.p && !(rl && rl.p === bm.p) ? '<div class="cont min bmc"><button class="go" data-act="ropen" data-p="' + bm.p + '" data-n="' + (bm.n || 0) + '">' + ICON.bmk + ' P. ' + bm.p + '</button></div>' : '') + '</div>';
+    var t = d.ui.rtab === 'juz' ? 'juz' : d.ui.rtab === 'bm' ? 'bm' : 'sur';
+    h += '<nav class="tabs"><button class="' + (t === 'sur' ? 'on' : '') + '" data-act="rtab" data-t="sur">Surah</button><button class="' + (t === 'juz' ? 'on' : '') + '" data-act="rtab" data-t="juz">Juz</button><button class="' + (t === 'bm' ? 'on' : '') + '" data-act="rtab" data-t="bm">Bookmarks</button></nav>';
+    return h + (t === 'juz' ? juzTab() : t === 'bm' ? bmTab() : recSurTab());
+  }
+  // v117 Bookmark log: every move of the bookmark, newest first, grouped by day. Tap a row to open that page.
+  function bmTab() {
+    var b = S.bm(), log = (b.log || []).slice().reverse(), rows = '', lastD = '';
+    if (!log.length) return '<div class="list"><div class="empty">No bookmarks yet. In the reader, tap ' + ICON.bmk + ' Bookmark to mark where you stopped.</div></div>';
+    log.forEach(function (e, i) {
+      var dt = new Date(e[0]), day = dt.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: dt.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+      if (day !== lastD) { rows += '<div class="divider">' + esc(day) + '</div>'; lastD = day; }
+      var n = e[2] || onPage(e[1])[0], cur = i === 0 && e[1] === b.p;
+      rows += '<div class="srow"><button class="sname" data-act="ropen" data-p="' + e[1] + '" data-n="' + n + '"><span class="num' + (cur ? ' bmcur' : '') + '">' + (cur ? ICON.bmk : '') + '</span><span class="nm">P. ' + e[1] + ' · ' + esc(SUR[n - 1][0]) + '</span>' +
+        '<span class="jsub">' + dt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) + '</span></button></div>';
+    });
+    return '<div class="list">' + rows + '</div>';
   }
   function recSurTab() {
     var q = st.q.trim().toLowerCase(), rows = '', lastJ = 0;
@@ -244,11 +263,11 @@
   }
 
   /* Small in-app dialog on the scrim: optional text input, Cancel + one action. cb(value) runs on the action. */
-  var dlg = null;
+  var dlg = null, dlgO = null;
   function dialog(o, cb) {
-    var sc = document.getElementById('scrim'); dlg = cb;
+    var sc = document.getElementById('scrim'); dlg = cb; dlgO = o;
     sc.innerHTML = '<div class="sheetm pbox"><div class="pbt">' + esc(o.title) + '</div>' + (o.msg ? '<p class="small">' + o.msg + '</p>' : '') +
-      (o.input != null ? '<input class="dinp" id="dinp" maxlength="40" enterkeyhint="done" value="' + esc(o.input) + '" autocomplete="off">' : '') +
+      (o.input != null ? '<input class="dinp" id="dinp" maxlength="40" enterkeyhint="done"' + (o.num ? ' inputmode="numeric"' : '') + ' value="' + esc(o.input) + '" autocomplete="off">' : '') +
       '<div class="pbtns' + (o.col ? ' col' : '') + '">' + (o.btns ? o.btns.map(function (b) { return '<button class="btn ' + (b[2] || '') + '" data-dg="' + b[0] + '">' + esc(b[1]) + '</button>'; }).join('') :
         '<button class="btn" data-dg="x">Cancel</button><button class="btn ' + (o.danger ? 'danger' : 'pri') + '" data-dg="ok">' + esc(o.ok) + '</button>') + '</div></div>';
     sc.classList.toggle('top', o.input != null); sc.style.display = 'flex'; fitScrim();
@@ -264,8 +283,9 @@
   }
   if (window.visualViewport) { visualViewport.addEventListener('resize', fitScrim); visualViewport.addEventListener('scroll', fitScrim); }
   function endDlg(ok, id) {
-    var sc = document.getElementById('scrim'), inp = document.getElementById('dinp'), v = inp ? inp.value : null, cb = dlg;
-    dlg = null; sc.style.display = 'none'; sc.innerHTML = ''; sc.style.top = sc.style.height = sc.style.bottom = '';
+    var sc = document.getElementById('scrim'), inp = document.getElementById('dinp'), v = inp ? inp.value : null, cb = dlg, o = dlgO || {};
+    if (!ok && o.always) { ok = true; id = id || 'x'; } // a question that must be answered: dismissing counts as the first button
+    dlg = null; dlgO = null; sc.style.display = 'none'; sc.innerHTML = ''; sc.style.top = sc.style.height = sc.style.bottom = '';
     if (ok && cb) cb(v, id);
   }
   document.addEventListener('click', function (e) {
@@ -515,7 +535,8 @@
       '<h4>Offline</h4><button class="btn sm" data-act="precache">Save my Memorizing pages for offline</button>' +
       '<h4>Share</h4><div class="frow"><label>Share the app<br><span class="small muted">Copies the app link. Each person signs in with their own Google account, so your data stays yours.</span></label><button class="btn sm" data-act="shareApp">Copy link</button></div>' +
       '<h4>Update app</h4><div class="frow"><label>Load the latest version<br><span class="small muted">Clears the cached app files and reloads. Your data and offline pages are kept. Version: ' + esc((window.HIFZ_CONFIG || {}).appVersion || '—') + '</span></label><button class="btn sm" data-act="updateApp">Update app</button></div>' +
-      '<p class="small muted" style="margin-top:14px">Install: open the browser menu → “Install app” / “Add to Home screen” for full screen.</p>' +
+      (instEv ? '<button class="btn pri" style="margin-top:14px" data-act="install">' + ICON.down + ' Install app</button>' : installedApp() ? '' :
+        '<p class="small muted" style="margin-top:14px">Install: open the browser menu → “Install app” / “Add to Home screen” for full screen.</p>') +
       '<div style="text-align:right;margin-top:10px"><button class="btn" data-act="closeSheet">Close</button></div></div>';
     var sc = $('#scrim');
     sc.innerHTML = h; sc.style.display = 'flex';
@@ -705,6 +726,33 @@
     var v = (window.HIFZ_CONFIG || {}).appVersion || '';
     App.toast(v && v !== u.v ? 'Updated to ' + v.split(' ·')[0] : 'Already on the latest version (' + v.split(' ·')[0] + ')');
   })();
+  /* v117 (SL32): install offer. Chrome fires beforeinstallprompt when the app can be installed; we hold it and show
+     our own card at the top on a first visit (or 30 days after "Not now"), plus an Install app button in Settings. */
+  var instEv = null, IKEY = 'hifz.instNo';
+  function installedApp() { return !!(window.matchMedia && (matchMedia('(display-mode: fullscreen)').matches || matchMedia('(display-mode: standalone)').matches)) || navigator.standalone === true; }
+  function instBanner() {
+    if (!instEv || installedApp() || document.getElementById('instBar')) return;
+    var no = 0; try { no = +localStorage.getItem(IKEY) || 0; } catch (e) {}
+    if (Date.now() - no < 30 * 864e5) return;
+    var b = document.createElement('div'); b.id = 'instBar';
+    b.innerHTML = '<img src="icons/icon-192.png" alt=""><div class="it"><b>Install Hifz Tracker</b><span>Adds a home-screen shortcut and opens full screen, like an app.</span></div>' +
+      '<div class="ib2"><button class="btn" data-ins="no">Not now</button><button class="btn pri" data-ins="yes">Install</button></div>';
+    document.body.appendChild(b); requestAnimationFrame(function () { b.classList.add('on'); });
+    b.addEventListener('click', function (e) {
+      var w = e.target.closest('[data-ins]'); if (!w) return;
+      if (w.dataset.ins === 'yes') ACT.install(); else { try { localStorage.setItem(IKEY, Date.now()); } catch (er) {} }
+      hideInst();
+    });
+  }
+  function hideInst() { var b = document.getElementById('instBar'); if (b) { b.classList.remove('on'); setTimeout(function () { b.remove(); }, 250); } }
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); instEv = e; setTimeout(instBanner, 1200); if ($('#settingsSheet')) openSettings(); });
+  window.addEventListener('appinstalled', function () { instEv = null; hideInst(); App.toast('Installed — open it from your home screen'); if ($('#settingsSheet')) openSettings(); });
+  ACT.install = function () {
+    if (!instEv) { App.toast('Open the browser menu → Install app'); return; }
+    var ev = instEv; instEv = null; hideInst(); ev.prompt();
+    if (ev.userChoice) ev.userChoice.then(function (r) { if (r && r.outcome !== 'accepted') { try { localStorage.setItem(IKEY, Date.now()); } catch (er) {} } if ($('#settingsSheet')) openSettings(); });
+  };
+
   if ('serviceWorker' in navigator) {
     var hadSW = !!navigator.serviceWorker.controller, reloaded = false;
     // When a newer build takes over, reload once so the new code is used straight away.

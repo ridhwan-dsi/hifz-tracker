@@ -54,6 +54,7 @@
       this.d.pages = this.d.pages || {};
       this.d.time = this.d.time || {};
       this.d.rtime = this.d.rtime || {}; // v116: Recitation mode's stopwatch time (never mixed with memorization)
+      this.d.rbm = this.d.rbm || {}; // v117: Recitation bookmarks per tag id ('def' = default tag): { p, n, t, log: [[t, p, n]] }
       if (this.d.last && this.d.last.p && !this.d.last.k) this.d.last.k = uk(this.d.last.p);
       if (this.migrateUnits()) this.persist();
     },
@@ -121,6 +122,14 @@
         if (on && i < 0) o.tags.push(t); if (!on && i >= 0) o.tags.splice(i, 1);
       });
     },
+    /* v117 Recitation bookmark: one moving bookmark per tag ("resume at p, finished up to p-1"), every move logged. */
+    bm: function (tag) { var B = this.d.rbm || (this.d.rbm = {}); return B[tag || 'def'] || (B[tag || 'def'] = { p: 0, n: 0, t: 0, log: [] }); },
+    setBm: function (p, n, tag) {
+      var b = this.bm(tag), prev = { p: b.p, n: b.n, t: b.t }, t = Date.now();
+      b.p = p; b.n = n || 0; b.t = t; b.log.push([t, p, n || 0]); this.save();
+      var self = this;
+      return function undo() { var c = self.bm(tag); c.log = c.log.filter(function (e) { return e[0] !== t; }); (c.del || (c.del = [])).push(t); c.p = prev.p; c.n = prev.n; c.t = Date.now(); self.save(); };
+    },
     setLast: function (p, k) { this.d.last = { p: p, k: k || uk(p), t: Date.now() }; this.persist(); },
     merge: function (r) {
       var L = this.d;
@@ -137,6 +146,16 @@
             ['r', 'n', 'c'].forEach(function (md) { var a = rv[md]; if (!a) return; var b = lv[md] || (lv[md] = {}); for (var p in a) if ((a[p] || 0) > (b[p] || 0)) b[p] = a[p]; });
           });
         });
+      });
+      // v117: bookmarks — the later move wins; logs are merged by time, minus entries undone on either side (del).
+      Object.keys(r.rbm || {}).forEach(function (id) {
+        var rb = r.rbm[id], lb = (L.rbm || (L.rbm = {}))[id];
+        if (!lb) { L.rbm[id] = rb; return; }
+        var del = {}, seen = {}, log = [];
+        (lb.del || []).concat(rb.del || []).forEach(function (t) { del[t] = 1; });
+        (lb.log || []).concat(rb.log || []).forEach(function (e) { if (!seen[e[0]] && !del[e[0]]) { seen[e[0]] = 1; log.push(e); } });
+        log.sort(function (x, y) { return x[0] - y[0]; }); lb.log = log; lb.del = Object.keys(del).map(Number);
+        if ((rb.t || 0) > (lb.t || 0)) { lb.p = rb.p; lb.n = rb.n; lb.t = rb.t; }
       });
       if (r.rlast && (!L.rlast || r.rlast.t > L.rlast.t)) L.rlast = r.rlast;
       if (r.last && (!L.last || r.last.t > L.last.t)) L.last = r.last;
