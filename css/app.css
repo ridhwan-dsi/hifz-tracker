@@ -215,8 +215,9 @@ svg.i { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-widt
 .hsub { display: flex; align-items: center; gap: 12px; }
 .hctl.big button { width: 44px; height: 40px; font-size: 22px; }
 .hctl.big span { min-width: 64px; font-size: 16px; }
-.tchip { display: flex; align-items: center; gap: 6px; padding: 9px 14px 9px 12px; border-radius: 0 99px 99px 0; border-left: 1px solid rgba(255,255,255,.18); color: #fff; font-weight: 700; font-size: 13px; font-variant-numeric: tabular-nums; backdrop-filter: blur(6px); }
+.tchip { touch-action: none; display: flex; align-items: center; gap: 6px; padding: 9px 14px 9px 12px; border-radius: 0 99px 99px 0; border-left: 1px solid rgba(255,255,255,.18); color: #fff; font-weight: 700; font-size: 13px; font-variant-numeric: tabular-nums; backdrop-filter: blur(6px); }
 .tchip svg.i { width: 16px; height: 16px; }
+.tchip.tfloat { position: fixed; z-index: 43; border-radius: 99px; border-left: 0; background: rgba(20,24,22,.72); touch-action: none; }
 .tchip.ach { background: var(--acc); color: var(--acc-ink); border-left-color: transparent; }
 .tchip .tdot { width: 8px; height: 8px; border-radius: 50%; background: #4cd18b; animation: tpulse 1.4s infinite; }
 .tchip .tgl { opacity: .75; }
@@ -308,6 +309,7 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 #tally .tr { fill: none; stroke: var(--acc); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 232.5; stroke-dashoffset: 232.5; }
 #tally .tn { position: absolute; inset: 8px; border-radius: 50%; background: color-mix(in srgb, var(--acc) 50%, #fff); color: #10261b; opacity: .93; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; transition: transform .12s; }
 #tally.pop .tn { transform: scale(1.08); }
+#tally.snap, .tchip.tfloat.snap { transition: left .2s ease-out, top .2s ease-out; }
 .tlsub .tlyn { font-size: 22px; color: var(--acc); font-variant-numeric: tabular-nums; }
 .tlsub .btn:disabled { opacity: .45; }
 /* Toolbar: a little tighter so Tally fits beside an open timer. */
@@ -465,7 +467,16 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 .twheel .wsp { display: block; height: 12px; }
 .twheel .wv { display: block; height: 24px; line-height: 24px; font-size: 12px; font-weight: 600; color: var(--muted); opacity: .55; scroll-snap-align: center; cursor: pointer; white-space: nowrap; }
 .twheel .wv.on { font-size: 15px; font-weight: 700; color: var(--ink); opacity: 1; }
+/* v114 Crop mode wheel: 3 rows visible, the chosen one level with the Cancel/Apply icons */
+.crow { display: flex; align-items: stretch; gap: 12px; }
+.twheel.cwheel { flex: 1; width: auto; height: 84px; }
+.cwheel .wsp { height: 28px; } .cwheel .wv { height: 28px; line-height: 28px; font-size: 13px; } .cwheel .wv.on { font-size: 16px; color: var(--acc); }
+.cside { display: grid; grid-template-rows: 22px 40px 22px; justify-items: center; }
+.cbtns { display: flex; gap: 10px; }
+.cdef { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.cdef input { width: 16px; height: 16px; margin: 0; accent-color: var(--acc); }
 #reader.desk .twheel { height: 32px; } #reader.desk .twheel .wsp { height: 4px; }
+#reader.desk .twheel.cwheel { height: 84px; } #reader.desk .cwheel .wsp { height: 28px; }
 /* v109 Stat page */
 .spage { position: fixed; inset: 0; z-index: 48; background: var(--bg); color: var(--ink); display: flex; flex-direction: column; }
 .spage .sbody { flex: 1; overflow-y: auto; padding: calc(16px + env(safe-area-inset-top)) 16px 16px; max-width: 820px; width: 100%; margin: 0 auto; }

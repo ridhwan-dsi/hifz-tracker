@@ -6,6 +6,11 @@
   var T = { on: false, n: 0, k: null, from: 0, to: 0, x: 0.84, y: 0.32 };
   try { Object.assign(T, JSON.parse(localStorage.getItem(LK)) || {}); } catch (e) {}
   function keep() { try { localStorage.setItem(LK, JSON.stringify(T)); } catch (e) {} }
+  /* v114: one spot per orientation (p = portrait, l = landscape); null = docked at its home spot, just above the
+     drawer on the right. Dropped close to home it snaps back like a magnet; left where the drawer opens, it goes home. */
+  if (!T.pos) T.pos = { p: { x: T.x, y: T.y }, l: null };
+  function ori() { return innerWidth > innerHeight ? 'l' : 'p'; }
+  var SNAP = 56, dragging = false;
   /* v92 kept tallies: unsaved counts parked per page (unit key) on this device, not in the stats.
      A count still running when the app was closed is parked on its page at the next launch, so the page
      comes back as it was left once the Tally icon is tapped there. Minimising leaves it running as is. */
@@ -50,21 +55,31 @@
     });
     el.addEventListener('pointermove', function (e) {
       if (!g || e.pointerId !== g.id) return;
-      if (!g.drag && Math.hypot(e.clientX - g.x, e.clientY - g.y) > 8) { g.drag = true; reset(); }
+      if (!g.drag && Math.hypot(e.clientX - g.x, e.clientY - g.y) > 8) { g.drag = dragging = true; reset(); el.classList.remove('snap'); }
       if (g.drag) {
         var w = el.offsetWidth, nx = Math.max(0, Math.min(innerWidth - w, e.clientX - g.ox)), ny = Math.max(0, Math.min(innerHeight - w, e.clientY - g.oy));
         el.style.left = nx + 'px'; el.style.top = ny + 'px';
-        T.x = (nx + w / 2) / innerWidth; T.y = (ny + w / 2) / innerHeight;
+        T.pos[ori()] = { x: (nx + w / 2) / innerWidth, y: (ny + w / 2) / innerHeight };
       }
     });
-    function up(e) { if (!g || e.pointerId !== g.id) return; var d = g.drag; reset(); g = null; if (d) keep(); }
+    function up(e) {
+      if (!g || e.pointerId !== g.id) return; var d = g.drag; reset(); g = null; dragging = false;
+      if (!d) return;
+      var o = ori(), q = T.pos[o], h = home(), w = el.offsetWidth;
+      if (q && Math.hypot(q.x * innerWidth - h.x, q.y * innerHeight - h.y) < SNAP) { T.pos[o] = null; snap(); try { navigator.vibrate && navigator.vibrate(15); } catch (x) {} }
+      keep(); place();
+    }
     el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
     el.addEventListener('click', function (e) { e.stopPropagation(); });
   }
+  function home() { var w = (el && el.offsetWidth) || 84; return Reader.counterHome ? Reader.counterHome(w) : { x: innerWidth - w / 2 - 14, y: innerHeight * 0.6 }; }
+  function snap() { el.classList.add('snap'); setTimeout(function () { el && el.classList.remove('snap'); }, 260); }
   function place() {
-    if (!el) return; var w = el.offsetWidth || 84;
-    el.style.left = Math.max(0, Math.min(innerWidth - w, T.x * innerWidth - w / 2)) + 'px';
-    el.style.top = Math.max(0, Math.min(innerHeight - w, T.y * innerHeight - w / 2)) + 'px';
+    if (!el || dragging) return; var w = el.offsetWidth || 84, o = ori(), q = T.pos[o], c = q ? { x: q.x * innerWidth, y: q.y * innerHeight } : home();
+    // Sitting where the opened drawer now is: back to its home spot.
+    if (q && window.Reader && Reader.drawerTop && c.y + w / 2 > Reader.drawerTop() + 4) { T.pos[o] = null; keep(); c = home(); snap(); }
+    el.style.left = Math.max(0, Math.min(innerWidth - w, c.x - w / 2)) + 'px';
+    el.style.top = Math.max(0, Math.min(innerHeight - w, c.y - w / 2)) + 'px';
   }
   addEventListener('resize', place);
 

@@ -176,6 +176,9 @@
     page: function () { return R.p; },
     unit: function () { return R.k; },
     refresh: function () { if (Reader.isOpen()) renderPanel(); },
+    // v114: where the open drawer starts, and the counter's home spot (right side, just above the expanded drawer).
+    drawerTop: function () { var pn = R.panel && $('.rpanel'); return pn ? pn.getBoundingClientRect().top : innerHeight; },
+    counterHome: function (w) { var o = ori(), ph = (R.phX || {})[o] || (o === 'l' ? 96 : innerHeight * 0.32); return { x: innerWidth - w / 2 - 14, y: innerHeight - ph - w / 2 - 14 }; },
     relayout: function () { if (Reader.isOpen()) layout(); }
   };
   window.Reader = Reader;
@@ -295,7 +298,7 @@
       sc.style.touchAction = fit || R.edit ? 'none' : 'pan-y';
       if (dir && !same && spr.animate) spr.animate([{ transform: 'translateX(' + (-dir * 60) + 'px)', opacity: 0.2 }, { transform: 'none', opacity: 1 }], { duration: 170, easing: 'ease-out' });
       if (dir && !same) sc.scrollTop = 0;
-      if (R.sub === 'crop') drawCrop(); else draw();
+      if (R.sub === 'crop') drawCropMode(); else draw();
       bindOv();
       if (R.U !== R.fitU && dzCur() === 'fit') { R.fitU = R.U; fitRows(); if (measurePanel()) relayout(); }
     }).catch(function () {
@@ -320,12 +323,52 @@
   function relayout() { cancelAnimationFrame(rq); rq = requestAnimationFrame(function () { layout(); }); }
   window.addEventListener('resize', function () { if (Reader.isOpen()) { if (R.wasDesk !== desk()) { R.wasDesk = desk(); loadItems(); renderPanel(); }
       if (R.wasPL !== phoneLand()) { R.wasPL = phoneLand(); if (R.wasPL && !R.edit && R.sub !== 'crop' && R.sub !== 'join') { R.panel = false; R.dszL = 'rib'; } else R.panel = true; renderPanel(); } measurePanel(); afterPanel(); relayout(); } });
+  function ori() { return innerWidth > innerHeight ? 'l' : 'p'; }
+  /* v114: the stopwatch chip can be dragged out of the bottom pill to any spot (one per orientation, this device);
+     dropped close to its place in the pill it snaps back in like a magnet. */
+  var TPK = 'hifz.tpos', TP = {};
+  try { TP = JSON.parse(localStorage.getItem(TPK)) || {}; } catch (e) {}
+  function keepTP() { try { localStorage.setItem(TPK, JSON.stringify(TP)); } catch (e) {} }
+  function tHome() { var ex = $('#rui .rh-exp'), rh = $('#rui .rhandle'); if (!ex || !rh) return null; var r = rh.getBoundingClientRect(); return { x: innerWidth / 2 + ex.offsetWidth / 2, y: r.top + r.height / 2 }; }
+  function putChip(el, cx, cy) { var w = el.offsetWidth, h = el.offsetHeight; el.style.left = Math.max(4, Math.min(innerWidth - w - 4, cx - w / 2)) + 'px'; el.style.top = Math.max(4, Math.min(innerHeight - h - 4, cy - h / 2)) + 'px'; }
+  function wireTchip() {
+    var el = $('#rui .tchip'); if (!el) return;
+    var q = TP[ori()];
+    if (q && el.classList.contains('tfloat')) putChip(el, q.x * innerWidth, q.y * innerHeight);
+    var g = null;
+    el.addEventListener('pointerdown', function (e) { var r = el.getBoundingClientRect(); g = { id: e.pointerId, x: e.clientX, y: e.clientY, ox: e.clientX - r.left - r.width / 2, oy: e.clientY - r.top - r.height / 2, drag: false }; try { el.setPointerCapture(e.pointerId); } catch (x) {} });
+    el.addEventListener('pointermove', function (e) {
+      if (!g || e.pointerId !== g.id) return;
+      if (!g.drag && Math.hypot(e.clientX - g.x, e.clientY - g.y) > 8) {
+        g.drag = true; R.tdrag = true;
+        // Moving the element itself out of the pill would drop the pointer, so a floating copy follows the finger
+        // and the chip's slot in the pill stays empty (the spot it snaps back to).
+        if (el.classList.contains('tfloat')) g.px = el;
+        else { g.px = el.cloneNode(true); g.px.classList.add('tfloat'); g.px.removeAttribute('data-ract'); $('#rui').appendChild(g.px); el.style.visibility = 'hidden'; }
+        g.px.classList.remove('snap');
+      }
+      if (g.drag) { e.preventDefault(); putChip(g.px, e.clientX - g.ox, e.clientY - g.oy); }
+    });
+    function up(e) {
+      if (!g || e.pointerId !== g.id) return; var d = g.drag, px = g.px; g = null; if (!d) return;
+      var r = px.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, h = tHome();
+      var stop = function (ev) { ev.stopPropagation(); ev.preventDefault(); }; // a drag is not a tap on pause/play
+      addEventListener('click', stop, { capture: true, once: true }); setTimeout(function () { removeEventListener('click', stop, true); }, 400);
+      if (h && Math.hypot(cx - h.x, cy - h.y) < 56) {
+        delete TP[ori()]; keepTP(); try { navigator.vibrate && navigator.vibrate(15); } catch (x) {}
+        px.classList.add('snap'); putChip(px, h.x, h.y);
+        setTimeout(function () { R.tdrag = false; renderPanel(); }, 210); return;
+      }
+      TP[ori()] = { x: cx / innerWidth, y: cy / innerHeight }; keepTP(); R.tdrag = false; renderPanel();
+    }
+    el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+  }
   function measurePanel() {
     var pn = $('.rpanel'); var h = R.panel && pn ? pn.offsetHeight : 0;
     // v111: the Ribbon height (drawer minus everything between the arrow and the toolbar) sets the page size on the phone,
     // so expanding the drawer uses the empty space below the page instead of shrinking the page.
     var gb = pn && pn.querySelector('.grab'), tr = pn && pn.querySelector(':scope > .rrow.tools');
-    if (h && gb && tr) R.ribH = h - Math.max(0, tr.offsetTop - gb.offsetTop - gb.offsetHeight); var ch = h !== R.ph; R.ph = h; $('#reader').style.setProperty('--ph', h + 'px'); return ch; }
+    if (h && gb && tr) R.ribH = h - Math.max(0, tr.offsetTop - gb.offsetTop - gb.offsetHeight); if (h && R.panel) (R.phX || (R.phX = {}))[ori()] = h; var ch = h !== R.ph; R.ph = h; $('#reader').style.setProperty('--ph', h + 'px'); return ch; }
 
   /* ---------- mask drawing ---------- */
   function dividers() {
@@ -391,12 +434,19 @@
     });
     ov.innerHTML = s;
   }
+  function drawCropMode() {
+    if (R.cmode === 'custom') return drawCrop();
+    var ov = $('#ov'); if (!ov) return;
+    var d = R.draft, H = R.Hu, x0 = d.l * 1000, y0 = d.t * H, x1 = (1 - d.r) * 1000, y1 = (1 - d.b) * H;
+    ov.innerHTML = '<path fill="rgba(0,0,0,.55)" fill-rule="evenodd" d="M0 0H1000V' + r1(H) + 'H0Z M' + r1(x0) + ' ' + r1(y0) + 'V' + r1(y1) + 'H' + r1(x1) + 'V' + r1(y0) + 'Z"/>' +
+      '<rect x="' + r1(x0) + '" y="' + r1(y0) + '" width="' + r1(x1 - x0) + '" height="' + r1(y1 - y0) + '" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="14 10"/>';
+  }
 
   /* ---------- pointer on the overlay (mask edit + crop) ---------- */
   function P(e) { var r = $('#ov').getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * 1000, y: (e.clientY - r.top) / r.width * 1000 }; }
   function bindOv() {
     var ov = $('#ov'); if (!ov) return;
-    var active = R.edit || R.sub === 'crop';
+    var active = R.edit || (R.sub === 'crop' && R.cmode === 'custom'); // v114: crop handles only in Custom
     ov.style.pointerEvents = active ? 'auto' : 'none';
     ov.style.touchAction = 'none';
     ov.onpointerdown = function (e) {
@@ -610,17 +660,19 @@
       '<button class="navb ' + cls + ' r" data-ract="prev" aria-label="Previous page"' + (!stepTo(-1) ? ' disabled' : '') + '>' + IC.right + '</button>';
   }
   function renderPanel() {
+    if (R.tdrag) return; // the stopwatch chip is being dragged; it re-renders on drop
     var host = $('#rui'), p = R.p, x = '';
     document.body.classList.toggle('statopen', !!R.stat);
     if (R.stat) { host.innerHTML = statPage(); return; } // v109: page stats open as a full page over the reader
     if (!R.panel) {
       var ta = Timer.active(), tr = Timer.state().run;
       // One bottom pill: expand handle, then (when a session exists) the stopwatch chip — tap it to pause/resume.
+      var fl = !!TP[ori()], chip = '';
       x += navBtns('float') + '<div class="rhandle"><button class="rh-exp" data-ract="expand" aria-label="Show controls">' + IC.up + '<span>P. ' + p + '</span></button>';
-      if (ta) x += '<button class="tchip' + (Timer.achieved() ? ' ach' : '') + (tr ? '' : ' paused') + '" data-ract="tGo" aria-label="' + (tr ? 'Pause' : 'Resume') + ' stopwatch">' +
+      if (ta) chip += '<button class="tchip' + (fl ? ' tfloat' : '') + (Timer.achieved() ? ' ach' : '') + (tr ? '' : ' paused') + '" data-ract="tGo" aria-label="' + (tr ? 'Pause' : 'Resume') + ' stopwatch">' +
         (Timer.achieved() ? IC.check : '<i class="tdot"></i>') + '<span class="tmr-t">' + Timer.shown(Timer.state().secs) + '</span>' +
         (S.d.settings.sessT && !Timer.achieved() ? '<span class="tgl">/ ' + S.d.settings.sessT + ':00</span>' : '') + (tr ? IC.pause : IC.play) + '</button>';
-      x += '</div>';
+      x += (fl ? '' : chip) + '</div>' + (fl ? chip : '');
       host.innerHTML = x; afterPanel(); return;
     }
     var before = toolPos();
@@ -689,7 +741,7 @@
     $('#reader').classList.toggle('desk', desk());
     var vs = $('#rui .vsw'); if (vs) vs.remove();
     if (wideScreen()) $('#rui').insertAdjacentHTML('beforeend', '<button class="vsw rv' + (desk() ? ' on' : '') + '" data-ract="viewFlip" title="Mobile view / Web view" aria-label="Switch between mobile view and web view"><span class="vm"><svg class="i" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span><span class="vd"><svg class="i" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8.5 21h7M12 17v4"/></svg></span></button>');
-    wireStrip(); wireWheel();
+    wireStrip(); wireWheel(); wireCropWheel(); wireTchip();
     var zc = $('#rui .zchip'); if (land()) { if (zc) zc.outerHTML = zoomChip(); else $('#rui').insertAdjacentHTML('beforeend', zoomChip()); } else if (zc) zc.remove();
     // Keep the active tool visible when the toolbar is wider than the screen.
     var on = document.querySelector('.rpanel .tools .tb.on'), row = on && on.parentNode;
@@ -697,6 +749,7 @@
     if (R.scrollEnd) { R.scrollEnd = false; var tr = document.querySelector('.rpanel .rrow.tools'); if (tr) tr.scrollLeft = tr.scrollWidth; }
     fitRows();
     if (measurePanel()) relayout();
+    if (window.Tally) Tally.render(); // v114: a counter left where the drawer opened goes back home
   }
   /* Drawer sizes: Full (all rows), Fit (shrinks to the gap under a full-width page), Ribbon (toolbar only).
      Tools that need room (Crop, Join, Box/Line) always open at Full. Rows for Health/Tags/Timer stay visible in every size. */
@@ -944,13 +997,40 @@
     // v112: no instruction line under Box/Line editing; Straighten sits in the top row while a line is selected.
     return x;
   }
+  /* v114 Crop panel: the mode is a vertical wheel (Auto / Whole page / Same as P. n-1 / Custom) like the Timer target;
+     the crop window can only be dragged in Custom. Cancel and Apply are icons level with the chosen row;
+     "Set as default" is a checkbox applied together with Apply. */
+  function cropModes() { var m = [['auto', 'Auto'], ['whole', 'Whole page']]; if (R.p > 1) m.push(['prev', 'Same as P. ' + (R.p - 1)]); m.push(['custom', 'Custom']); return m; }
   function cropPanel() {
+    var wh = '<div class="twheel cwheel" aria-label="Crop mode"><i class="wsp"></i>' + cropModes().map(function (o) { return '<b class="wv' + (o[0] === R.cmode ? ' on' : '') + '" data-v="' + o[0] + '">' + o[1] + '</b>'; }).join('') + '<i class="wsp"></i></div>';
     return '<div class="rrow"><div class="rtitle" style="text-align:left">Crop <span class="plabel">P. ' + R.p + '</span></div></div>' +
-      '<div class="hint">Drag the edges or corners. Drag inside to move.</div>' +
-      '<div class="rrow scroll"><button class="btn sm" data-ract="cropAuto">Auto</button><button class="btn sm" data-ract="cropNone">Whole page</button>' +
-      (R.p > 1 ? '<button class="btn sm" data-ract="cropPrev">Same as P. ' + (R.p - 1) + '</button>' : '') +
-      '<button class="btn sm" data-ract="cropDef">Set as default</button>' +
-      '<span style="flex:1"></span><button class="btn sm" data-ract="cropCancel">Cancel</button><button class="btn sm pri" data-ract="cropApply">Apply</button></div>';
+      '<div class="crow">' + wh + '<div class="cside"><i></i><div class="cbtns"><button class="icb" data-ract="cropCancel" aria-label="Cancel">' + IC.x + '</button>' +
+      '<button class="icb pri" data-ract="cropApply" aria-label="Apply">' + IC.check + '</button></div>' +
+      '<label class="cdef"><input type="checkbox" id="cropDefCb"' + (R.cdef ? ' checked' : '') + '> Set as default</label></div></div>';
+  }
+  function cropDraftFor(m) {
+    if (m === 'auto') return autoCrop(R.p);
+    if (m === 'whole') return { l: 0, t: 0, r: 0, b: 0 };
+    if (m === 'prev') return cropOf(R.p - 1);
+    return R.cust || cropOf(R.p);
+  }
+  function setCropMode(m) {
+    if (m === R.cmode) return;
+    if (R.cmode === 'custom') R.cust = R.draft; // remember a hand-made crop while trying other modes
+    R.cmode = m; R.draft = JSON.parse(JSON.stringify(cropDraftFor(m)));
+    drawCropMode(); bindOv();
+  }
+  function wireCropWheel() {
+    var w = document.querySelector('.rpanel .cwheel'); if (!w) return;
+    var on = w.querySelector('.wv.on'), t = null;
+    var mid = function () { var c = w.scrollTop + w.clientHeight / 2, best = null, bd = 1e9; [].forEach.call(w.querySelectorAll('.wv'), function (b) { var d = Math.abs(b.offsetTop + b.offsetHeight / 2 - c); if (d < bd) { bd = d; best = b; } }); return best; };
+    if (on) w.scrollTop = on.offsetTop + on.offsetHeight / 2 - w.clientHeight / 2;
+    w.addEventListener('scroll', function () {
+      var m = mid(); [].forEach.call(w.querySelectorAll('.wv'), function (b) { b.classList.toggle('on', b === m); });
+      clearTimeout(t); t = setTimeout(function () { var b = mid(); if (b) setCropMode(b.dataset.v); }, 180);
+    }, { passive: true });
+    w.addEventListener('click', function (e) { var b = e.target.closest('.wv'); if (b) w.scrollTo({ top: b.offsetTop + b.offsetHeight / 2 - w.clientHeight / 2, behavior: 'smooth' }); });
+    var cb = $('#cropDefCb'); if (cb) cb.onchange = function () { R.cdef = cb.checked; };
   }
   // Compact Join panel (~25% of the screen): pick which part to edit, two shared sliders act on it,
   // and the whole joined page stays visible above, scaled to fit.
@@ -1197,25 +1277,27 @@
       if (d.fullscreenElement) d.exitFullscreen(); else if (d.documentElement.requestFullscreen) d.documentElement.requestFullscreen().catch(function () { App.toast('Install the app for full screen'); });
       else App.toast('Install the app for full screen');
     },
-    crop: function () { R.draft = cropOf(R.p); R.sub = 'crop'; R.edit = false; renderPanel(); layout(); },
+    crop: function () {
+      var own = S.get(R.p).crop, z = function (a, b) { return ['l', 't', 'r', 'b'].every(function (k) { return Math.abs((a[k] || 0) - (b[k] || 0)) < 0.0005; }); };
+      R.draft = cropOf(R.p); R.cust = null; R.cdef = false;
+      R.cmode = !own ? 'auto' : z(own, {}) ? 'whole' : R.p > 1 && z(own, cropOf(R.p - 1)) ? 'prev' : 'custom';
+      R.sub = 'crop'; R.edit = false; renderPanel(); layout();
+    },
     tCrop: function () { if (R.sub === 'crop') { RACT.cropApply(); return; } leaveModes(); RACT.crop(); },
     tBox: function () { kindTap('box'); },
     tLine: function () { kindTap('line'); },
     edBoxes: function () { R.etool = 'box'; openOrAdd('box', RACT.addBox); },
     edLines: function () { R.etool = 'line'; openOrAdd('div', RACT.addLine); },
     delAll: function () { App.toast('Hold the bin to delete all'); },
-    cropAuto: function () { R.draft = autoCrop(R.p); drawCrop(); },
-    cropNone: function () { R.draft = { l: 0, t: 0, r: 0, b: 0 }; drawCrop(); },
-    cropPrev: function () { R.draft = cropOf(R.p - 1); drawCrop(); },
-    cropCancel: function () { R.sub = null; R.draft = null; loadItems(); renderPanel(); layout(); },
+    cropCancel: function () { R.sub = null; R.draft = null; R.cdef = false; loadItems(); renderPanel(); layout(); },
     cropDef: function () {
-      if (!confirm('Use this crop as the default for every page? Pages you have cropped yourself keep their own crop.')) return;
       var d = R.draft, a = baseCrop(R.p);
       S.d.settings.cropDef = { l: r4(d.l - a.l), t: r4(d.t - a.t), r: r4(d.r - a.r), b: r4(d.b - a.b), p: R.p }; S.saveSettings();
       S.edit(R.p, function (o) { delete o.crop; }); // this page now follows the default too
       R.sub = null; R.draft = null; loadItems(); renderPanel(); layout(); App.toast('Default crop set from P. ' + R.p);
     },
     cropApply: function () {
+      if (R.cdef) { R.cdef = false; RACT.cropDef(); return; }
       var d = R.draft, a = autoCrop(R.p), same = ['l', 't', 'r', 'b'].every(function (k) { return Math.abs(d[k] - a[k]) < 0.0005; });
       S.edit(R.p, function (o) { if (same) delete o.crop; else o.crop = { l: r4(d.l), t: r4(d.t), r: r4(d.r), b: r4(d.b) }; });
       R.sub = null; R.draft = null; loadItems(); renderPanel(); layout();

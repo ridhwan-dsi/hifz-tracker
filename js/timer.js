@@ -19,7 +19,7 @@
      as −3:25 (with "/ 10:00" beside it) instead of the time spent. */
   function rem() { var t = S.d.settings.sessT; return S.d.settings.tRem && t ? t : 0; }
   function ms(s) { s = Math.max(0, Math.ceil(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
-  function shown(s) { var t = rem(); return t ? '−' + ms(t * 60 - (s || 0)) : fmt(s); }
+  function shown(s) { var t = rem(); return t ? ((s || 0) > t * 60 ? '+' + ms((s || 0) - t * 60) : '−' + ms(t * 60 - (s || 0))) : fmt(s); } // past the target: +extra
   function mins(s) { var m = Math.round((s || 0) / 60); return m < 60 ? m + ' min' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm'; }
   // Pages tagged New (or not yet in Memorizing) count as memorizing; other Memorizing pages count as review.
   function modeOf(p) { return S.isMem(p) && !S.hasTag(p, 'new') ? 'r' : 'n'; }
@@ -58,11 +58,11 @@
     if (tickN % 5 === 0) { keep(); S.persist(); }
     if (tickN % 60 === 0) S.save();
     var changed = false, s = S.d.settings;
-    // Target reached while reading: the session is saved automatically; the notice offers Delete for 10 s.
+    // v114: reaching the target no longer ends the session — the stopwatch keeps running so extra reading time
+    // is recorded too; it buzzes once and the session is saved when it's paused/saved as usual.
     if (s.sessT && !T.hitS && T.secs >= s.sessT * 60) {
-      T.hitS = true; var cr = T.cr || {}; buzz();
-      T.run = false; T.secs = 0; T.hitS = false; T.cr = {}; keep(); S.save();
-      App.toast('Target reached · ' + s.sessT + ' min session saved', function () { takeBack(cr); T.cr = {}; keep(); S.save(); App.toast('Session deleted'); Reader.refresh(); }, 'Delete', 10000);
+      T.hitS = true; keep(); S.save(); buzz();
+      App.toast('Target reached · ' + s.sessT + ' min · extra time keeps counting');
       Reader.refresh(); return;
     }
     var dd = S.today();
