@@ -811,11 +811,12 @@
     rmainStart: function () {
       var m = S.d.rmain || {}, b = S.bm('def');
       dialog({ title: 'Main · start', ok: 'Save', html: '<div class="dflds"><label>Start page<input class="dinp" data-f="start" inputmode="numeric" value="' + (m.start || b.p || 1) + '"></label>' +
-        '<label>Count from<input class="dinp" type="date" data-f="from" value="' + esc(m.from || S.today()) + '"></label></div>',
+        '<label>Count from<input class="dinp" type="date" data-f="from" value="' + esc(m.from || S.today()) + '"></label>' +
+        '<label>Target date <span class="muted">(optional)</span><input class="dinp" type="date" data-f="target" value="' + esc(m.target || '') + '"></label></div>',
         btns: m.start ? [['ok', 'Save', 'pri'], ['clr', 'Clear'], ['x', 'Cancel']] : null }, function (v, w, f) {
         if (w === 'clr') { delete S.d.rmain; S.saveRtags(); App.render(); App.toast('Main start cleared'); return; }
         var sp = parseInt(f.start, 10); if (!(sp >= 1 && sp <= 604)) { App.toast('Start page 1–604'); return; }
-        S.d.rmain = { start: sp, from: f.from || S.today() };
+        S.d.rmain = { start: sp, from: f.from || S.today(), target: f.target || '' };
         if (!b.p || b.p < sp) S.setBm(sp, onPage(sp)[0], 'def');
         S.saveRtags(); App.render(); App.toast('Main counts from P. ' + sp);
       });

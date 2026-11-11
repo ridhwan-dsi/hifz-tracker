@@ -128,7 +128,7 @@
     /* v117 Recitation bookmark: one moving bookmark per tag ("resume at p, finished up to p-1"), every move logged. */
     bm: function (tag) { var B = this.d.rbm || (this.d.rbm = {}); return B[tag || 'def'] || (B[tag || 'def'] = { p: 0, n: 0, t: 0, log: [] }); },
     // v119: Recitation tags. 'def' = Main (can't be renamed or deleted). Each tag = one cover-to-cover reading.
-    rtags: function () { var m = this.d.rmain || {}; return [{ id: 'def', name: 'Main', start: m.start, from: m.from }].concat(this.d.rtags || []); },
+    rtags: function () { var m = this.d.rmain || {}; return [{ id: 'def', name: 'Main', start: m.start, from: m.from, target: m.target }].concat(this.d.rtags || []); },
     /* v126: a reading's bookmark log as counted for stats and the Reading log, oldest first. A start date (Main → Start page)
        drops everything logged before it, so pages read elsewhere and old test bookmarks don't count. */
     rlog: function (tag) {
