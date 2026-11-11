@@ -518,6 +518,7 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 #reader.desk .rpanel .rrow.tools.rtools { justify-content: stretch; min-width: 440px; }
 /* v117: Recitation home — Continue and bookmark chips, Bookmark log. */
 .rconts { display: flex; gap: 8px; flex-wrap: wrap; }
+.rconts .cont.min { padding: 6px 16px 6px 12px; } /* v120: Recitation chips have no minimise button, so give the text room from the right edge */
 .cont.bmc { background: var(--acc-soft); color: var(--acc); box-shadow: none; border: 1.5px solid color-mix(in srgb, var(--acc) 40%, transparent); }
 .cont .go svg.i, .bmlist .num svg.i { width: 16px; height: 16px; }
 .bmlist .num:empty { visibility: hidden; }
