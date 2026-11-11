@@ -546,3 +546,6 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 .chip.done { border-color: #b8860b; color: #b8860b; background: color-mix(in srgb, #d4a017 14%, transparent); }
 .chip.done.arch { opacity: .8; }
 .donec { color: #b8860b; font-weight: 600; }
+/* v124 (SL10): editable pages-read card (Daily view) */
+.card[data-act="redit"] { cursor: pointer; }
+.card .edp svg.i { width: 14px; height: 14px; vertical-align: 2px; opacity: .55; }

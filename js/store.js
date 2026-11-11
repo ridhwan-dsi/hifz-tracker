@@ -55,6 +55,7 @@
       this.d.time = this.d.time || {};
       this.d.rtime = this.d.rtime || {}; // v116: Recitation mode's stopwatch time (never mixed with memorization)
       this.d.rtags = this.d.rtags || []; // v119: Recitation tags [{ id, name, start, target, c }] — 'def' (Main) is built in
+      this.d.radj = this.d.radj || {}; // v124 (SL10): manual pages-read per day { tag: { 'YYYY-MM-DD': pages } }
       this.d.rcomp = this.d.rcomp || []; // v123 (SL8): completions (khatm) [{ id: tag, name, d: 'YYYY-MM-DD', t }]
       this.d.rbm = this.d.rbm || {}; // v117: Recitation bookmarks per tag id ('def' = default tag): { p, n, t, log: [[t, p, n]] }
       if (this.d.last && this.d.last.p && !this.d.last.k) this.d.last.k = uk(this.d.last.p);
@@ -150,6 +151,9 @@
         if (cur != null) { pg += Math.max(0, cur - prev); jz += Math.max(0, self.juzPos(cur) - self.juzPos(prev)); prev = cur; }
         out[k] = { pg: pg, jz: jz, to: to };
       });
+      // v124 (SL10): a day's pages read can be corrected by hand (accidental bookmark); juz follow at 604/30 pages a juz.
+      var A = (this.d.radj || {})[tag || 'def'] || {};
+      Object.keys(A).forEach(function (k) { var o = out[k] || (out[k] = { pg: 0, jz: 0, to: 0 }); o.orig = o.pg; o.jz = o.pg ? o.jz * A[k] / o.pg : A[k] * 30 / 604; o.pg = A[k]; o.ed = true; });
       return { days: out, base: t.start || (log[0] ? log[0][1] : 0) };
     },
     /* v123 (SL8) Mark completion on the last page: logged as a bookmark at 605 (= whole mushaf read), recorded with its
@@ -169,6 +173,10 @@
         self.d.rcomp = self.d.rcomp.filter(function (x) { return x.t !== t; }); if (tg) { delete tg.done; delete tg.a; }
         self.d.rtu = Date.now(); self.save();
       };
+    },
+    setRadj: function (tag, day, v) {
+      var A = this.d.radj || (this.d.radj = {}), T = A[tag || 'def'] || (A[tag || 'def'] = {});
+      if (v == null) delete T[day]; else T[day] = v; this.d.rtu = Date.now(); this.save();
     },
     comps: function (tag) { return (this.d.rcomp || []).filter(function (x) { return !tag || x.id === tag; }); },
     setBm: function (p, n, tag) {
@@ -194,7 +202,7 @@
           });
         });
       });
-      if ((r.rtu || 0) > (L.rtu || 0)) { L.rtags = r.rtags || []; L.rcomp = r.rcomp || L.rcomp || []; L.rtu = r.rtu; } // v119: Recitation tags
+      if ((r.rtu || 0) > (L.rtu || 0)) { L.rtags = r.rtags || []; L.rcomp = r.rcomp || L.rcomp || []; L.radj = r.radj || L.radj || {}; L.rtu = r.rtu; } // v119: Recitation tags
       // v117: bookmarks — the later move wins; logs are merged by time, minus entries undone on either side (del).
       Object.keys(r.rbm || {}).forEach(function (id) {
         var rb = r.rbm[id], lb = (L.rbm || (L.rbm = {}))[id];

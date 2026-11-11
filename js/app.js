@@ -165,7 +165,7 @@
   function recStats() {
     var pd = st.rp, td = S.today(), a = st.ra || td, r = repRange(pd, a), s0 = r[0], s1 = r[1], all = st.rall, rt = rtag();
     var tags = all ? S.rtags() : [S.rtag(rt)], D = {};
-    tags.forEach(function (t) { var dd = S.rread(t.id).days; for (var k in dd) { var q = D[k] || (D[k] = { pg: 0, jz: 0 }); q.pg += dd[k].pg; q.jz += dd[k].jz; } });
+    tags.forEach(function (t) { var dd = S.rread(t.id).days; for (var k in dd) { var q = D[k] || (D[k] = { pg: 0, jz: 0 }); q.pg += dd[k].pg; q.jz += dd[k].jz; if (dd[k].ed) q.ed = true; } });
     // v123 (SL8): completions (khatm) dated within the period.
     var NC = S.comps(all ? null : rt).filter(function (c) { return c.d >= s0 && c.d <= s1; }).length;
     var PG = 0, JZ = 0, ND = 0; for (var k in D) if (k >= s0 && k <= s1) { PG += D[k].pg; JZ += D[k].jz; if (D[k].pg) ND++; }
@@ -173,20 +173,26 @@
     var h = '<header class="top"><button class="ib" data-act="home" aria-label="Back">' + ICON.back + '</button><div class="brand">Recitation stats</div>' + viewSw() + '</header>';
     h += '<div class="seg"><button class="' + (all ? '' : 'on') + '" data-act="rall" data-v="0">' + esc(S.rtag(rt).name) + '</button><button class="' + (all ? 'on' : '') + '" data-act="rall" data-v="1">All readings</button></div>';
     h += '<div class="seg mini" style="margin-top:4px">' + [['day', 'Daily'], ['week', 'Weekly'], ['month', 'Monthly'], ['year', 'Yearly']].map(function (x) { return '<button class="' + (pd === x[0] ? 'on' : '') + '" data-act="rp" data-p="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
+    if (pd === 'year' && hij(td)) h += '<div class="seg mini" style="margin-top:4px">' + [['cal', 'Calendar year'], ['ram', 'Ramadan to Ramadan']].map(function (x) { return '<button class="' + ((S.d.settings.ryear === 'ram') === (x[0] === 'ram') ? 'on' : '') + '" data-act="ryear" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
     var nxt = addD(s1, 1);
-    h += '<div class="calhd"><button class="ib" data-act="ra" data-d="' + addD(s0, -1) + '" aria-label="Previous">' + ICON.back + '</button><b>' + repLabel(pd, r) + '</b><button class="ib" data-act="ra" data-d="' + nxt + '" aria-label="Next"' + (nxt > td ? ' disabled style="opacity:.3"' : '') + '>' + ICON.fwd + '</button></div>';
-    h += '<div class="cards"><div class="card"><div class="v">' + PG + '</div><div class="k">Pages read</div></div><div class="card"><div class="v">' + jf(JZ) + '</div><div class="k">Juz read</div></div>' +
+    h += '<div class="calhd"><button class="ib" data-act="ra" data-d="' + addD(s0, -1) + '" aria-label="Previous">' + ICON.back + '</button><b' + (r[2] ? ' class="small"' : '') + '>' + repLabel(pd, r) + '</b><button class="ib" data-act="ra" data-d="' + nxt + '" aria-label="Next"' + (nxt > td ? ' disabled style="opacity:.3"' : '') + '>' + ICON.fwd + '</button></div>';
+    // v124 (SL10): in Daily view for one reading, the day's pages read can be corrected (marked "edited").
+    var dE = pd === 'day' && !all && D[s0] && D[s0].ed, canEd = pd === 'day' && !all && s0 <= td;
+    h += '<div class="cards"><div class="card' + (canEd ? '" data-act="redit" data-d="' + s0 + '" role="button' : '') + '"><div class="v">' + PG + (canEd ? ' <span class="edp">' + ICON.pen + '</span>' : '') + '</div><div class="k">Pages read' + (dE ? ' · edited' : '') + '</div></div><div class="card"><div class="v">' + jf(JZ) + '</div><div class="k">Juz read</div></div>' +
       (pd === 'day' ? '' : '<div class="card"><div class="v">' + ND + '</div><div class="k">Days read</div></div><div class="card"><div class="v">' + (ND ? Math.round(PG / ND) : 0) + '</div><div class="k">Pages per reading day</div></div>') +
       (NC || pd === 'year' ? '<div class="card"><div class="v">' + NC + '</div><div class="k">Completions</div></div>' : '') + '</div>';
     if (pd !== 'day') {
       var B = [];
-      if (pd === 'year') for (var mi = 0; mi < 12; mi++) B.push({ k: s0.slice(0, 4) + '-' + String(mi + 1).padStart(2, '0'), l: 'JFMAMJJASOND'[mi], v: 0 });
+      if (pd === 'year' && r[2]) { // v124: Ramadan cycle — one bar per Hijri month, Ramadan first
+        var HM = ['Ram', 'Shw', 'DhQ', 'DhH', 'Muh', 'Saf', 'Rb1', 'Rb2', 'Jm1', 'Jm2', 'Raj', 'Sha'];
+        for (var hd = s0, hb = null; hd <= s1; hd = addD(hd, 1)) { var hh = hij(addD(hd, -(+S.d.settings.ramAdj || 0))), hi = (hh.m + 3) % 12; if (!hb || hb.i !== hi) { hb = { i: hi, k: hd, e: hd, l: HM[hi], v: 0, rng: 1 }; B.push(hb); } hb.e = hd; }
+      } else if (pd === 'year') for (var mi = 0; mi < 12; mi++) B.push({ k: s0.slice(0, 4) + '-' + String(mi + 1).padStart(2, '0'), l: 'JFMAMJJASOND'[mi], v: 0 });
       else for (var d = s0; d <= s1; d = addD(d, 1)) B.push({ k: d, l: pd === 'week' ? new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'narrow' }) : String(+d.slice(8)), v: 0 });
-      for (var k2 in D) if (k2 >= s0 && k2 <= s1) { var bb = B.filter(function (x) { return k2.indexOf(x.k) === 0; })[0]; if (bb) bb.v += D[k2].pg; }
+      for (var k2 in D) if (k2 >= s0 && k2 <= s1) { var bb = B.filter(function (x) { return x.rng ? k2 >= x.k && k2 <= x.e : k2.indexOf(x.k) === 0; })[0]; if (bb) bb.v += D[k2].pg; }
       var mx = Math.max.apply(null, B.map(function (x) { return x.v; }).concat([5]));
       h += '<div class="rbars' + (B.length > 12 ? ' dense' : '') + '">' + B.map(function (x) {
-        var fut = (pd === 'year' ? x.k + '-01' : x.k) > td;
-        return '<button class="rb' + (x.v ? ' on' : '') + '"' + (fut ? ' disabled' : ' data-act="rdrill" data-k="' + x.k + '"') + '><span class="rbv">' + (x.v || '') + '</span><i style="height:' + (x.v ? Math.max(4, x.v / mx * 100) : 0) + '%"></i><span class="rbl">' + x.l + '</span></button>';
+        var fut = (pd === 'year' && !x.rng ? x.k + '-01' : x.k) > td;
+        return '<button class="rb' + (x.v ? ' on' : '') + '"' + (fut ? ' disabled' : x.rng ? ' data-act="rdrill" data-k="' + x.k.slice(0, 7) + '" data-r="' + x.k + '"' : ' data-act="rdrill" data-k="' + x.k + '"') + '><span class="rbv">' + (x.v || '') + '</span><i style="height:' + (x.v ? Math.max(4, x.v / mx * 100) : 0) + '%"></i><span class="rbl">' + x.l + '</span></button>';
       }).join('') + '</div><div class="small muted callg">Pages read per ' + (pd === 'year' ? 'month' : 'day') + '</div>';
     }
     // Every reading's progress from its bookmark.
@@ -433,7 +439,28 @@
      A page counts as read on a day with 5+ min of stopwatch time or a saved tally (S.activeDays); a day is
      practised when any page counts. Weeks start on Saturday. */
   function addD(k, n) { var d = new Date(k + 'T00:00:00'); d.setDate(d.getDate() + n); return dkey(d); }
+  /* v124 (SL10) Ramadan cycle: from 1 Ramadan (Umm al-Qura calendar) to the day before the next 1 Ramadan,
+     shifted by Settings → Ramadan start (−1 / 0 / +1 day) for local moon sighting. */
+  var HF = null, RC = {};
+  function hij(k) {
+    try { HF = HF || new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { year: 'numeric', month: 'numeric', day: 'numeric' }); } catch (e) { return null; }
+    var o = {}; HF.formatToParts(new Date(k + 'T12:00:00')).forEach(function (x) { o[x.type] = +x.value || x.value; }); return { y: parseInt(o.year, 10), m: o.month, d: o.day };
+  }
+  function ram1(hy) { // Gregorian date of 1 Ramadan of Hijri year hy (Umm al-Qura), cached
+    if (RC[hy]) return RC[hy];
+    var k = addD('1900-01-01', Math.round((hy + 8 / 12 - 1318.0) * 354.367)), h = hij(k), g = 0;
+    if (!h) return null;
+    while (!(h.y === hy && h.m === 9 && h.d === 1) && g++ < 120) { var dd = ((hy - h.y) * 12 + (9 - h.m)) * 29.5 + (1 - h.d); k = addD(k, Math.abs(dd) < 1 ? (dd < 0 ? -1 : 1) : Math.round(dd)); h = hij(k); }
+    return (RC[hy] = k);
+  }
+  function ramRange(a) {
+    var adj = +S.d.settings.ramAdj || 0, h = hij(addD(a, -adj)); if (!h) return null;
+    var hy = h.m >= 9 ? h.y : h.y - 1, s = ram1(hy), e = ram1(hy + 1); if (!s || !e) return null;
+    return [addD(s, adj), addD(e, adj - 1), hy];
+  }
+  function ramYear() { return st.rp === 'year' && S.d.settings.ryear === 'ram' && !!hij(S.today()); }
   function repRange(pd, a) {
+    if (pd === 'year' && ramYear()) { var rr = ramRange(a); if (rr) return rr; }
     var d = new Date(a + 'T00:00:00'), s, e;
     if (pd === 'day') s = e = a;
     else if (pd === 'week') { s = addD(a, -((d.getDay() + 1) % 7)); e = addD(s, 6); }
@@ -446,6 +473,7 @@
     if (pd === 'day') return r[0] === S.today() ? 'Today' : f(r[0], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
     if (pd === 'week') return f(r[0], { day: 'numeric', month: 'short' }) + ' – ' + f(r[1], { day: 'numeric', month: 'short' });
     if (pd === 'month') return f(r[0], { month: 'long', year: 'numeric' });
+    if (r[2]) return 'Ramadan ' + r[2] + ' AH · ' + f(r[0], { day: 'numeric', month: 'short', year: 'numeric' }) + ' – ' + f(r[1], { day: 'numeric', month: 'short', year: 'numeric' });
     return r[0].slice(0, 4);
   }
   function report() {
@@ -590,6 +618,8 @@
       '<h4>Hidden area colour</h4><p class="small muted">What covers the part of a page hidden by a section line. Paper is the default; White is how it used to look.</p><div class="rrow">' + [['#f3e9d4', 'Paper'], ['#ffffff', 'White'], ['#fbf6e9', 'Cream'], ['#e9ecea', 'Grey']].map(function (c) { return '<button class="sw-c ' + ((s.hideCol || '#f3e9d4') === c[0] ? 'on' : '') + '" style="background:' + c[0] + '" data-act="cover" data-c="' + c[0] + '" aria-label="' + c[1] + '" title="' + c[1] + '"></button>'; }).join('') + '<span class="small muted" style="margin-left:6px">' + ({ '#f3e9d4': 'Paper', '#ffffff': 'White', '#fbf6e9': 'Cream', '#e9ecea': 'Grey' }[s.hideCol || '#f3e9d4'] || '') + '</span></div>' +
       '<h4>Custom tags</h4><p class="small muted">' + (S.d.tags.length ? S.d.tags.length + ' tag' + (S.d.tags.length === 1 ? '' : 's') + '. ' : '') + 'Create tags with + Tag on the Memorizing tab; long-press a tag to rename, archive or delete it.</p>' +
       '<div class="frow"><label>Show archived tags<br><span class="small muted">Greyed at the end of the tag row, both modes. Long-press one to unarchive it.</span></label><button class="sw ' + (s.showArch ? 'on' : '') + '" data-act="showArch"></button></div>' +
+      '<h4>Recitation</h4><div class="frow"><label>Ramadan start<br><span class="small muted">For the Ramadan-to-Ramadan year. Day 1 comes from the Umm al-Qura calendar; move it a day for local moon sighting.</span></label></div>' +
+      '<div class="seg mini">' + [[-1, '1 day earlier'], [0, 'Umm al-Qura'], [1, '1 day later']].map(function (x) { return '<button class="' + ((+s.ramAdj || 0) === x[0] ? 'on' : '') + '" data-act="ramAdj" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
       '<h4>Account &amp; sync</h4>' + acct +
       '<h4>Offline</h4><button class="btn sm" data-act="precache">Save my Memorizing pages for offline</button>' +
       '<h4>Share</h4><div class="frow"><label>Share the app<br><span class="small muted">Copies the app link. Each person signs in with their own Google account, so your data stays yours.</span></label><button class="btn sm" data-act="shareApp">Copy link</button></div>' +
@@ -735,6 +765,18 @@
     cal: function (el) { st.cal = el.dataset.m; App.render(); },
     cday: function (el) { st.cday = el.dataset.d || null; App.render(); window.scrollTo(0, 0); },
     sper: function (el) { st.sper = el.dataset.p; App.render(); },
+    ryear: function (el) { S.d.settings.ryear = el.dataset.v; S.saveSettings(); st.ra = null; App.render(); },
+    ramAdj: function (el) { S.d.settings.ramAdj = +el.dataset.v; S.saveSettings(); openSettings(); App.render(); },
+    redit: function (el) {
+      var day = el.dataset.d, rt = rtag(), cur = (S.rread(rt).days[day] || {}), ed = cur.ed;
+      dialog({ title: 'Pages read · ' + new Date(day + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' }), input: String(cur.pg || 0), num: true,
+        msg: 'Fix a day thrown off by an accidental bookmark.' + (ed ? ' From bookmarks: ' + (cur.orig || 0) + '.' : ''),
+        btns: (ed ? [['rs', 'Reset']] : []).concat([['x', 'Cancel'], ['ok', 'Save', 'pri']]) }, function (v, w) {
+        if (w === 'rs') S.setRadj(rt, day, null);
+        else { var n = parseInt(v, 10); if (!(n >= 0 && n <= 604)) { App.toast('Enter 0–604 pages'); return; } S.setRadj(rt, day, n); }
+        App.render();
+      });
+    },
     rp: function (el) { st.rp = el.dataset.p; App.render(); },
     ra: function (el) { st.ra = el.dataset.d; App.render(); },
     rsrt: function (el) { st.rsrt = el.dataset.s; App.render(); },

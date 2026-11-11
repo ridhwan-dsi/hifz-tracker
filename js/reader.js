@@ -1043,7 +1043,7 @@
       tile('Juz this month', jf(M.jz)) + tile('Days read this month', M.d) + tile('Average per reading day', A.d ? Math.round(A.pg / A.d) + ' pages' : '–') + (nc ? tile('Completions', nc) : '') + '</div>';
     var rows = '';
     for (var i = 0; i < 7; i++) { var d = new Date(now); d.setDate(now.getDate() - i); var k = dk(d), v = D[k];
-      rows += '<div class="rsday"><span>' + (i === 0 ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })) + '</span><b>' + (v && v.pg ? v.pg + ' page' + (v.pg === 1 ? '' : 's') + (v.to ? ' <span class="muted">→ P. ' + v.to + '</span>' : '') : '–') + '</b></div>'; }
+      rows += '<div class="rsday"><span>' + (i === 0 ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })) + '</span><b>' + (v && v.pg ? v.pg + ' page' + (v.pg === 1 ? '' : 's') + (v.ed ? ' <span class="muted">· edited</span>' : v.to ? ' <span class="muted">→ P. ' + Math.min(604, v.to) + '</span>' : '') : '–') + '</b></div>'; }
     x += '<div class="slbl">Last 7 days</div><div class="rsdays">' + rows + '</div>';
     return x + '</div><div class="sfoot"><button class="tb" data-ract="statBack">' + IC.back + 'Back</button></div></div>';
   }
