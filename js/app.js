@@ -28,12 +28,16 @@
   function tagSub(t) { return t.s === 'new' ? 'new' : 'review'; }
   function subOf(k) { return S.hasTag(k, 'new') ? 'new' : 'review'; }
   function subTags(sb) { return S.d.tags.filter(function (t) { return tagSub(t) === sb; }); }
+  /* v121 (SL7): archived tags (t.a) are hidden everywhere unless Settings → Show archived tags is on; then they sit greyed at the end. */
+  function showArch() { return !!S.d.settings.showArch; }
+  function liveTags(sb) { return subTags(sb).filter(function (t) { return !t.a; }); }
+  function archTags(sb) { return showArch() ? subTags(sb).filter(function (t) { return t.a; }) : []; }
   /* Tags offered for a page: New, Review, then the custom tags of that page's sub-tab (all of them if no page). */
-  function allTags(k) { return BUILTIN.concat(k ? subTags(subOf(k)) : S.d.tags); }
+  function allTags(k) { return BUILTIN.concat(k ? liveTags(subOf(k)) : S.d.tags.filter(function (t) { return !t.a; })); }
   function tagBorn(t) { var n = parseInt(String(t.id).slice(1), 36); return isNaN(n) ? 0 : n; }
   function byOpened(a) { return a.slice().sort(function (x, y) { return (y.o || tagBorn(y)) - (x.o || tagBorn(x)); }); }
   /* The custom tag the Memorizing tab is filtered to (null for New / Review / All). */
-  function ctag() { var sb = sub(), c = (S.d.ui.cts || {})[sb]; return c && c !== 'all' ? subTags(sb).filter(function (t) { return t.id === c; })[0] || null : null; }
+  function ctag() { var sb = sub(), c = (S.d.ui.cts || {})[sb]; return c && c !== 'all' ? subTags(sb).filter(function (t) { return t.id === c && (!t.a || showArch()); })[0] || null : null; }
   /* Memorizing sub-tab: 'new' (tagged New) or 'review' (everything else). Old single-chip state carries over once. */
   function sub() {
     var u = S.d.ui;
@@ -95,13 +99,14 @@
       '<button class="ib modesw' + (rec ? ' on' : '') + '" data-act="mode" aria-label="' + (rec ? 'Switch to Memorization' : 'Switch to Recitation') + '" title="' + (rec ? 'Memorization mode' : 'Recitation mode') + '">' + ICON.read + '</button>' +
       '<button class="ib" data-act="settings" aria-label="Settings">' + ICON.gear + '</button>' + viewSw() + '</header>';
   }
-  function rtag() { var id = S.d.ui.rtag || 'def'; return S.rtag(id).id; }
+  function rtag() { var t = S.rtag(S.d.ui.rtag || 'def'); return t.a && !showArch() ? 'def' : t.id; }
   function recHome() {
     var d = S.d, h = header(), rl = d.rlast;
     var rt = rtag(), bm = S.bm(rt);
     // v119 (SL6): tags — Main plus his own readings (e.g. a Ramadan khatm), each with its own bookmark, log and stats.
-    h += '<div class="chips">' + S.rtags().map(function (t) {
-      return '<button class="chip ' + (t.id === rt ? 'on' : '') + '" data-act="rchip" data-t="' + esc(t.id) + '"' + (t.id === 'def' ? '' : ' data-long="rtag"') + '>' + esc(t.name) + '</button>';
+    var rts = S.rtags(), rlist = rts.filter(function (t) { return !t.a; }).concat(showArch() ? rts.filter(function (t) { return t.a; }) : []);
+    h += '<div class="chips">' + rlist.map(function (t) {
+      return '<button class="chip ' + (t.id === rt ? 'on' : '') + (t.a ? ' arch' : '') + '" data-act="rchip" data-t="' + esc(t.id) + '"' + (t.id === 'def' ? '' : ' data-long="rtag"') + '>' + esc(t.name) + '</button>';
     }).join('') + '<button class="chip add" data-act="raddTag">+ Tag</button></div>';
     // v117: Continue (last page read) and the bookmark (where the reading really stands) side by side.
     if ((rl && rl.p) || bm.p) h += '<div class="rconts">' + (rl && rl.p ? '<div class="cont min"><button class="go" data-act="ropen" data-p="' + rl.p + '" data-n="' + (rl.n || 0) + '">' + ICON.play + ' Continue · ' + esc(SUR[(rl.n || onPage(rl.p)[0]) - 1][0]) + ' · P. ' + rl.p + '</button></div>' : '') +
@@ -221,8 +226,8 @@
       var nc = Object.keys(S.d.pages).filter(function (k) { return S.isMem(k) && subOf(k) === t.id; }).length;
       return '<button class="' + (sb === t.id ? 'on' : '') + '" data-act="sub" data-t="' + t.id + '">' + esc(t.name) + ' <span class="cnt">' + nc + '</span></button>';
     }).join('') + '</nav>';
-    h += '<div class="chips"><button class="chip ' + (!ct ? 'on' : '') + '" data-act="chip" data-t="all">All</button>' + byOpened(subTags(sb)).map(function (t) {
-      return '<button class="chip ' + (ct && ct.id === t.id ? 'on' : '') + '" data-act="chip" data-long="tag" data-t="' + esc(t.id) + '">' + esc(t.name) + '</button>';
+    h += '<div class="chips"><button class="chip ' + (!ct ? 'on' : '') + '" data-act="chip" data-t="all">All</button>' + byOpened(liveTags(sb)).concat(byOpened(archTags(sb))).map(function (t) {
+      return '<button class="chip ' + (ct && ct.id === t.id ? 'on' : '') + (t.a ? ' arch' : '') + '" data-act="chip" data-long="tag" data-t="' + esc(t.id) + '">' + esc(t.name) + '</button>';
     }).join('') + '<button class="chip add" data-act="addTag">+ Tag</button></div>';
     var cnt = Object.keys(S.d.pages).filter(memMatch).length, pgs = ' <span class="muted">· ' + cnt + ' page' + (cnt === 1 ? '' : 's') + '</span>';
     if (st.tedit && (ct ? st.tedit !== ct.id : st.tedit !== 'all')) st.tedit = null;
@@ -348,8 +353,10 @@
       lp = null; lpFired = Date.now(); try { navigator.vibrate && navigator.vibrate(25); } catch (er) {}
       if (c.dataset.long === 'rtag') { ACT.rtagMenu(c); return; }
       var id = c.dataset.t, t = S.d.tags.filter(function (q) { return q.id === id; })[0]; if (!t) return;
-      dialog({ title: t.name, btns: [['x', 'Cancel'], ['del', 'Delete', 'danger'], ['ren', 'Rename', 'pri']] }, function (v, w) {
+      dialog({ title: t.name, col: true, btns: t.a ? [['un', 'Unarchive', 'pri'], ['del', 'Delete', 'danger'], ['x', 'Cancel']] :
+        [['ren', 'Rename', 'pri'], ['arc', 'Archive'], ['del', 'Delete', 'danger'], ['x', 'Cancel']] }, function (v, w) {
         if (w === 'ren') ACT.renTag(c); else if (w === 'del') ACT.delTag(c);
+        else if (w === 'arc' || w === 'un') ACT.archTag(t, w === 'arc');
       });
     }, 550) };
   }, true);
@@ -576,7 +583,8 @@
       '<div class="frow"><label>Raise health every</label>' + '<select data-in="tRuleN">' + [0, 5, 10, 20, 30, 50, 100].map(function (v) { return '<option value="' + v + '"' + (+s.tRuleN === v ? ' selected' : '') + '>' + (v ? v + ' reads' : 'Off') + '</option>'; }).join('') + '</select>' + '</div>' +
       (s.tRuleN ? '<div class="frow"><label>By</label>' + '<select data-in="tRulePct">' + [5, 10, 15, 20].map(function (v) { return '<option value="' + v + '"' + (+s.tRulePct === v ? ' selected' : '') + '>' + '+' + v + '%' + '</option>'; }).join('') + '</select>' + '</div>' : '') +
       '<h4>Hidden area colour</h4><p class="small muted">What covers the part of a page hidden by a section line. Paper is the default; White is how it used to look.</p><div class="rrow">' + [['#f3e9d4', 'Paper'], ['#ffffff', 'White'], ['#fbf6e9', 'Cream'], ['#e9ecea', 'Grey']].map(function (c) { return '<button class="sw-c ' + ((s.hideCol || '#f3e9d4') === c[0] ? 'on' : '') + '" style="background:' + c[0] + '" data-act="cover" data-c="' + c[0] + '" aria-label="' + c[1] + '" title="' + c[1] + '"></button>'; }).join('') + '<span class="small muted" style="margin-left:6px">' + ({ '#f3e9d4': 'Paper', '#ffffff': 'White', '#fbf6e9': 'Cream', '#e9ecea': 'Grey' }[s.hideCol || '#f3e9d4'] || '') + '</span></div>' +
-      '<h4>Custom tags</h4><p class="small muted">' + (S.d.tags.length ? S.d.tags.length + ' tag' + (S.d.tags.length === 1 ? '' : 's') + '. ' : '') + 'Create tags with + Tag on the Memorizing tab; long-press a tag to rename or delete it.</p>' +
+      '<h4>Custom tags</h4><p class="small muted">' + (S.d.tags.length ? S.d.tags.length + ' tag' + (S.d.tags.length === 1 ? '' : 's') + '. ' : '') + 'Create tags with + Tag on the Memorizing tab; long-press a tag to rename, archive or delete it.</p>' +
+      '<div class="frow"><label>Show archived tags<br><span class="small muted">Greyed at the end of the tag row, both modes. Long-press one to unarchive it.</span></label><button class="sw ' + (s.showArch ? 'on' : '') + '" data-act="showArch"></button></div>' +
       '<h4>Account &amp; sync</h4>' + acct +
       '<h4>Offline</h4><button class="btn sm" data-act="precache">Save my Memorizing pages for offline</button>' +
       '<h4>Share</h4><div class="frow"><label>Share the app<br><span class="small muted">Copies the app link. Each person signs in with their own Google account, so your data stays yours.</span></label><button class="btn sm" data-act="shareApp">Copy link</button></div>' +
@@ -619,7 +627,7 @@
     selMove: function () {
       var ks = subPool().filter(function (k) { return st.sel[k]; }); if (!ks.length) return;
       var to = sub() === 'new' ? 'review' : 'new', toName = to === 'new' ? 'New' : 'Review';
-      var btns = [['all', toName + ' · All', 'pri']].concat(byOpened(subTags(to)).map(function (t) { return [t.id, t.name]; }), [['x', 'Cancel']]);
+      var btns = [['all', toName + ' · All', 'pri']].concat(byOpened(liveTags(to)).map(function (t) { return [t.id, t.name]; }), [['x', 'Cancel']]);
       dialog({ title: 'Move ' + ks.length + ' page' + (ks.length === 1 ? '' : 's') + ' to ' + toName, msg: 'Pick All or a tag in ' + toName + '.', btns: btns, col: true }, function (v, w) {
         var tg = w === 'all' ? null : subTags(to).filter(function (t) { return t.id === w; })[0];
         if (w !== 'all' && !tg) return;
@@ -642,6 +650,12 @@
         name = (name || '').trim(); if (!name || name === t.name) return;
         t.name = name; S.saveSettings(); App.render();
       });
+    },
+    // v121 (SL7): archive keeps the tag, its pages and stats; it just leaves the chip row (and Move lists) until unarchived.
+    archTag: function (t, on) {
+      if (on) { t.a = 1; var cts = S.d.ui.cts || {}; Object.keys(cts).forEach(function (b) { if (cts[b] === t.id) cts[b] = 'all'; }); if (st.tedit === t.id) st.tedit = null; }
+      else delete t.a;
+      S.saveSettings(); App.render(); App.toast(on ? 'Tag archived' + (showArch() ? '' : ' · Settings → Show archived tags') : 'Tag unarchived');
     },
     delTag: function (el) {
       var id = el.dataset.t, t = S.d.tags.filter(function (x) { return x.id === id; })[0]; if (!t) return;
@@ -689,7 +703,12 @@
     },
     rtagMenu: function (c) {
       var t = S.d.rtags.filter(function (q) { return q.id === c.dataset.t; })[0]; if (!t) return;
-      dialog({ title: t.name, btns: [['x', 'Cancel'], ['del', 'Delete', 'danger'], ['ed', 'Edit', 'pri']] }, function (v, w) {
+      dialog({ title: t.name, col: true, btns: t.a ? [['un', 'Unarchive', 'pri'], ['del', 'Delete', 'danger'], ['x', 'Cancel']] :
+        [['ed', 'Edit', 'pri'], ['arc', 'Archive'], ['del', 'Delete', 'danger'], ['x', 'Cancel']] }, function (v, w) {
+        if (w === 'arc' || w === 'un') { // v121 (SL7): bookmark, log and stats are kept; All readings stats still count it.
+          if (w === 'arc') { t.a = 1; if (S.d.ui.rtag === t.id) S.d.ui.rtag = 'def'; } else delete t.a;
+          S.saveRtags(); App.render(); App.toast(w === 'arc' ? 'Reading archived' + (showArch() ? '' : ' · Settings → Show archived tags') : 'Reading unarchived'); return;
+        }
         if (w === 'ed') dialog({ title: 'Edit reading', input: t.name, ok: 'Save', html: tagFields(t.start || 1, t.target || '', true) }, function (name, w2, f) {
           name = (name || '').trim(); if (name) t.name = name; t.target = f.target || ''; S.saveRtags(); App.render();
         });
@@ -753,6 +772,7 @@
     tapShow: function () { S.d.settings.tapShow = !S.d.settings.tapShow; S.saveSettings(); openSettings(); },
     boxHLock: function () { S.d.settings.boxHLock = S.d.settings.boxHLock === false; S.saveSettings(); openSettings(); },
     cropRestore: function () { if (!confirm('Restore the default crop to the auto-trim?')) return; S.d.settings.cropDef = null; S.saveSettings(); /* null, not delete, so the restore syncs to other devices */ openSettings(); App.render(); App.toast('Default crop restored'); },
+    showArch: function () { S.d.settings.showArch = !S.d.settings.showArch; S.saveSettings(); openSettings(); App.render(); },
     decayOn: function () { S.d.settings.decayOn = !S.d.settings.decayOn; S.saveSettings(); openSettings(); App.render(); },
     cover: function (el) { S.d.settings.hideCol = el.dataset.c; S.saveSettings(); openSettings(); },
     signIn: function () { Sync.signIn(false); },
