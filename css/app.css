@@ -144,7 +144,7 @@ svg.i { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-widt
 .rhandle { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 42; display: flex; align-items: center; border-radius: 99px; background: rgba(20,24,22,.72); color: #fff; font-weight: 700; font-size: 13px; backdrop-filter: blur(6px); white-space: nowrap; }
 .rhandle .rh-exp { display: flex; align-items: center; gap: 6px; padding: 9px 14px; color: inherit; font: inherit; }
 .rhandle svg.i { width: 18px; height: 18px; }
-.rpanel { position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; background: var(--card); color: var(--ink); border-radius: 18px 18px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,.25); padding: 0 12px calc(10px + env(safe-area-inset-bottom)); max-width: 820px; margin: 0 auto; max-height: 75vh; overflow-y: auto; }
+.rpanel { position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; background: var(--card); color: var(--ink); border-radius: 0; box-shadow: 0 -4px 20px rgba(0,0,0,.25); padding: 0 12px calc(10px + env(safe-area-inset-bottom)); max-width: 820px; margin: 0 auto; max-height: 75vh; overflow-y: auto; }
 .grab { display: flex; justify-content: center; align-items: center; width: 100%; height: 26px; touch-action: none; color: var(--muted); cursor: grab; }
 .grab svg.i { width: 34px; height: 22px; stroke-width: 2.6; padding: 0 6px; border-radius: 99px; background: var(--line); color: var(--ink); opacity: .75; }
 .rpanel .dzh { display: none !important; }
@@ -282,6 +282,8 @@ em.dn, em.dr { display: inline-block; width: 6px; height: 6px; border-radius: 50
 .zchip button { width: 38px; height: 34px; color: inherit; font-size: 20px; line-height: 1; touch-action: manipulation; }
 .zchip button:disabled { opacity: .35; }
 @media (orientation: portrait) { .zchip { display: none; } }
+#rui .rhandle.fl, #rui .zchip { transition: opacity .3s; }
+#rui.uihide .rhandle.fl, #rui.uihide .zchip { opacity: 0; pointer-events: none; }
 /* Shared page: pick which surah's part you are tracking */
 .sswitch { display: inline-flex; gap: 4px; vertical-align: middle; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
 .sswitch::-webkit-scrollbar { display: none; }
@@ -471,7 +473,7 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 .crow { display: flex; align-items: stretch; gap: 12px; }
 .twheel.cwheel { flex: 1; width: auto; height: 84px; }
 .cwheel .wsp { height: 28px; } .cwheel .wv { height: 28px; line-height: 28px; font-size: 13px; } .cwheel .wv.on { font-size: 16px; color: var(--acc); }
-.cside { display: grid; grid-template-rows: 22px 40px 22px; justify-items: center; }
+.cside { display: grid; grid-template-rows: 40px 1fr 22px; justify-items: center; align-items: center; } /* v115: icons top, checkbox clear of them */
 .cbtns { display: flex; gap: 10px; }
 .cdef { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; }
 .cdef input { width: 16px; height: 16px; margin: 0; accent-color: var(--acc); }

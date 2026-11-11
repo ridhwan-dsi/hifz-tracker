@@ -363,6 +363,11 @@
     }
     el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
   }
+  /* v115: with the stopwatch chip moved out, the page pill (and in landscape the zoom chip) fade out after 2 s
+     without a touch; any touch except on the counter brings them back for another 2 s. */
+  var UH = null;
+  function uiIdle() { var h = $('#rui'); if (!h) return; h.classList.remove('uihide'); clearTimeout(UH); UH = setTimeout(function () { h.classList.add('uihide'); }, 2000); }
+  document.addEventListener('pointerdown', function (e) { if (Reader.isOpen() && !(e.target.closest && e.target.closest('#tally'))) uiIdle(); }, true);
   function measurePanel() {
     var pn = $('.rpanel'); var h = R.panel && pn ? pn.offsetHeight : 0;
     // v111: the Ribbon height (drawer minus everything between the arrow and the toolbar) sets the page size on the phone,
@@ -668,7 +673,7 @@
       var ta = Timer.active(), tr = Timer.state().run;
       // One bottom pill: expand handle, then (when a session exists) the stopwatch chip — tap it to pause/resume.
       var fl = !!TP[ori()], chip = '';
-      x += navBtns('float') + '<div class="rhandle"><button class="rh-exp" data-ract="expand" aria-label="Show controls">' + IC.up + '<span>P. ' + p + '</span></button>';
+      x += navBtns('float') + '<div class="rhandle' + (fl && ta ? ' fl' : '') + '"><button class="rh-exp" data-ract="expand" aria-label="Show controls">' + IC.up + '<span>P. ' + p + '</span></button>';
       if (ta) chip += '<button class="tchip' + (fl ? ' tfloat' : '') + (Timer.achieved() ? ' ach' : '') + (tr ? '' : ' paused') + '" data-ract="tGo" aria-label="' + (tr ? 'Pause' : 'Resume') + ' stopwatch">' +
         (Timer.achieved() ? IC.check : '<i class="tdot"></i>') + '<span class="tmr-t">' + Timer.shown(Timer.state().secs) + '</span>' +
         (S.d.settings.sessT && !Timer.achieved() ? '<span class="tgl">/ ' + S.d.settings.sessT + ':00</span>' : '') + (tr ? IC.pause : IC.play) + '</button>';
@@ -749,6 +754,7 @@
     if (R.scrollEnd) { R.scrollEnd = false; var tr = document.querySelector('.rpanel .rrow.tools'); if (tr) tr.scrollLeft = tr.scrollWidth; }
     fitRows();
     if (measurePanel()) relayout();
+    if (UH === null) uiIdle();
     if (window.Tally) Tally.render(); // v114: a counter left where the drawer opened goes back home
   }
   /* Drawer sizes: Full (all rows), Fit (shrinks to the gap under a full-width page), Ribbon (toolbar only).
@@ -916,7 +922,7 @@
       '<span class="t3r"><button class="jsw' + (rm ? ' on' : '') + '" data-ract="tRem" role="switch" aria-checked="' + rm + '"><i></i>Time left</button></span></div></div>';
   }
   function wireWheel() {
-    var w = document.querySelector('.rpanel .twheel'); if (!w) return;
+    var w = document.querySelector('.rpanel .twheel:not(.cwheel)'); if (!w) return; // v115: not the Crop wheel
     var on = w.querySelector('.wv.on'), t = null, lastU = 0, mark = function () { lastU = Date.now(); };
     ['pointerdown', 'pointermove', 'touchstart', 'touchmove', 'wheel'].forEach(function (ev) { w.addEventListener(ev, mark, { passive: true }); });
     var mid = function () { var c = w.scrollTop + w.clientHeight / 2, best = null, bd = 1e9; [].forEach.call(w.querySelectorAll('.wv'), function (b) { var d = Math.abs(b.offsetTop + b.offsetHeight / 2 - c); if (d < bd) { bd = d; best = b; } }); return best; };
@@ -1004,8 +1010,8 @@
   function cropPanel() {
     var wh = '<div class="twheel cwheel" aria-label="Crop mode"><i class="wsp"></i>' + cropModes().map(function (o) { return '<b class="wv' + (o[0] === R.cmode ? ' on' : '') + '" data-v="' + o[0] + '">' + o[1] + '</b>'; }).join('') + '<i class="wsp"></i></div>';
     return '<div class="rrow"><div class="rtitle" style="text-align:left">Crop <span class="plabel">P. ' + R.p + '</span></div></div>' +
-      '<div class="crow">' + wh + '<div class="cside"><i></i><div class="cbtns"><button class="icb" data-ract="cropCancel" aria-label="Cancel">' + IC.x + '</button>' +
-      '<button class="icb pri" data-ract="cropApply" aria-label="Apply">' + IC.check + '</button></div>' +
+      '<div class="crow">' + wh + '<div class="cside"><div class="cbtns"><button class="icb" data-ract="cropCancel" aria-label="Cancel">' + IC.x + '</button>' +
+      '<button class="icb pri" data-ract="cropApply" aria-label="Apply">' + IC.check + '</button></div><i></i>' +
       '<label class="cdef"><input type="checkbox" id="cropDefCb"' + (R.cdef ? ' checked' : '') + '> Set as default</label></div></div>';
   }
   function cropDraftFor(m) {
