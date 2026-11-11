@@ -128,7 +128,13 @@
     /* v117 Recitation bookmark: one moving bookmark per tag ("resume at p, finished up to p-1"), every move logged. */
     bm: function (tag) { var B = this.d.rbm || (this.d.rbm = {}); return B[tag || 'def'] || (B[tag || 'def'] = { p: 0, n: 0, t: 0, log: [] }); },
     // v119: Recitation tags. 'def' = Main (can't be renamed or deleted). Each tag = one cover-to-cover reading.
-    rtags: function () { return [{ id: 'def', name: 'Main' }].concat(this.d.rtags || []); },
+    rtags: function () { var m = this.d.rmain || {}; return [{ id: 'def', name: 'Main', start: m.start, from: m.from }].concat(this.d.rtags || []); },
+    /* v126: a reading's bookmark log as counted for stats and the Reading log, oldest first. A start date (Main → Start page)
+       drops everything logged before it, so pages read elsewhere and old test bookmarks don't count. */
+    rlog: function (tag) {
+      var t = this.rtag(tag), f = t.from ? new Date(t.from + 'T00:00:00').getTime() : 0;
+      return (this.bm(tag).log || []).filter(function (e) { return e[0] >= f; }).sort(function (x, y) { return x[0] - y[0]; });
+    },
     rtag: function (id) { return this.rtags().filter(function (t) { return t.id === id; })[0] || this.rtags()[0]; },
     saveRtags: function () { this.d.rtu = Date.now(); this.save(); },
     // Position in juz (0–30) of page p, from the juz start pages, for "juz read".
@@ -136,7 +142,7 @@
     /* v119 (SL9) pages read per day for a tag: the day's last bookmark minus the last bookmark of the previous
        reading day (never negative). Baseline = the tag's start page, else its first bookmark. */
     rread: function (tag) {
-      var b = this.bm(tag), t = this.rtag(tag), log = (b.log || []).slice().sort(function (x, y) { return x[0] - y[0]; }), byDay = {}, order = [], self = this;
+      var t = this.rtag(tag), log = this.rlog(tag), byDay = {}, order = [], self = this;
       log.forEach(function (e) { var d = new Date(e[0]), k = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); if (!byDay[k]) { byDay[k] = []; order.push(k); } byDay[k].push(e); });
       // v123 (SL8): a completion is logged as page 605 (end of the mushaf); the entry after it (Main restarting) is a new baseline.
       var prev = t.start || (log[0] ? log[0][1] : 0), out = {}, reset = false;
@@ -202,7 +208,7 @@
           });
         });
       });
-      if ((r.rtu || 0) > (L.rtu || 0)) { L.rtags = r.rtags || []; L.rcomp = r.rcomp || L.rcomp || []; L.radj = r.radj || L.radj || {}; L.rtu = r.rtu; } // v119: Recitation tags
+      if ((r.rtu || 0) > (L.rtu || 0)) { L.rtags = r.rtags || []; L.rcomp = r.rcomp || L.rcomp || []; L.radj = r.radj || L.radj || {}; L.rmain = r.rmain || L.rmain; L.rtu = r.rtu; } // v119: Recitation tags
       // v117: bookmarks — the later move wins; logs are merged by time, minus entries undone on either side (del).
       Object.keys(r.rbm || {}).forEach(function (id) {
         var rb = r.rbm[id], lb = (L.rbm || (L.rbm = {}))[id];

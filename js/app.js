@@ -108,7 +108,7 @@
     // v119 (SL6): tags — Main plus his own readings (e.g. a Ramadan khatm), each with its own bookmark, log and stats.
     var rts = S.rtags(), rlist = rts.filter(function (t) { return !t.a; }).concat(showArch() ? rts.filter(function (t) { return t.a; }) : []);
     h += '<div class="chips">' + rlist.map(function (t) {
-      return '<button class="chip ' + (t.id === rt ? 'on' : '') + (t.a ? ' arch' : '') + (t.done ? ' done' : '') + '" data-act="rchip" data-t="' + esc(t.id) + '"' + (t.id === 'def' ? '' : ' data-long="rtag"') + '>' + esc(t.name) + '</button>';
+      return '<button class="chip ' + (t.id === rt ? 'on' : '') + (t.a ? ' arch' : '') + (t.done ? ' done' : '') + '" data-act="rchip" data-t="' + esc(t.id) + '"' + (t.id === 'def' ? ' data-long="rmain"' : ' data-long="rtag"') + '>' + esc(t.name) + '</button>';
     }).join('') + '<button class="chip add" data-act="raddTag">+ Tag</button></div>';
     // v117: Continue (last page read) and the bookmark (where the reading really stands) side by side.
     if ((rl && rl.p) || bm.p) h += '<div class="rconts">' + (rl && rl.p ? '<div class="cont min"><button class="go" data-act="ropen" data-p="' + rl.p + '" data-n="' + (rl.n || 0) + '">' + ICON.play + ' Continue · ' + esc(SUR[(rl.n || onPage(rl.p)[0]) - 1][0]) + ' · P. ' + rl.p + '</button></div>' : '') +
@@ -121,8 +121,7 @@
      (the previous day's last bookmark, or the tag's start page), End = the page before the day's last bookmark,
      Total = pages read that day (same figure as Stats, including a hand-corrected day). A completion (605) ends at 604. */
   function bmTab() {
-    var tg = rtag(), b = S.bm(tg), t = S.rtag(tg), rr = S.rread(tg).days;
-    var log = (b.log || []).slice().sort(function (x, y) { return x[0] - y[0]; });
+    var tg = rtag(), t = S.rtag(tg), rr = S.rread(tg).days, log = S.rlog(tg);
     if (!log.length) return '<div class="list"><div class="empty">No readings yet. In the reader, tap ' + ICON.bmk + ' Bookmark to mark where you stopped.</div></div>';
     var byDay = {}, order = [];
     log.forEach(function (e) { var d = new Date(e[0]), k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); if (!byDay[k]) { byDay[k] = []; order.push(k); } byDay[k].push(e); });
@@ -380,6 +379,7 @@
     lp = { c: c, x: x, y: y, t: setTimeout(function () {
       lp = null; lpFired = Date.now(); try { navigator.vibrate && navigator.vibrate(25); } catch (er) {}
       if (c.dataset.long === 'rtag') { ACT.rtagMenu(c); return; }
+      if (c.dataset.long === 'rmain') { ACT.rmainStart(); return; }
       var id = c.dataset.t, t = S.d.tags.filter(function (q) { return q.id === id; })[0]; if (!t) return;
       dialog({ title: t.name, col: true, btns: t.a ? [['un', 'Unarchive', 'pri'], ['del', 'Delete', 'danger'], ['x', 'Cancel']] :
         [['ren', 'Rename', 'pri'], ['arc', 'Archive'], ['del', 'Delete', 'danger'], ['x', 'Cancel']] }, function (v, w) {
@@ -606,44 +606,79 @@
   }
 
   /* ---------------- Settings ---------------- */
+  /* v126 (SL20): names only — tapping a setting's name opens its help in a small drawer at the bottom of the sheet.
+     Mode-specific: each mode shows only the settings that do something there (shared ones in both). */
+  var SHELP = {
+    acct: 'Your progress, boxes and lines are kept in your own Google Drive and synced across devices. Sign out to use the app on this device only.',
+    theme: 'Colour of the app: Green (default), Blue or Dark.',
+    web: 'For laptops and big screens: a thin control bar across the bottom, page arrows at the sides, two facing pages. Off: the phone reader. Also on the switch beside Settings.',
+    webTrim: 'Off: web view shows whole pages, like a printed mushaf.',
+    fit: 'Whole page on screen, or fit the page width and scroll.',
+    trim: 'Trims the white margins, measured separately for every page. Your own crops override it.',
+    crop: 'Your default crop applies to every page you haven’t cropped yourself; Auto in a page’s Crop uses it. To make one, open Crop on a page, adjust it and tap “Set as default”. Restore goes back to the auto-trim.',
+    pad: 'Extra space kept around the trimmed page.',
+    tap: 'On: double-tap the page to hide or bring back the drawer. Off: a single tap hides it and the page number brings it back.',
+    boxW: 'How wide a new box starts, as a share of the page width.',
+    boxH: 'On: a box’s handles change only its width, so the height can’t shift by accident. Off: the corner handles change width and height.',
+    cover: 'What covers the part of a page hidden by a section line. Paper is the default; White is how it used to look.',
+    swipe: 'Swiping stays inside one surah. On: when the next surah in your list starts on the same or the next page (e.g. Faatir → Yaseen), swiping carries on into it.',
+    decay: 'A page loses health when it isn’t reviewed: after the days you pick, then by the percentage each week.',
+    goal: 'Minutes of stopwatch time a day across all pages. You get a note when you reach it.',
+    tHold: 'How long to hold the counter until the ring closes and one read is counted.',
+    tDay: 'Page reads a day (a page counts once all its sections are read).',
+    tRule: 'Every so many reads of a page raises its health by the percentage you pick.',
+    arch: 'Archived tags show greyed at the end of the tag row, in both modes. Long-press one to unarchive it. Tags are created with + Tag; long-press a tag to rename, archive or delete it.',
+    ram: 'For the Ramadan-to-Ramadan year in Stats. Day 1 comes from the Umm al-Qura calendar; move it a day for local moon sighting.',
+    main: 'Long-press Main on the Recitation home to set its start page and the day counting begins, so pages read elsewhere don’t count.',
+    offline: 'Saves your Memorizing pages (and the pages beside them) on this device, for reading without internet.',
+    share: 'Copies the app link. Each person signs in with their own Google account, so your data stays yours.',
+    update: 'Clears the cached app files and reloads. Your data and offline pages are kept. The version beside the button shows which one you have.',
+    install: 'Open the browser menu → “Install app” / “Add to Home screen” for full screen.'
+  };
   function openSettings() {
-    var s = S.d.settings, cid = Sync.cid();
-    var acct = !cid ? '<p class="small muted">Google sign-in has not been configured for this app yet, so your data is kept on this device only.</p>'
-      : S.d.acct ? '<div class="frow"><label><b>' + esc(S.d.acct) + '</b><br><span class="small muted">' + ({ ok: 'Synced to your Google Drive', syncing: 'Syncing…', paused: 'Sync paused — tap Sync now', error: 'Last sync failed' }[Sync.state] || '') + '</span></label><button class="btn sm" data-act="syncNow">Sync now</button></div><button class="btn sm" data-act="signOut">Sign out</button>'
-        : '<p class="small muted">Sign in with Google to keep your progress, boxes and lines in your own Google Drive, on every device.</p><button class="btn pri" data-act="signIn">Sign in with Google</button>';
+    var s = S.d.settings, cid = Sync.cid(), rec = isRec();
+    var nm = function (k, t) { return '<button class="slbl" data-act="shelp" data-h="' + k + '">' + t + '</button>'; };
+    var row = function (k, t, ctl) { return '<div class="frow">' + nm(k, t) + (ctl || '') + '</div>'; };
+    var sw = function (on, act) { return '<button class="sw ' + (on ? 'on' : '') + '" data-act="' + act + '"></button>'; };
+    var sel = function (inp, vals, cur, lbl) { return '<select data-in="' + inp + '">' + vals.map(function (v) { var x = Array.isArray(v) ? v : [v, lbl(v)]; return '<option value="' + x[0] + '"' + (String(cur) === String(x[0]) ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>'; };
+    var acct = !cid ? row('acct', 'Data on this device only')
+      : S.d.acct ? '<div class="frow">' + nm('acct', esc(S.d.acct)) + '<span class="sst">' + ({ ok: 'Synced', syncing: 'Syncing…', paused: 'Paused', error: 'Sync failed' }[Sync.state] || '') + '</span><button class="btn sm" data-act="syncNow">Sync</button></div>' +
+        '<div class="frow">' + nm('acct', 'Sign out') + '<button class="btn sm" data-act="signOut">Sign out</button></div>'
+        : '<div class="frow">' + nm('acct', 'Google account') + '<button class="btn sm pri" data-act="signIn">Sign in</button></div>';
     var themes = [['green', '#1f7a52', 'Green'], ['blue', '#1d5ca6', 'Blue'], ['dark', '#111513', 'Dark']];
-    var h = '<div class="sheetm" id="settingsSheet"><h3>Settings</h3>' +
-      '<h4>Theme</h4><div class="themes">' + themes.map(function (t) { return '<button class="' + (s.theme === t[0] ? 'on' : '') + '" data-act="theme" data-t="' + t[0] + '"><span class="sq" style="background:' + t[1] + '"></span>' + t[2] + '</button>'; }).join('') + '</div>' +
-      '<h4>Page display</h4>' + (innerWidth >= 1000 ? '<div class="frow"><label>Web view<br><span class="small muted">For laptops and big screens: a thin control bar across the bottom, page arrows at the sides, two facing pages. Off: the phone reader. Also on the switch beside Settings.</span></label><button class="sw ' + (s.view === 'web' ? 'on' : '') + '" data-act="webView"></button></div>' +
-        '<div class="frow"><label>Trim margins in web view<br><span class="small muted">Off: web view shows whole pages, like a printed mushaf.</span></label><button class="sw ' + (s.webTrim ? 'on' : '') + '" data-act="webTrim"></button></div>' : '') + '<div class="frow"><label>Show pages</label><select data-in="fit"><option value="page"' + (s.fit !== 'width' ? ' selected' : '') + '>Whole page on screen</option><option value="width"' + (s.fit === 'width' ? ' selected' : '') + '>Fit width (scroll)</option></select></div>' +
-      '<div class="frow"><label>Auto-trim margins<br><span class="small muted">Measured separately for every page. Your own crops override it.</span></label><select data-in="trim"><option value="full"' + (s.trim === 'full' ? ' selected' : '') + '>Keep header &amp; page no.</option><option value="frame"' + (s.trim === 'frame' ? ' selected' : '') + '>Frame only</option><option value="off"' + (s.trim === 'off' ? ' selected' : '') + '>Off</option></select></div>' +
-      (s.cropDef ? '<div class="frow"><label>Default crop<br><span class="small muted">Custom, set from P. ' + s.cropDef.p + '. Applies to every page you haven’t cropped yourself; Auto in a page’s Crop uses it. Restore default goes back to the auto-trim above.</span></label><button class="btn sm" data-act="cropRestore">Restore default</button></div>'
-        : '<div class="frow"><label>Default crop<br><span class="small muted">Using the auto-trim above. To make your own, open Crop on a page, adjust it and tap “Set as default”.</span></label></div>') +
-      '<div class="frow"><label>Extra margin</label><select data-in="trimPad">' + [0, 0.01, 0.02, 0.03].map(function (v) { return '<option value="' + v + '"' + (Math.abs((s.trimPad == null ? 0.01 : s.trimPad) - v) < 0.001 ? ' selected' : '') + '>' + (v * 100) + '%</option>'; }).join('') + '</select></div>' +
-      '<div class="frow"><label>New box width<br><span class="small muted">How wide a new box starts, as a share of the page width.</span></label><select data-in="boxW">' + [8, 11, 15, 20, 25, 34, 50].map(function (v) { return '<option value="' + v + '"' + ((+s.boxW || 11) === v ? ' selected' : '') + '>' + v + '%</option>'; }).join('') + '</select></div>' +
-      '<div class="frow"><label>Lock box height<br><span class="small muted">On: a box’s handles change only its width, so the height can’t shift by accident. Off: the corner handles change width and height.</span></label><button class="sw ' + (s.boxHLock !== false ? 'on' : '') + '" data-act="boxHLock"></button></div>' +
-      '<div class="frow"><label>Double-tap page for the drawer<br><span class="small muted">On: double-tap the page to hide or bring back the drawer. Off: a single tap hides it and the page number brings it back.</span></label><button class="sw ' + (s.tapShow ? 'on' : '') + '" data-act="tapShow"></button></div>' +
-      '<div class="frow"><label>Swipe on into the next surah<br><span class="small muted">In Memorizing, swiping stays inside one surah. On: when the next surah in your list starts on the same or the next page (e.g. Faatir → Yaseen), swiping carries on into it. Off: swiping always stops at the end of a surah.</span></label><button class="sw ' + (s.swipeSur !== false ? 'on' : '') + '" data-act="swipeSur"></button></div>' +
-      '<h4>Health decay</h4><div class="frow"><label>Lose health when not reviewed</label><button class="sw ' + (s.decayOn ? 'on' : '') + '" data-act="decayOn"></button></div>' +
-      '<div class="frow"><label>Start after</label><select data-in="decayAfter">' + [7, 10, 14, 21, 30].map(function (v) { return '<option value="' + v + '"' + (s.decayAfter === v ? ' selected' : '') + '>' + v + ' days</option>'; }).join('') + '</select></div>' +
-      '<div class="frow"><label>Then lose</label><select data-in="decayPct">' + [5, 10, 15].map(function (v) { return '<option value="' + v + '"' + (s.decayPct === v ? ' selected' : '') + '>' + v + '% per week</option>'; }).join('') + '</select></div>' +
-      '<h4>Stopwatch</h4><div class="frow"><label>Daily goal</label><select data-in="goalDay">' + [0, 10, 15, 20, 30, 45, 60, 90].map(function (v) { return '<option value="' + v + '"' + (s.goalDay === v ? ' selected' : '') + '>' + (v ? v + ' min' : 'Off') + '</option>'; }).join('') + '</select></div>' +
-      '<h4>Tally</h4><div class="frow"><label>Hold to count<br><span class="small muted">How long to hold the counter until the ring closes.</span></label>' + '<select data-in="tHold">' + [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1, 1.2, 1.5].map(function (v) { return '<option value="' + v + '"' + (+s.tHold === v ? ' selected' : '') + '>' + v + ' s' + '</option>'; }).join('') + '</select>' + '</div>' +
-      '<div class="frow"><label>Daily target<br><span class="small muted">Page reads a day (a page counts once all its sections are read).</span></label>' + '<select data-in="tDay">' + [0, 1, 2, 3, 5, 10, 20, 30].map(function (v) { return '<option value="' + v + '"' + (+s.tDay === v ? ' selected' : '') + '>' + (v ? v + ' reads' : 'Off') + '</option>'; }).join('') + '</select>' + '</div>' +
-      '<div class="frow"><label>Raise health every</label>' + '<select data-in="tRuleN">' + [0, 5, 10, 20, 30, 50, 100].map(function (v) { return '<option value="' + v + '"' + (+s.tRuleN === v ? ' selected' : '') + '>' + (v ? v + ' reads' : 'Off') + '</option>'; }).join('') + '</select>' + '</div>' +
-      (s.tRuleN ? '<div class="frow"><label>By</label>' + '<select data-in="tRulePct">' + [5, 10, 15, 20].map(function (v) { return '<option value="' + v + '"' + (+s.tRulePct === v ? ' selected' : '') + '>' + '+' + v + '%' + '</option>'; }).join('') + '</select>' + '</div>' : '') +
-      '<h4>Hidden area colour</h4><p class="small muted">What covers the part of a page hidden by a section line. Paper is the default; White is how it used to look.</p><div class="rrow">' + [['#f3e9d4', 'Paper'], ['#ffffff', 'White'], ['#fbf6e9', 'Cream'], ['#e9ecea', 'Grey']].map(function (c) { return '<button class="sw-c ' + ((s.hideCol || '#f3e9d4') === c[0] ? 'on' : '') + '" style="background:' + c[0] + '" data-act="cover" data-c="' + c[0] + '" aria-label="' + c[1] + '" title="' + c[1] + '"></button>'; }).join('') + '<span class="small muted" style="margin-left:6px">' + ({ '#f3e9d4': 'Paper', '#ffffff': 'White', '#fbf6e9': 'Cream', '#e9ecea': 'Grey' }[s.hideCol || '#f3e9d4'] || '') + '</span></div>' +
-      '<h4>Custom tags</h4><p class="small muted">' + (S.d.tags.length ? S.d.tags.length + ' tag' + (S.d.tags.length === 1 ? '' : 's') + '. ' : '') + 'Create tags with + Tag on the Memorizing tab; long-press a tag to rename, archive or delete it.</p>' +
-      '<div class="frow"><label>Show archived tags<br><span class="small muted">Greyed at the end of the tag row, both modes. Long-press one to unarchive it.</span></label><button class="sw ' + (s.showArch ? 'on' : '') + '" data-act="showArch"></button></div>' +
-      '<h4>Recitation</h4><div class="frow"><label>Ramadan start<br><span class="small muted">For the Ramadan-to-Ramadan year. Day 1 comes from the Umm al-Qura calendar; move it a day for local moon sighting.</span></label></div>' +
-      '<div class="seg mini">' + [[-1, '1 day earlier'], [0, 'Umm al-Qura'], [1, '1 day later']].map(function (x) { return '<button class="' + ((+s.ramAdj || 0) === x[0] ? 'on' : '') + '" data-act="ramAdj" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
-      '<h4>Account &amp; sync</h4>' + acct +
-      '<h4>Offline</h4><button class="btn sm" data-act="precache">Save my Memorizing pages for offline</button>' +
-      '<h4>Share</h4><div class="frow"><label>Share the app<br><span class="small muted">Copies the app link. Each person signs in with their own Google account, so your data stays yours.</span></label><button class="btn sm" data-act="shareApp">Copy link</button></div>' +
-      '<h4>Update app</h4><div class="frow"><label>Load the latest version<br><span class="small muted">Clears the cached app files and reloads. Your data and offline pages are kept. Version: ' + esc((window.HIFZ_CONFIG || {}).appVersion || '—') + '</span></label><button class="btn sm" data-act="updateApp">Update app</button></div>' +
-      (instEv ? '<button class="btn pri" style="margin-top:14px" data-act="install">' + ICON.down + ' Install app</button>' : installedApp() ? '' :
-        '<p class="small muted" style="margin-top:14px">Install: open the browser menu → “Install app” / “Add to Home screen” for full screen.</p>') +
-      '<div style="text-align:right;margin-top:10px"><button class="btn" data-act="closeSheet">Close</button></div></div>';
+    var ver = esc(((window.HIFZ_CONFIG || {}).appVersion || '—').split(' · ')[0]);
+    var h = '<div class="sheetm sett" id="settingsSheet"><h3>Settings <span class="smode">' + (rec ? 'Recitation' : 'Memorization') + '</span></h3>' +
+      '<h4>Account</h4>' + acct +
+      '<h4>Look</h4><div class="frow">' + nm('theme', 'Theme') + '<div class="themes">' + themes.map(function (t) { return '<button class="' + (s.theme === t[0] ? 'on' : '') + '" data-act="theme" data-t="' + t[0] + '"><span class="sq" style="background:' + t[1] + '"></span>' + t[2] + '</button>'; }).join('') + '</div></div>' +
+      '<h4>Page display</h4>' +
+      (innerWidth >= 1000 ? row('web', 'Web view', sw(s.view === 'web', 'webView')) + row('webTrim', 'Trim margins in web view', sw(s.webTrim, 'webTrim')) : '') +
+      row('fit', 'Show pages', sel('fit', [['page', 'Whole page'], ['width', 'Fit width']], s.fit === 'width' ? 'width' : 'page')) +
+      row('trim', 'Auto-trim', sel('trim', [['full', 'Keep header'], ['frame', 'Frame only'], ['off', 'Off']], s.trim || 'full')) +
+      row('crop', 'Default crop', s.cropDef ? '<span class="sst">P. ' + s.cropDef.p + '</span><button class="btn sm" data-act="cropRestore">Restore</button>' : '<span class="sst">Auto-trim</span>') +
+      row('pad', 'Extra margin', sel('trimPad', [0, 0.01, 0.02, 0.03], [0, 0.01, 0.02, 0.03].filter(function (v) { return Math.abs((s.trimPad == null ? 0.01 : s.trimPad) - v) < 0.001; })[0], function (v) { return (v * 100) + '%'; })) +
+      row('tap', 'Double-tap for drawer', sw(s.tapShow, 'tapShow'));
+    if (!rec) h += '<h4>Boxes &amp; lines</h4>' +
+      row('boxW', 'New box width', sel('boxW', [8, 11, 15, 20, 25, 34, 50], +s.boxW || 11, function (v) { return v + '%'; })) +
+      row('boxH', 'Lock box height', sw(s.boxHLock !== false, 'boxHLock')) +
+      '<div class="frow">' + nm('cover', 'Hidden area') + '<div class="rrow">' + [['#f3e9d4', 'Paper'], ['#ffffff', 'White'], ['#fbf6e9', 'Cream'], ['#e9ecea', 'Grey']].map(function (c) { return '<button class="sw-c ' + ((s.hideCol || '#f3e9d4') === c[0] ? 'on' : '') + '" style="background:' + c[0] + '" data-act="cover" data-c="' + c[0] + '" aria-label="' + c[1] + '" title="' + c[1] + '"></button>'; }).join('') + '</div></div>' +
+      '<h4>Reading</h4>' + row('swipe', 'Swipe into next surah', sw(s.swipeSur !== false, 'swipeSur')) +
+      row('goal', 'Daily goal', sel('goalDay', [0, 10, 15, 20, 30, 45, 60, 90], s.goalDay || 0, function (v) { return v ? v + ' min' : 'Off'; })) +
+      '<h4>Tally</h4>' + row('tHold', 'Hold to count', sel('tHold', [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1, 1.2, 1.5], +s.tHold || 0.4, function (v) { return v + ' s'; })) +
+      row('tDay', 'Daily target', sel('tDay', [0, 1, 2, 3, 5, 10, 20, 30], +s.tDay || 0, function (v) { return v ? v + ' reads' : 'Off'; })) +
+      row('tRule', 'Raise health every', sel('tRuleN', [0, 5, 10, 20, 30, 50, 100], +s.tRuleN || 0, function (v) { return v ? v + ' reads' : 'Off'; })) +
+      (s.tRuleN ? row('tRule', 'By', sel('tRulePct', [5, 10, 15, 20], +s.tRulePct || 5, function (v) { return '+' + v + '%'; })) : '') +
+      '<h4>Health</h4>' + row('decay', 'Lose health', sw(s.decayOn, 'decayOn')) +
+      (s.decayOn ? row('decay', 'Start after', sel('decayAfter', [7, 10, 14, 21, 30], s.decayAfter, function (v) { return v + ' days'; })) +
+        row('decay', 'Then lose', sel('decayPct', [5, 10, 15], s.decayPct, function (v) { return v + '% / week'; })) : '');
+    else h += '<h4>Reading</h4>' + row('main', 'Main start page', '<span class="sst">' + (S.d.rmain ? 'P. ' + S.d.rmain.start : 'Not set') + '</span><button class="btn sm" data-act="rmainSet">Set</button>') +
+      '<div class="frow">' + nm('ram', 'Ramadan start') + '</div><div class="seg mini">' + [[-1, '1 day earlier'], [0, 'Umm al-Qura'], [1, '1 day later']].map(function (x) { return '<button class="' + ((+s.ramAdj || 0) === x[0] ? 'on' : '') + '" data-act="ramAdj" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
+    h += '<h4>Tags</h4>' + row('arch', 'Show archived tags', sw(s.showArch, 'showArch')) +
+      '<h4>App</h4>' + row('update', 'Update app', '<span class="sst">' + ver + '</span><button class="btn sm" data-act="updateApp">Update</button>') +
+      row('share', 'Share the app', '<button class="btn sm" data-act="shareApp">Copy link</button>') +
+      (rec ? '' : row('offline', 'Offline pages', '<button class="btn sm" data-act="precache">Save</button>')) +
+      (instEv ? row('install', 'Install app', '<button class="btn sm pri" data-act="install">' + ICON.down + ' Install</button>') : installedApp() ? '' : row('install', 'Install app', '<span class="sst">Browser menu</span>')) +
+      '<div style="text-align:right;margin-top:10px"><button class="btn" data-act="closeSheet">Close</button></div>' +
+      '<div class="shelp" id="shelp" data-act="shelpX"></div></div>';
     var sc = $('#scrim');
     sc.innerHTML = h; sc.style.display = 'flex';
   }
@@ -771,6 +806,20 @@
         });
       });
     },
+    /* v126: Main can't be renamed or deleted, but long-press sets where it starts: the start page and the day counting
+       begins. Bookmarks from before that day are left out of stats and the Reading log (kept, not deleted). */
+    rmainStart: function () {
+      var m = S.d.rmain || {}, b = S.bm('def');
+      dialog({ title: 'Main · start', ok: 'Save', html: '<div class="dflds"><label>Start page<input class="dinp" data-f="start" inputmode="numeric" value="' + (m.start || b.p || 1) + '"></label>' +
+        '<label>Count from<input class="dinp" type="date" data-f="from" value="' + esc(m.from || S.today()) + '"></label></div>',
+        btns: m.start ? [['ok', 'Save', 'pri'], ['clr', 'Clear'], ['x', 'Cancel']] : null }, function (v, w, f) {
+        if (w === 'clr') { delete S.d.rmain; S.saveRtags(); App.render(); App.toast('Main start cleared'); return; }
+        var sp = parseInt(f.start, 10); if (!(sp >= 1 && sp <= 604)) { App.toast('Start page 1–604'); return; }
+        S.d.rmain = { start: sp, from: f.from || S.today() };
+        if (!b.p || b.p < sp) S.setBm(sp, onPage(sp)[0], 'def');
+        S.saveRtags(); App.render(); App.toast('Main counts from P. ' + sp);
+      });
+    },
     rtab: function (el) { S.d.ui.rtab = el.dataset.t; S.saveUi(); App.render(); },
     ropen: function (el) { closeSheet(); var p = +el.dataset.p, n = +el.dataset.n || 0; Reader.open(p, n, null, null, true); },
     contMin: function () { S.d.ui.contMin = !S.d.ui.contMin; S.saveUi(); App.render(); },
@@ -812,6 +861,13 @@
       st.ssel = {}; App.toast(ps.length + ' page' + (ps.length === 1 ? '' : 's') + ' marked for review'); App.render();
     },
     settings: openSettings, closeSheet: closeSheet,
+    shelp: function (el) {
+      var d = $('#shelp'), k = el.dataset.h; if (!d) return;
+      if (d.classList.contains('on') && d.dataset.k === k) { d.classList.remove('on'); return; }
+      d.dataset.k = k; d.innerHTML = '<b>' + esc(el.textContent) + '</b><span>' + esc(SHELP[k] || '') + '</span>'; d.classList.add('on');
+    },
+    shelpX: function () { var d = $('#shelp'); if (d) d.classList.remove('on'); },
+    rmainSet: function () { closeSheet(); ACT.rmainStart(); },
     shareApp: function () {
       var u = location.origin + location.pathname, done = function () { App.toast('App link copied'); };
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(u).then(done, function () { prompt('Copy this link', u); });
