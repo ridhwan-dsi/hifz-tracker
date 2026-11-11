@@ -192,7 +192,7 @@
     if (R.rec && R.asking) { App.dialogClose(); return; }
     if (R.rec && S.bm(R.rtag).p !== R.p) {
       R.asking = true; if (window.Timer) Timer.pause();
-      App.dialog({ title: 'Bookmark P. ' + R.p + '?', msg: 'Resume here next time.', always: true, btns: [['yes', 'Bookmark', 'pri'], ['no', 'No']] }, function (v, w) {
+      App.dialog({ title: 'Bookmark this page?', always: true, btns: [['yes', 'Bookmark', 'pri'], ['no', 'Exit']] }, function (v, w) {
         R.asking = false; if (w === 'yes') { S.setBm(R.p, R.n, R.rtag); App.toast('Bookmarked P. ' + R.p); }
         Reader.close();
       });
