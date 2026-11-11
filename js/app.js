@@ -114,19 +114,36 @@
     if ((rl && rl.p) || bm.p) h += '<div class="rconts">' + (rl && rl.p ? '<div class="cont min"><button class="go" data-act="ropen" data-p="' + rl.p + '" data-n="' + (rl.n || 0) + '">' + ICON.play + ' Continue · ' + esc(SUR[(rl.n || onPage(rl.p)[0]) - 1][0]) + ' · P. ' + rl.p + '</button></div>' : '') +
       (bm.p && !(rl && rl.p === bm.p) ? '<div class="cont min bmc"><button class="go" data-act="ropen" data-p="' + Math.min(604, bm.p) + '" data-n="' + (bm.p > 604 ? 114 : bm.n || 0) + '">' + ICON.bmk + (bm.p > 604 ? ' Completed' : ' P. ' + bm.p) + '</button></div>' : '') + '</div>';
     var t = d.ui.rtab === 'juz' ? 'juz' : d.ui.rtab === 'bm' ? 'bm' : 'sur';
-    h += '<nav class="tabs"><button class="' + (t === 'sur' ? 'on' : '') + '" data-act="rtab" data-t="sur">Surah</button><button class="' + (t === 'juz' ? 'on' : '') + '" data-act="rtab" data-t="juz">Juz</button><button class="' + (t === 'bm' ? 'on' : '') + '" data-act="rtab" data-t="bm">Bookmarks</button></nav>';
+    h += '<nav class="tabs"><button class="' + (t === 'sur' ? 'on' : '') + '" data-act="rtab" data-t="sur">Surah</button><button class="' + (t === 'juz' ? 'on' : '') + '" data-act="rtab" data-t="juz">Juz</button><button class="' + (t === 'bm' ? 'on' : '') + '" data-act="rtab" data-t="bm">Reading log</button></nav>';
     return h + (t === 'juz' ? juzTab() : t === 'bm' ? bmTab() : recSurTab());
   }
-  // v117 Bookmark log: every move of the bookmark, newest first, grouped by day. Tap a row to open that page.
+  /* v125 Reading log (was Bookmarks): one row per reading day, newest first — Start = the bookmark the day began from
+     (the previous day's last bookmark, or the tag's start page), End = the page before the day's last bookmark,
+     Total = pages read that day (same figure as Stats, including a hand-corrected day). A completion (605) ends at 604. */
   function bmTab() {
-    var b = S.bm(rtag()), log = (b.log || []).slice().reverse(), rows = '', lastD = '';
-    if (!log.length) return '<div class="list"><div class="empty">No bookmarks yet. In the reader, tap ' + ICON.bmk + ' Bookmark to mark where you stopped.</div></div>';
-    log.forEach(function (e, i) {
-      var dt = new Date(e[0]), day = dt.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: dt.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
-      if (day !== lastD) { rows += '<div class="divider">' + esc(day) + '</div>'; lastD = day; }
-      var n = e[2] || onPage(Math.min(604, e[1]))[0], cur = i === 0 && e[1] === b.p, fin = e[1] > 604; // v123: 605 = completion (khatm)
-      rows += '<div class="srow"><button class="sname" data-act="ropen" data-p="' + Math.min(604, e[1]) + '" data-n="' + n + '"><span class="num' + (cur ? ' bmcur' : '') + '">' + (cur ? ICON.bmk : '') + '</span><span class="nm">' + (fin ? 'Completed · khatm' : 'P. ' + e[1] + ' · ' + esc(SUR[n - 1][0])) + '</span>' +
-        '<span class="jsub">' + dt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) + '</span></button></div>';
+    var tg = rtag(), b = S.bm(tg), t = S.rtag(tg), rr = S.rread(tg).days;
+    var log = (b.log || []).slice().sort(function (x, y) { return x[0] - y[0]; });
+    if (!log.length) return '<div class="list"><div class="empty">No readings yet. In the reader, tap ' + ICON.bmk + ' Bookmark to mark where you stopped.</div></div>';
+    var byDay = {}, order = [];
+    log.forEach(function (e) { var d = new Date(e[0]), k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); if (!byDay[k]) { byDay[k] = []; order.push(k); } byDay[k].push(e); });
+    var prev = t.start || log[0][1], reset = false, days = [];
+    order.forEach(function (k) {
+      var from = reset ? 0 : prev, last = null, fin = false;
+      byDay[k].forEach(function (e) {
+        if (reset) { prev = e[1]; reset = false; if (!fin) from = e[1]; return; }
+        if (e[1] >= 605) { fin = true; last = 605; prev = 605; reset = true; return; }
+        last = e[1]; prev = e[1];
+      });
+      days.push({ k: k, from: from, last: last, fin: fin, r: rr[k] || { pg: 0 } });
+    });
+    var cell = function (p) { return p ? '<button class="rlc pg" data-act="ropen" data-p="' + p + '" data-n="' + onPage(p)[0] + '">P. ' + p + '</button>' : '<span class="rlc">—</span>'; };
+    var rows = '<div class="rlrow rlhd"><span class="rlc">Start page</span><span class="rlc">End page</span><span class="rlc">Total read</span></div>';
+    days.reverse().forEach(function (x) {
+      var dt = new Date(x.k + 'T12:00:00'), day = dt.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: dt.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+      var end = x.last == null ? 0 : Math.min(604, x.last - 1), pg = x.r.pg || 0, ok = end >= x.from && pg > 0;
+      rows += '<div class="divider">' + esc(day) + (x.fin ? ' · Completed' : '') + '</div>';
+      rows += '<div class="rlrow">' + cell(x.from && x.from <= 604 ? x.from : 0) + (ok ? cell(end) : '<span class="rlc">—</span>') +
+        '<span class="rlc tot">' + pg + (pg === 1 ? ' page' : ' pages') + (x.r.ed ? ' <i>edited</i>' : '') + '</span></div>';
     });
     return '<div class="list">' + rows + '</div>';
   }
