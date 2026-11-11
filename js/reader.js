@@ -161,7 +161,7 @@
     open: function (p, n, range, tag, rec) {
       R.rec = !!rec; R.rtag = S.d.ui.rtag || 'def'; if (R.rec) { range = null; tag = null; R.sub = R.sub === 'timer' ? 'timer' : null; R.edOpen = false; }
       R.style = boxDef(); R.palOpen = false; R.wasDesk = desk();
-      if (!Reader.isOpen()) { R.wasPL = phoneLand(); if (R.wasPL) { R.panel = false; R.dszL = 'rib'; } } R.stat = false; R.tag = tag || null; // custom tag: counts shown for the tag, not the month
+      if (!Reader.isOpen()) { R.wasPL = phoneLand(); if (R.wasPL) { R.panel = false; R.dszL = 'rib'; } } R.stat = false; R.pstat = false; R.tag = tag || null; // custom tag: counts shown for the tag, not the month
       p = clamp(p | 0, 1, 604); R.n = n || 0;
       R.range = range && range.length ? range.slice().sort(function (a, b) { return S.kp(a) - S.kp(b) || S.kn(a) - S.kn(b); }) : null;
       if (!Reader.isOpen()) history.pushState({ reader: 1 }, '', '#p' + p);
@@ -720,15 +720,22 @@
   /* Page strip under the surah name: the listed pages (Memorizing) or the surah's pages, current one centred.
      Scroll or drag the strip; whichever number settles in the centre opens. Tap a number to jump to it. */
   function stripKeys() {
+    // v128 (SL12): Recitation with a target date — the strip holds only the plan section this page is in (today's set first).
+    var sec = recSec();
+    if (sec) { var a = []; for (var q = sec.a; q <= sec.b; q++) a.push(q === R.p ? R.k : S.uk(q, S.onPage(q)[0])); return a; }
     // Memorizing: only this surah's listed pages — the strip, like swiping, never shows another surah's pages.
     if (R.range) { var m = R.range.filter(function (u) { return S.kn(u) === R.n; }); return m.length ? m : [R.k]; }
     var s = QURAN.S[R.n - 1], a = []; if (!s) return [String(R.p)];
     for (var q = s[3]; q <= s[4]; q++) a.push(S.uk(q, R.n));
     return a;
   }
+  function recPlan() { return R.rec ? S.plan(R.rtag) : null; }
+  function recSec() { var pl = recPlan(), i = S.planSec(pl, R.p); return i >= 0 ? pl.secs[i] : null; }
   function pstrip() {
     // Right to left like the mushaf: later pages sit to the left. Spacers let the first/last page reach the centre.
-    return '<div class="pswrap"><i class="pring"></i><div class="pstrip"><i class="psp"></i>' + stripKeys().slice().reverse().map(function (k) {
+    // v128 (SL12): after the section's last page (far left) comes "Continue to next section".
+    var pl = recPlan(), si = S.planSec(pl, R.p), nx = si >= 0 && pl.secs[si + 1];
+    return '<div class="pswrap"><i class="pring"></i><div class="pstrip"><i class="psp"></i>' + (nx ? '<button class="pnext" data-ract="nextSec">Continue to next section</button>' : '') + stripKeys().slice().reverse().map(function (k) {
       var q = S.kp(k); return '<button class="pc' + (q === R.p ? ' cur' : '') + '" data-ract="pgo" data-p="' + q + '" data-n="' + S.kn(k) + '">' + q + '</button>';
     }).join('') + '<i class="psp"></i></div></div>';
   }
@@ -872,6 +879,7 @@
     if (R.sub === 'health') R.sub = null; // v109: health moved to the Stat page
     var tool = R.sub === 'timer' || R.sub === 'tally' || R.sub === 'box' || R.sub === 'line';
     // v110: one swap area of fixed height — the surah name and page strip, or the open tool's row in their place.
+    if (R.rec && R.pstat && !tool) return planStats() + toolsRow();
     x += '<div class="rswap">';
     if (!tool || desk()) x += '<div class="rrow nav">' + navBtns('in') + '<div class="rtitle tcol"><div class="tname">' + surahTitle(p) + '</div>' + pstrip() + '</div></div>';
     if (tool) { x += '<div class="rslot">';
@@ -884,8 +892,32 @@
     // Page stats are automatic: tally reads, stopwatch time, days read (5 min or a tally that day).
     // v109: read/time numbers live only on the Stat page.
     if (!R.rec) x += maskRows();
+    else if (!tool) x += planLine();
     // Health and Tags live in the bottom toolbar and expand their row just above it.
     return x + toolsRow();
+  }
+  /* v128 (SL11/SL12) Daily plan line under the page strip (Recitation, reading with a target date). */
+  function fmtD(k, wd) { return new Date(k + 'T00:00:00').toLocaleDateString(undefined, wd ? { weekday: 'short', day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short' }); }
+  function pr(a, b) { return a === b ? 'P. ' + a : 'P. ' + a + '–' + b; }
+  function planLine() {
+    var pl = recPlan(); if (!pl) return '';
+    var si = S.planSec(pl, R.p), dl = pl.dl + ' day' + (pl.dl === 1 ? '' : 's') + ' left', t;
+    if (pl.passed) t = '<b>Target date passed</b> · ' + pl.left + ' pages left';
+    else if (si > 0) t = '<b>' + fmtD(pl.secs[si].d, 1) + ':</b> ' + pr(pl.secs[si].a, pl.secs[si].b) + ' · ' + (pl.secs[si].b - pl.secs[si].a + 1) + ' pages';
+    else if (pl.done) t = '<b class="pdone">' + IC.check + 'Today ' + pr(pl.s0, pl.e0) + ' done</b>' + (pl.next ? ' · next ' + pr(pl.next.a, pl.next.b) : '');
+    else t = '<b>Today:</b> ' + pr(pl.s0, pl.e0) + ' · ' + pl.q + ' page' + (pl.q === 1 ? '' : 's') + ' · ' + dl;
+    return '<div class="rplan"><span class="rpt">' + t + '</span><button class="rpsee" data-ract="planStat">See stats</button></div>';
+  }
+  // "See stats": the drawer grows to half the screen with the plan's numbers; tap again (or the arrow) to fold it.
+  function planStats() {
+    var pl = recPlan(); if (!pl) { R.pstat = false; return ''; }
+    var tl = function (l, v, sub) { return '<div class="stile"><span>' + l + '</span><b>' + v + '</b>' + (sub ? '<i>' + sub + '</i>' : '') + '</div>'; };
+    var pd = function (n) { return n + ' page' + (n === 1 ? '' : 's'); };
+    return '<div class="rpstats"><div class="rphd"><b>' + App.esc(S.rtag(R.rtag).name) + ' · daily plan</b><button class="icb" data-ract="planStat" aria-label="Close stats">' + IC.x + '</button></div>' +
+      '<div class="rpsub">' + (pl.passed ? 'Target ' + fmtD(pl.target) + ' has passed' : 'Today ' + pr(pl.s0, pl.e0) + ' · target ' + fmtD(pl.target)) + '</div>' +
+      '<div class="sgrid">' + tl('Pages read today', pl.readToday, pl.done ? 'today\'s set done' : pd(pl.todayLeft) + ' to go') + tl('Daily average', pl.avg, 'pages a day since ' + fmtD(pl.since)) +
+      tl('Original daily target', pd(pl.orig)) + tl('Current daily target', pd(pl.q), pl.q > pl.orig ? 'behind plan' : pl.q < pl.orig ? 'ahead of plan' : 'on plan') +
+      tl('Days left', pl.passed ? 0 : pl.dl, 'incl. today') + tl('Pages left', pl.left) + '</div></div>';
   }
   // The bottom toolbar stays put in every mode; each tool opens its row above it and a second tap closes it.
   function toolsRow() {
@@ -1039,6 +1071,8 @@
       var dl = Math.round((new Date(t.target + 'T00:00:00') - new Date(td + 'T00:00:00')) / 864e5) + 1;
       x += '<div class="small" style="margin-top:6px">Target ' + new Date(t.target + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + ' · ' + (dl > 0 ? dl + ' day' + (dl === 1 ? '' : 's') + ' left' : 'passed') + '</div>';
     }
+    var pl = S.plan(R.rtag);
+    if (pl && !pl.passed) x += '<div class="small" style="margin-top:2px">Today ' + pr(pl.s0, pl.e0) + ' · ' + pl.q + ' pages a day now (planned ' + pl.orig + ')</div>';
     x += '<div class="sgrid" style="margin-top:12px">' + tile('Pages today', T.pg) + tile('Pages this week', W.pg) + tile('Pages this month', M.pg) +
       tile('Juz this month', jf(M.jz)) + tile('Days read this month', M.d) + tile('Average per reading day', A.d ? Math.round(A.pg / A.d) + ' pages' : '–') + (nc ? tile('Completions', nc) : '') + '</div>';
     var rows = '';
@@ -1351,6 +1385,9 @@
         App.toast('Khatm recorded · ' + tg.name, function () { undo(); if (!main) { S.d.ui.rtag = tag; S.saveUi(); } App.render(); });
       });
     },
+    planStat: function () { R.pstat = !R.pstat; renderPanel(); },
+    // v128 (SL12): jump to the first page of the next plan section (it re-plans once that set is bookmarked).
+    nextSec: function () { var pl = recPlan(), i = S.planSec(pl, R.p), nx = pl && pl.secs[i + 1]; if (nx) go(nx.a, 1); },
     bmGo: function () { var b = S.bm(R.rtag); if (b.p && b.p !== R.p) go(b.p, b.p > R.p ? 1 : -1, b.n); },
     spread: function () { S.d.settings.spread = S.d.settings.spread === false; S.saveSettings(); renderPanel(); layout(); },
     fit: function () { S.d.settings.fit = fitPage() ? 'width' : 'page'; S.saveSettings(); renderPanel(); layout(); },

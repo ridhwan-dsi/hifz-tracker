@@ -568,3 +568,29 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 .shelp { position: sticky; bottom: 0; margin: 10px -16px 0; padding: 12px 16px; box-shadow: 0 -4px 12px rgba(0,0,0,.08); background: var(--acc-soft); border-top: 1px solid var(--line); font-size: 13.5px; line-height: 1.4; display: none; }
 .shelp.on { display: block; }
 .shelp b { display: block; margin-bottom: 3px; }
+/* v128 (SL11/SL12) Recitation daily plan: line under the page strip, "Continue to next section" at the strip's end, See stats. */
+.rplan { display: flex; align-items: center; gap: 8px; padding: 2px 0 6px; font-size: 12.5px; color: var(--muted); min-width: 0; }
+.rplan .rpt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rplan .rpt b { color: var(--ink); font-weight: 700; }
+.rplan .pdone { color: var(--acc) !important; } .rplan .pdone svg.i { width: 14px; height: 14px; vertical-align: -2px; margin-right: 2px; }
+.rpsee { flex: none; padding: 4px 10px; border-radius: 99px; border: 1px solid var(--line); font-size: 12px; font-weight: 700; color: var(--acc); background: transparent; }
+.pnext { flex: none; scroll-snap-align: center; padding: 6px 12px; border-radius: 99px; border: 1.5px solid var(--acc); color: var(--acc); background: var(--acc-soft); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.rpstats { min-height: calc(50vh - 64px); display: flex; flex-direction: column; padding-top: 2px; }
+.rpstats .rphd { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 15px; }
+.rpstats .rpsub { font-size: 12.5px; color: var(--muted); margin: 2px 0 10px; }
+.rpstats .sgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.rpstats .stile { background: var(--bg); border-radius: 10px; padding: 8px 12px; }
+.rpstats .stile span { display: block; font-size: 12px; color: var(--muted); } .rpstats .stile b { font-size: 19px; display: block; }
+.rpstats .stile i { font-style: normal; font-size: 11.5px; color: var(--muted); }
+#reader.desk .mainp .rplan { grid-area: stat; align-self: start; padding-bottom: 7px; }
+#reader.desk .mainp .rpstats { grid-area: 1 / 1 / 4 / 4; min-height: 0; padding: 8px 0; }
+#reader.desk .mainp .rpstats .sgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* v128 (SL13) Recitation TOC: remaining-only view, expand all, daily section dividers. */
+.rtoc { display: flex; gap: 6px; flex-wrap: wrap; margin: -2px 0 10px; }
+.rtoc .chip svg.i { width: 14px; height: 14px; vertical-align: -2px; margin-right: 3px; }
+.divider.dsec { color: var(--acc); background: var(--acc-soft); }
+.pages .dsecb { flex-basis: 100%; font-size: 11px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; color: var(--acc); border-top: 1px dashed var(--acc); padding-top: 4px; margin-top: 2px; }
+.srow .dnote { margin-left: auto; font-size: 11px; color: var(--acc); font-weight: 700; white-space: nowrap; }
+.srow .dnote + .ar { margin-left: 8px; }
+.rhplan { font-size: 13px; color: var(--muted); margin: -2px 2px 10px; } .rhplan b { color: var(--ink); } .rhplan .ok { color: var(--acc); }
+.rhplan svg.i { width: 14px; height: 14px; vertical-align: -2px; }

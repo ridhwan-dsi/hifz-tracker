@@ -184,6 +184,42 @@
       var A = this.d.radj || (this.d.radj = {}), T = A[tag || 'def'] || (A[tag || 'def'] = {});
       if (v == null) delete T[day]; else T[day] = v; this.d.rtu = Date.now(); this.save();
     },
+    /* v128 (SL11) Daily reading plan from a reading's target date. Re-planned every day from where the bookmark stood
+       when the day began: today's quota = pages left ÷ days left (today included), rounded up. Reading past today's set
+       makes it grow; the days after are re-planned from the bookmark. Returns null without a target (or once completed). */
+    plan: function (tag) {
+      tag = tag || 'def';
+      var t = this.rtag(tag); if (!t || !t.target || t.done) return null;
+      var b = this.bm(tag), log = this.rlog(tag), td = this.today(), day = 864e5;
+      var D = function (k) { return new Date(k + 'T00:00:00').getTime(); };
+      var K = function (ms) { var d = new Date(ms); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+      var t0 = D(td), before = log.filter(function (e) { return e[0] < t0; }), last = before[before.length - 1];
+      var base = t.start || (log[0] ? log[0][1] : b.p || 1);
+      var s0 = last ? last[1] : base; if (s0 > 604) s0 = 1; // a khatm (605) restarts Main at P. 1
+      var cur = b.p > 0 && b.p <= 605 ? b.p : s0;
+      var dl = Math.round((D(t.target) - t0) / day) + 1, rem = 605 - s0;
+      var o = { tag: tag, target: t.target, s0: s0, cur: cur, dl: dl, passed: dl < 1, left: Math.max(0, 605 - cur) };
+      if (o.passed) { o.q = rem; o.e0 = 604; o.secs = [{ d: td, a: s0, b: 604 }]; }
+      else {
+        o.q = Math.ceil(rem / dl); o.e0 = Math.min(604, s0 + o.q - 1);
+        // Today's set grows to the bookmark when he reads past it; the rest of the days split what's left.
+        o.secs = [{ d: td, a: s0, b: Math.max(o.e0, Math.min(604, cur - 1)) }];
+        var p = Math.max(o.e0 + 1, cur), n = dl - 1, i = 1;
+        while (p <= 604 && n > 0) { var q = Math.ceil((605 - p) / n); o.secs.push({ d: K(t0 + i * day + day / 2), a: p, b: Math.min(604, p + q - 1) }); p += q; n--; i++; }
+      }
+      o.done = cur > o.e0; // today's set finished
+      o.readToday = ((this.rread(tag).days || {})[td] || {}).pg || 0;
+      o.todayLeft = Math.max(0, o.e0 + 1 - Math.max(cur, s0));
+      // Original daily target: whole reading ÷ every day from its start to the target. Average: pages read per calendar day since the start.
+      var sd = t.from || t.c || (log[0] ? K(log[0][0]) : td), tot = Math.max(1, Math.round((D(t.target) - D(sd)) / day) + 1);
+      o.orig = Math.ceil((605 - (t.start || base)) / tot);
+      var rr = this.rread(tag).days, sum = 0; for (var k in rr) if (k >= sd) sum += rr[k].pg;
+      var el = Math.max(1, Math.round((t0 - D(sd)) / day) + 1); o.avg = Math.round(sum / el * 10) / 10; o.since = sd;
+      o.next = o.secs[1] || null;
+      return o;
+    },
+    // The plan section (index into plan.secs) that page p falls in, or -1.
+    planSec: function (pl, p) { if (!pl) return -1; for (var i = 0; i < pl.secs.length; i++) if (p >= pl.secs[i].a && p <= pl.secs[i].b) return i; return -1; },
     comps: function (tag) { return (this.d.rcomp || []).filter(function (x) { return !tag || x.id === tag; }); },
     setBm: function (p, n, tag) {
       var b = this.bm(tag), prev = { p: b.p, n: b.n, t: b.t }, t = Date.now();

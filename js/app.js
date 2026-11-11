@@ -113,6 +113,11 @@
     // v117: Continue (last page read) and the bookmark (where the reading really stands) side by side.
     if ((rl && rl.p) || bm.p) h += '<div class="rconts">' + (rl && rl.p ? '<div class="cont min"><button class="go" data-act="ropen" data-p="' + rl.p + '" data-n="' + (rl.n || 0) + '">' + ICON.play + ' Continue · ' + esc(SUR[(rl.n || onPage(rl.p)[0]) - 1][0]) + ' · P. ' + rl.p + '</button></div>' : '') +
       (bm.p && !(rl && rl.p === bm.p) ? '<div class="cont min bmc"><button class="go" data-act="ropen" data-p="' + Math.min(604, bm.p) + '" data-n="' + (bm.p > 604 ? 114 : bm.n || 0) + '">' + ICON.bmk + (bm.p > 604 ? ' Completed' : ' P. ' + bm.p) + '</button></div>' : '') + '</div>';
+    // v128 (SL11): with a target date, today's set shows on the home too.
+    var pl = S.plan(rt);
+    if (pl) h += '<div class="rhplan">' + (pl.passed ? '<b>Target date passed</b> · ' + pl.left + ' pages left' :
+      pl.done ? '<b class="ok">' + ICON.check + ' Today\'s P. ' + pl.s0 + '–' + pl.e0 + ' done</b>' + (pl.next ? ' · next P. ' + pl.next.a + '–' + pl.next.b : '') :
+      '<b>Today:</b> P. ' + pl.s0 + '–' + pl.e0 + ' · ' + pl.q + ' page' + (pl.q === 1 ? '' : 's') + ' · ' + pl.dl + ' day' + (pl.dl === 1 ? '' : 's') + ' left') + '</div>';
     var t = d.ui.rtab === 'juz' ? 'juz' : d.ui.rtab === 'bm' ? 'bm' : 'sur';
     h += '<nav class="tabs"><button class="' + (t === 'sur' ? 'on' : '') + '" data-act="rtab" data-t="sur">Surah</button><button class="' + (t === 'juz' ? 'on' : '') + '" data-act="rtab" data-t="juz">Juz</button><button class="' + (t === 'bm' ? 'on' : '') + '" data-act="rtab" data-t="bm">Reading log</button></nav>';
     return h + (t === 'juz' ? juzTab() : t === 'bm' ? bmTab() : recSurTab());
@@ -146,31 +151,72 @@
     });
     return '<div class="list">' + rows + '</div>';
   }
+  /* v128 (SL13) Recitation TOC inside a reading: read pages are hidden (only what's left of this reading shows), one
+     Expand all control, and with a target date a "Daily sections" switch that groups what's left by the day it is
+     planned for — a dated divider per day, then the surahs (or juz) that day covers with that day's pages only.
+     "Show read" brings the whole mushaf back. */
+  function rview() {
+    var tg = rtag(), t = S.rtag(tg), b = S.bm(tg), pl = S.plan(tg), q = !!st.q.trim();
+    var cur = b.p > 0 ? Math.min(b.p, 605) : (t.start || 1), hide = !S.d.ui.rshowRead && !q && cur > 1;
+    return { cur: hide ? cur : 1, hide: hide, pl: pl, daily: !!(S.d.ui.rdaily && pl && !pl.passed && !q) };
+  }
+  function rtocBar(v, k, keys) {
+    var E = st.exp[k], isAll = keys.length && keys.every(function (x) { return E[x]; });
+    return '<div class="rtoc"><button class="chip' + (isAll ? ' on' : '') + '" data-act="rexpAll" data-k="' + k + '" data-keys="' + keys.join(',') + '">' + (isAll ? 'Collapse all' : 'Expand all') + '</button>' +
+      '<button class="chip' + (S.d.ui.rshowRead ? ' on' : '') + '" data-act="rshowRead">Show read</button>' +
+      (v.pl && !v.pl.passed ? '<button class="chip' + (S.d.ui.rdaily ? ' on' : '') + '" data-act="rdaily">Daily sections</button>' : '') + '</div>';
+  }
+  function rchips(ps, n) { return ps.map(function (p) { return '<button class="pl" data-act="ropen" data-p="' + p + '"' + (n ? ' data-n="' + n + '"' : '') + '>P. ' + p + '</button>'; }).join(''); }
+  function rrow(k, key, n, num, nm, sub, ar, ps, force) {
+    var open = st.exp[k][key] || force;
+    return '<div class="srow"><button class="sname" data-act="ropen" data-p="' + ps[0] + '" data-n="' + n + '"><span class="num">' + num + '</span><span class="nm">' + esc(nm) + '</span>' + (sub ? '<span class="jsub">' + sub + '</span>' : '') + (ar ? '<span class="ar">' + esc(ar) + '</span>' : '') + '</button>' +
+      '<button class="exp ' + (open ? 'open' : '') + '" data-act="exp" data-k="' + k + '" data-n="' + key + '" aria-label="Pages">' + ICON.chev + '</button></div>' +
+      (open ? '<div class="pages">' + rchips(ps, k === 'rec' ? n : 0) + '</div>' : '');
+  }
+  function pgRange(ps) { return ps.length === 1 ? 'P. ' + ps[0] : 'P. ' + ps[0] + '–' + ps[ps.length - 1]; }
+  // Daily sections: one divider per planned day, then the surahs / juz that fall in it, each with that day's pages.
+  function rdailyList(v, k) {
+    var rows = '', keys = [];
+    v.pl.secs.forEach(function (x, i) {
+      var a = Math.max(x.a, v.cur); if (a > x.b) return;
+      var dt = new Date(x.d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+      rows += '<div class="divider dsec">' + (i === 0 ? 'Today · ' : '') + esc(dt) + ' · ' + pgRange([x.a, x.b].filter(function (p, j) { return !j || p !== x.a; })) + ' · ' + (x.b - x.a + 1) + ' pages</div>';
+      if (k === 'rec') SUR.forEach(function (s, si) {
+        var n = si + 1, ps = sPages(n).filter(function (p) { return p >= a && p <= x.b; }); if (!ps.length) return;
+        var key = i + '_' + n; keys.push(key); rows += rrow('rec', key, n, n, s[0], pgRange(ps), '', ps);
+      });
+      else QURAN.J.forEach(function (p0, ji) {
+        var j = ji + 1, p1 = j < 30 ? QURAN.J[ji + 1] - 1 : 604, ps = []; for (var p = Math.max(p0, a); p <= Math.min(p1, x.b); p++) ps.push(p); if (!ps.length) return;
+        var key = i + '_' + j; keys.push(key); rows += rrow('juz', key, onPage(ps[0])[0], j, 'Juz ' + j, pgRange(ps), '', ps);
+      });
+    });
+    return rtocBar(v, k, keys) + '<div class="list">' + (rows || '<div class="empty">Every page of this reading is read.</div>') + '</div>';
+  }
   function recSurTab() {
-    var q = st.q.trim().toLowerCase(), rows = '', lastJ = 0;
+    var q = st.q.trim().toLowerCase(), rows = '', lastJ = 0, v = rview(), keys = [];
     var h = '<div class="bar"><input type="search" placeholder="Search surah, number or page" value="' + esc(st.q) + '" data-in="q"></div>';
+    if (v.daily) return h + rdailyList(v, 'rec');
     SUR.forEach(function (s, i) {
       var n = i + 1;
       if (q && !(String(n) === q || s[0].toLowerCase().indexOf(q) >= 0 || s[1].indexOf(st.q.trim()) >= 0 || (+q >= s[3] && +q <= s[4]))) return;
-      var j = juzOf(s[3]);
+      var ps = sPages(n).filter(function (p) { return p >= v.cur; }); if (!ps.length) return; keys.push(String(n));
+      var j = juzOf(ps[0]);
       if (!q && j !== lastJ) { rows += '<div class="divider">Juz ' + j + '</div>'; lastJ = j; }
-      var open = st.exp.rec[n] || (q && +q >= s[3] && +q <= s[4]);
-      rows += '<div class="srow"><button class="sname" data-act="ropen" data-p="' + s[3] + '" data-n="' + n + '"><span class="num">' + n + '</span><span class="nm">' + esc(s[0]) + '</span><span class="ar">' + esc(s[1]) + '</span></button>' +
-        '<button class="exp ' + (open ? 'open' : '') + '" data-act="exp" data-k="rec" data-n="' + n + '" aria-label="Pages">' + ICON.chev + '</button></div>';
-      if (open) rows += '<div class="pages">' + sPages(n).map(function (p) { return '<button class="pl" data-act="ropen" data-p="' + p + '" data-n="' + n + '">P. ' + p + '</button>'; }).join('') + '</div>';
+      rows += rrow('rec', n, n, n, s[0], ps[0] > s[3] ? 'from P. ' + ps[0] : '', s[1], ps, q && +q >= s[3] && +q <= s[4]);
     });
-    return h + '<div class="list">' + (rows || '<div class="empty">No surah matches.</div>') + '</div>';
+    return h + rtocBar(v, 'rec', keys) + '<div class="list">' + (rows || '<div class="empty">' + (v.hide && !q ? 'Every page of this reading is read.' : 'No surah matches.') + '</div>') + '</div>';
   }
   function juzTab() {
-    var rows = '';
+    var rows = '', v = rview(), keys = [];
+    if (v.daily) return rdailyList(v, 'juz');
     QURAN.J.forEach(function (p0, i) {
-      var j = i + 1, p1 = j < 30 ? QURAN.J[i + 1] - 1 : 604, a = QURAN.JA[i], open = st.exp.juz[j];
+      var j = i + 1, p1 = j < 30 ? QURAN.J[i + 1] - 1 : 604, a = QURAN.JA[i];
+      var s0 = Math.max(p0, v.cur); if (s0 > p1) return; keys.push(String(j));
+      var ps = []; for (var p = s0; p <= p1; p++) ps.push(p);
       // In this mushaf every juz begins at the top of a page, so a juz runs up to the page before the next one.
-      rows += '<div class="srow"><button class="sname" data-act="ropen" data-p="' + p0 + '" data-n="' + a[0] + '"><span class="num">' + j + '</span><span class="nm">Juz ' + j + '</span><span class="jsub">' + esc(SUR[a[0] - 1][0]) + ' ' + a[0] + ':' + a[1] + ' · P. ' + p0 + '</span></button>' +
-        '<button class="exp ' + (open ? 'open' : '') + '" data-act="exp" data-k="juz" data-n="' + j + '" aria-label="Pages">' + ICON.chev + '</button></div>';
-      if (open) { var b = ''; for (var p = p0; p <= p1; p++) b += '<button class="pl" data-act="ropen" data-p="' + p + '">P. ' + p + '</button>'; rows += '<div class="pages">' + b + '</div>'; }
+      rows += rrow('juz', j, s0 === p0 ? a[0] : onPage(s0)[0], j, 'Juz ' + j, s0 === p0 ? esc(SUR[a[0] - 1][0]) + ' ' + a[0] + ':' + a[1] + ' · P. ' + p0 : 'from P. ' + s0 + ' · ' + (p1 - s0 + 1) + ' left', '', ps);
     });
-    return '<div class="list">' + rows + '</div>';
+    return rtocBar(v, 'juz', keys) + '<div class="list">' + (rows || '<div class="empty">Every page of this reading is read.</div>') + '</div>';
   }
   function tagFields(start, target, noStart) {
     return '<div class="dflds">' + (noStart ? '' : '<label>Start page<input class="dinp" data-f="start" inputmode="numeric" value="' + start + '"></label>') +
@@ -753,6 +799,13 @@
         st.tedit = null; S.saveSettings(); App.render(); App.toast('Tag deleted');
       });
     },
+    // v128 (SL13): one control expands (or collapses) every row in the Recitation Surah / Juz tab.
+    rexpAll: function (el) {
+      var k = el.dataset.k, E = st.exp[k], ks = (el.dataset.keys || '').split(',').filter(Boolean), on = !ks.every(function (x) { return E[x]; });
+      ks.forEach(function (x) { if (on) E[x] = true; else delete E[x]; }); App.render();
+    },
+    rshowRead: function () { S.d.ui.rshowRead = !S.d.ui.rshowRead; S.saveUi(); App.render(); },
+    rdaily: function () { S.d.ui.rdaily = !S.d.ui.rdaily; S.saveUi(); App.render(); },
     exp: function (el) { var k = el.dataset.k, n = el.dataset.n; st.exp[k][n] = !st.exp[k][n]; App.render(); },
     edit: function () { st.edit = !st.edit; App.render(); },
     open: function (el) {
