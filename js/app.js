@@ -20,6 +20,8 @@
     inst: I('<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'),
     bmk: I('<path d="M6.5 3h11v18l-5.5-4.2L6.5 21z"/>'),
     book: I('<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>'),
+    // v123: Memorization mode icon (brain); Recitation mode uses the open-book 'read' icon.
+    mem: I('<path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 3 3 3 3 0 0 0 3-1.2V5.2A3 3 0 0 0 9 4zM15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-3 3 3 3 0 0 1-3-1.2V5.2A3 3 0 0 1 15 4z"/>'),
     read: I('<path d="M2 5.5C4.5 4.3 7.5 4.3 12 6c4.5-1.7 7.5-1.7 10-.5v13c-2.5-1.2-5.5-1.2-10 .5-4.5-1.7-7.5-1.7-10-.5zM12 6v13.5"/>'),
     check: I('<path d="M20 6L9 17l-5-5"/>'), pen: I('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), play: I('<path d="M6 4l14 8-14 8z"/>')
   };
@@ -96,7 +98,7 @@
     var rec = isRec();
     return '<header class="top"><div class="brand"><span class="dot">' + ICON.book + '</span>' + (rec ? 'Recitation' : 'Hifz Tracker') + '</div>' + syncChip() +
       '<button class="ib" data-act="stats" aria-label="Stats">' + ICON.stats + '</button>' +
-      '<button class="ib modesw' + (rec ? ' on' : '') + '" data-act="mode" aria-label="' + (rec ? 'Switch to Memorization' : 'Switch to Recitation') + '" title="' + (rec ? 'Memorization mode' : 'Recitation mode') + '">' + ICON.read + '</button>' +
+      '<button class="ib modesw" data-act="mode" aria-label="' + (rec ? 'Recitation mode · tap for Memorization' : 'Memorization mode · tap for Recitation') + '" title="' + (rec ? 'Recitation mode' : 'Memorization mode') + '">' + (rec ? ICON.read : ICON.mem) + '</button>' +
       '<button class="ib" data-act="settings" aria-label="Settings">' + ICON.gear + '</button>' + viewSw() + '</header>';
   }
   function rtag() { var t = S.rtag(S.d.ui.rtag || 'def'); return t.a && !showArch() ? 'def' : t.id; }
@@ -106,11 +108,11 @@
     // v119 (SL6): tags — Main plus his own readings (e.g. a Ramadan khatm), each with its own bookmark, log and stats.
     var rts = S.rtags(), rlist = rts.filter(function (t) { return !t.a; }).concat(showArch() ? rts.filter(function (t) { return t.a; }) : []);
     h += '<div class="chips">' + rlist.map(function (t) {
-      return '<button class="chip ' + (t.id === rt ? 'on' : '') + (t.a ? ' arch' : '') + '" data-act="rchip" data-t="' + esc(t.id) + '"' + (t.id === 'def' ? '' : ' data-long="rtag"') + '>' + esc(t.name) + '</button>';
+      return '<button class="chip ' + (t.id === rt ? 'on' : '') + (t.a ? ' arch' : '') + (t.done ? ' done' : '') + '" data-act="rchip" data-t="' + esc(t.id) + '"' + (t.id === 'def' ? '' : ' data-long="rtag"') + '>' + esc(t.name) + '</button>';
     }).join('') + '<button class="chip add" data-act="raddTag">+ Tag</button></div>';
     // v117: Continue (last page read) and the bookmark (where the reading really stands) side by side.
     if ((rl && rl.p) || bm.p) h += '<div class="rconts">' + (rl && rl.p ? '<div class="cont min"><button class="go" data-act="ropen" data-p="' + rl.p + '" data-n="' + (rl.n || 0) + '">' + ICON.play + ' Continue · ' + esc(SUR[(rl.n || onPage(rl.p)[0]) - 1][0]) + ' · P. ' + rl.p + '</button></div>' : '') +
-      (bm.p && !(rl && rl.p === bm.p) ? '<div class="cont min bmc"><button class="go" data-act="ropen" data-p="' + bm.p + '" data-n="' + (bm.n || 0) + '">' + ICON.bmk + ' P. ' + bm.p + '</button></div>' : '') + '</div>';
+      (bm.p && !(rl && rl.p === bm.p) ? '<div class="cont min bmc"><button class="go" data-act="ropen" data-p="' + Math.min(604, bm.p) + '" data-n="' + (bm.p > 604 ? 114 : bm.n || 0) + '">' + ICON.bmk + (bm.p > 604 ? ' Completed' : ' P. ' + bm.p) + '</button></div>' : '') + '</div>';
     var t = d.ui.rtab === 'juz' ? 'juz' : d.ui.rtab === 'bm' ? 'bm' : 'sur';
     h += '<nav class="tabs"><button class="' + (t === 'sur' ? 'on' : '') + '" data-act="rtab" data-t="sur">Surah</button><button class="' + (t === 'juz' ? 'on' : '') + '" data-act="rtab" data-t="juz">Juz</button><button class="' + (t === 'bm' ? 'on' : '') + '" data-act="rtab" data-t="bm">Bookmarks</button></nav>';
     return h + (t === 'juz' ? juzTab() : t === 'bm' ? bmTab() : recSurTab());
@@ -122,8 +124,8 @@
     log.forEach(function (e, i) {
       var dt = new Date(e[0]), day = dt.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: dt.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
       if (day !== lastD) { rows += '<div class="divider">' + esc(day) + '</div>'; lastD = day; }
-      var n = e[2] || onPage(e[1])[0], cur = i === 0 && e[1] === b.p;
-      rows += '<div class="srow"><button class="sname" data-act="ropen" data-p="' + e[1] + '" data-n="' + n + '"><span class="num' + (cur ? ' bmcur' : '') + '">' + (cur ? ICON.bmk : '') + '</span><span class="nm">P. ' + e[1] + ' · ' + esc(SUR[n - 1][0]) + '</span>' +
+      var n = e[2] || onPage(Math.min(604, e[1]))[0], cur = i === 0 && e[1] === b.p, fin = e[1] > 604; // v123: 605 = completion (khatm)
+      rows += '<div class="srow"><button class="sname" data-act="ropen" data-p="' + Math.min(604, e[1]) + '" data-n="' + n + '"><span class="num' + (cur ? ' bmcur' : '') + '">' + (cur ? ICON.bmk : '') + '</span><span class="nm">' + (fin ? 'Completed · khatm' : 'P. ' + e[1] + ' · ' + esc(SUR[n - 1][0])) + '</span>' +
         '<span class="jsub">' + dt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) + '</span></button></div>';
     });
     return '<div class="list">' + rows + '</div>';
@@ -164,6 +166,8 @@
     var pd = st.rp, td = S.today(), a = st.ra || td, r = repRange(pd, a), s0 = r[0], s1 = r[1], all = st.rall, rt = rtag();
     var tags = all ? S.rtags() : [S.rtag(rt)], D = {};
     tags.forEach(function (t) { var dd = S.rread(t.id).days; for (var k in dd) { var q = D[k] || (D[k] = { pg: 0, jz: 0 }); q.pg += dd[k].pg; q.jz += dd[k].jz; } });
+    // v123 (SL8): completions (khatm) dated within the period.
+    var NC = S.comps(all ? null : rt).filter(function (c) { return c.d >= s0 && c.d <= s1; }).length;
     var PG = 0, JZ = 0, ND = 0; for (var k in D) if (k >= s0 && k <= s1) { PG += D[k].pg; JZ += D[k].jz; if (D[k].pg) ND++; }
     var jf = function (j) { return j >= 10 ? Math.round(j) : Math.round(j * 10) / 10; };
     var h = '<header class="top"><button class="ib" data-act="home" aria-label="Back">' + ICON.back + '</button><div class="brand">Recitation stats</div>' + viewSw() + '</header>';
@@ -172,7 +176,8 @@
     var nxt = addD(s1, 1);
     h += '<div class="calhd"><button class="ib" data-act="ra" data-d="' + addD(s0, -1) + '" aria-label="Previous">' + ICON.back + '</button><b>' + repLabel(pd, r) + '</b><button class="ib" data-act="ra" data-d="' + nxt + '" aria-label="Next"' + (nxt > td ? ' disabled style="opacity:.3"' : '') + '>' + ICON.fwd + '</button></div>';
     h += '<div class="cards"><div class="card"><div class="v">' + PG + '</div><div class="k">Pages read</div></div><div class="card"><div class="v">' + jf(JZ) + '</div><div class="k">Juz read</div></div>' +
-      (pd === 'day' ? '' : '<div class="card"><div class="v">' + ND + '</div><div class="k">Days read</div></div><div class="card"><div class="v">' + (ND ? Math.round(PG / ND) : 0) + '</div><div class="k">Pages per reading day</div></div>') + '</div>';
+      (pd === 'day' ? '' : '<div class="card"><div class="v">' + ND + '</div><div class="k">Days read</div></div><div class="card"><div class="v">' + (ND ? Math.round(PG / ND) : 0) + '</div><div class="k">Pages per reading day</div></div>') +
+      (NC || pd === 'year' ? '<div class="card"><div class="v">' + NC + '</div><div class="k">Completions</div></div>' : '') + '</div>';
     if (pd !== 'day') {
       var B = [];
       if (pd === 'year') for (var mi = 0; mi < 12; mi++) B.push({ k: s0.slice(0, 4) + '-' + String(mi + 1).padStart(2, '0'), l: 'JFMAMJJASOND'[mi], v: 0 });
@@ -187,7 +192,7 @@
     // Every reading's progress from its bookmark.
     h += '<div class="bar" style="margin-top:14px"><b style="align-self:center">Readings</b></div><div class="list">' + S.rtags().map(function (t) {
       var b = S.bm(t.id), base = t.start || S.rread(t.id).base || 1, tot = 605 - base, pc = b.p && tot > 0 ? Math.round(Math.max(0, b.p - base) / tot * 100) : 0;
-      return '<div class="prow"><button class="pl" data-act="rchipGo" data-t="' + esc(t.id) + '">' + esc(t.name) + '</button><div class="grow small">' + (b.p ? 'Bookmark P. ' + b.p : 'No bookmark yet') +
+      return '<div class="prow"><button class="pl" data-act="rchipGo" data-t="' + esc(t.id) + '">' + esc(t.name) + '</button><div class="grow small">' + (t.done ? '<span class="donec">Completed ' + esc(t.done) + '</span>' : b.p ? 'Bookmark P. ' + b.p : 'No bookmark yet') + (t.id === 'def' && S.comps('def').length ? '<br><span class="donec">' + S.comps('def').length + '× completed</span>' : '') +
         (t.target ? '<br><span class="muted">Target ' + esc(t.target) + '</span>' : '') + '</div><div style="text-align:right"><b>' + pc + '%</b></div></div>';
     }).join('') + '</div>';
     return h;
@@ -686,7 +691,8 @@
       var n = el.dataset.n; S.d.ui.tab = 'tom'; st.edit = true; st.q = ''; st.exp.tom = {}; st.exp.tom[n] = true; S.saveUi(); App.render();
       var r = document.getElementById('s' + n); if (r) r.scrollIntoView({ block: 'start' });
     },
-    mode: function () { S.d.ui.mode = isRec() ? 'mem' : 'rec'; st.q = ''; st.view = 'home'; S.saveUi(); App.render(); window.scrollTo(0, 0); },
+    // v123: the icon shows the current mode (brain = Memorization, open book = Recitation); tapping swaps it with a note.
+    mode: function () { S.d.ui.mode = isRec() ? 'mem' : 'rec'; st.q = ''; st.view = 'home'; S.saveUi(); App.render(); window.scrollTo(0, 0); App.toast(isRec() ? 'Recitation mode' : 'Memorization mode'); },
     rall: function (el) { st.rall = el.dataset.v === '1'; App.render(); },
     rchipGo: function (el) { S.d.ui.rtag = el.dataset.t; S.saveUi(); st.view = 'home'; App.render(); },
     rchip: function (el) { S.d.ui.rtag = el.dataset.t; S.saveUi(); App.render(); },

@@ -55,6 +55,7 @@
       this.d.time = this.d.time || {};
       this.d.rtime = this.d.rtime || {}; // v116: Recitation mode's stopwatch time (never mixed with memorization)
       this.d.rtags = this.d.rtags || []; // v119: Recitation tags [{ id, name, start, target, c }] — 'def' (Main) is built in
+      this.d.rcomp = this.d.rcomp || []; // v123 (SL8): completions (khatm) [{ id: tag, name, d: 'YYYY-MM-DD', t }]
       this.d.rbm = this.d.rbm || {}; // v117: Recitation bookmarks per tag id ('def' = default tag): { p, n, t, log: [[t, p, n]] }
       if (this.d.last && this.d.last.p && !this.d.last.k) this.d.last.k = uk(this.d.last.p);
       if (this.migrateUnits()) this.persist();
@@ -134,12 +135,42 @@
     /* v119 (SL9) pages read per day for a tag: the day's last bookmark minus the last bookmark of the previous
        reading day (never negative). Baseline = the tag's start page, else its first bookmark. */
     rread: function (tag) {
-      var b = this.bm(tag), t = this.rtag(tag), log = (b.log || []).slice().sort(function (x, y) { return x[0] - y[0]; }), last = {}, order = [], self = this;
-      log.forEach(function (e) { var d = new Date(e[0]), k = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); if (!(k in last)) order.push(k); last[k] = e[1]; });
-      var prev = t.start || (log[0] ? log[0][1] : 0), out = {};
-      order.forEach(function (k) { var pg = Math.max(0, last[k] - prev); out[k] = { pg: pg, jz: Math.max(0, self.juzPos(last[k]) - self.juzPos(prev)), to: last[k] }; prev = last[k]; });
+      var b = this.bm(tag), t = this.rtag(tag), log = (b.log || []).slice().sort(function (x, y) { return x[0] - y[0]; }), byDay = {}, order = [], self = this;
+      log.forEach(function (e) { var d = new Date(e[0]), k = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); if (!byDay[k]) { byDay[k] = []; order.push(k); } byDay[k].push(e); });
+      // v123 (SL8): a completion is logged as page 605 (end of the mushaf); the entry after it (Main restarting) is a new baseline.
+      var prev = t.start || (log[0] ? log[0][1] : 0), out = {}, reset = false;
+      order.forEach(function (k) {
+        var pg = 0, jz = 0, cur = null, to = 0;
+        byDay[k].forEach(function (e) {
+          to = e[1];
+          if (reset) { prev = e[1]; reset = false; cur = null; return; }
+          if (e[1] >= 605) { pg += Math.max(0, 605 - prev); jz += Math.max(0, self.juzPos(605) - self.juzPos(prev)); prev = 605; reset = true; cur = null; return; }
+          cur = e[1];
+        });
+        if (cur != null) { pg += Math.max(0, cur - prev); jz += Math.max(0, self.juzPos(cur) - self.juzPos(prev)); prev = cur; }
+        out[k] = { pg: pg, jz: jz, to: to };
+      });
       return { days: out, base: t.start || (log[0] ? log[0][1] : 0) };
     },
+    /* v123 (SL8) Mark completion on the last page: logged as a bookmark at 605 (= whole mushaf read), recorded with its
+       (editable) date. A tag is one khatm, so it gets the completed colour and is archived; Main restarts at P. 1. */
+    complete: function (tag, d) {
+      tag = tag || 'def';
+      var t = Date.now(), b = this.bm(tag), prev = { p: b.p, n: b.n }, tg = (this.d.rtags || []).filter(function (q) { return q.id === tag; })[0], self = this;
+      b.log.push([t, 605, 114]);
+      if (tag === 'def') { b.log.push([t + 1, 1, 1]); b.p = 1; b.n = 1; } else { b.p = 605; b.n = 114; }
+      b.t = t + 1;
+      (this.d.rcomp || (this.d.rcomp = [])).push({ id: tag, name: this.rtag(tag).name, d: d, t: t });
+      if (tg) { tg.done = d; tg.a = 1; }
+      this.d.rtu = Date.now(); this.save();
+      return function undo() {
+        var c = self.bm(tag); c.log = c.log.filter(function (e) { return e[0] !== t && e[0] !== t + 1; }); (c.del || (c.del = [])).push(t, t + 1);
+        c.p = prev.p; c.n = prev.n; c.t = Date.now();
+        self.d.rcomp = self.d.rcomp.filter(function (x) { return x.t !== t; }); if (tg) { delete tg.done; delete tg.a; }
+        self.d.rtu = Date.now(); self.save();
+      };
+    },
+    comps: function (tag) { return (this.d.rcomp || []).filter(function (x) { return !tag || x.id === tag; }); },
     setBm: function (p, n, tag) {
       var b = this.bm(tag), prev = { p: b.p, n: b.n, t: b.t }, t = Date.now();
       b.p = p; b.n = n || 0; b.t = t; b.log.push([t, p, n || 0]); this.save();
@@ -163,7 +194,7 @@
           });
         });
       });
-      if ((r.rtu || 0) > (L.rtu || 0)) { L.rtags = r.rtags || []; L.rtu = r.rtu; } // v119: Recitation tags
+      if ((r.rtu || 0) > (L.rtu || 0)) { L.rtags = r.rtags || []; L.rcomp = r.rcomp || L.rcomp || []; L.rtu = r.rtu; } // v119: Recitation tags
       // v117: bookmarks — the later move wins; logs are merged by time, minus entries undone on either side (del).
       Object.keys(r.rbm || {}).forEach(function (id) {
         var rb = r.rbm[id], lb = (L.rbm || (L.rbm = {}))[id];

@@ -190,6 +190,7 @@
     if (R.stat) { R.stat = false; renderPanel(); return; } // v109: phone back closes the Stat page first
     // v117: leaving Recitation on a page other than the bookmark asks whether to bookmark it. Either answer closes.
     if (R.rec && R.asking) { App.dialogClose(); return; }
+    if (R.rec && R.noAsk) { R.noAsk = false; Reader.close(); return; }
     if (R.rec && S.bm(R.rtag).p !== R.p) {
       R.asking = true; if (window.Timer) Timer.pause();
       App.dialog({ title: 'Bookmark this page?', always: true, btns: [['yes', 'Bookmark', 'pri'], ['no', 'Exit']] }, function (v, w) {
@@ -904,7 +905,8 @@
       return '<div class="rrow tools rtools"><div class="rside">' + (oval ? '' : stat) + timerTool() +
         (desk() ? tb('spread', '2 pages', IC.book, S.d.settings.spread !== false) : '') + '</div>' +
         '<button class="tb bmk' + (here ? ' on' : '') + '" data-ract="bmSet" aria-label="' + (here ? 'Bookmarked page' : 'Bookmark this page') + '"><span class="bmc">' + IC.bmk + '</span>' + (here ? 'Marked' : 'Bookmark') + '</button>' +
-        '<div class="rside">' + (oval ? stat : '') + tb('tCrop', 'Crop', IC.crop, R.sub === 'crop') + tb('home', 'Back', IC.back, false) + '</div></div>';
+        // v123 (SL8): on the last page, Complete (mark the khatm) sits next to Bookmark in Crop's place.
+        '<div class="rside">' + (oval ? stat : '') + (p === 604 && !S.rtag(R.rtag).done ? tb('khatm', 'Complete', IC.check, false) : tb('tCrop', 'Crop', IC.crop, R.sub === 'crop')) + tb('home', 'Back', IC.back, false) + '</div></div>';
     }
     return '<div class="rrow scroll tools' + (open ? ' edopen' : '') + '">' + (open ? '' :
       tb('statOpen', 'Stat', IC.stat, false) + tb('tLine', 'Line', IC.line, R.sub === 'line' || (R.edit && R.etool === 'line')) + tb('tBox', 'Box', IC.box, R.sub === 'box' || (R.edit && R.etool === 'box')) +
@@ -1029,7 +1031,8 @@
     var base = t.start || rr.base || 1, done = b.p ? Math.max(0, b.p - base) : 0, tot = 605 - base, pc = tot > 0 ? Math.round(done / tot * 100) : 0;
     var jf = function (j) { return j >= 10 ? Math.round(j) : Math.round(j * 10) / 10; };
     var tile = function (l, v) { return '<div class="stile"><span>' + l + '</span><b>' + v + '</b></div>'; };
-    var x = '<div class="spage"><div class="sbody"><div class="shead"><b>' + App.esc(t.name) + '</b><span>' + (b.p ? 'Bookmark P. ' + b.p + ' · ' + App.esc(App.pageTitle(b.p)) : 'No bookmark yet') + '</span></div>';
+    var fd = function (d) { return new Date(d + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }); }, nc = S.comps(t.id).length;
+    var x = '<div class="spage"><div class="sbody"><div class="shead"><b>' + App.esc(t.name) + '</b><span>' + (t.done ? 'Completed ' + fd(t.done) : b.p ? 'Bookmark P. ' + b.p + ' · ' + App.esc(App.pageTitle(b.p)) : 'No bookmark yet') + '</span></div>';
     x += '<div class="slbl">Progress</div><div class="shl"><div class="hbar sbar"><i style="width:' + pc + '%;background:var(--acc)"></i></div><b>' + pc + '%</b></div>' +
       '<div class="small muted" style="margin-top:2px">' + done + ' of ' + tot + ' pages from P. ' + base + '</div>';
     if (t.target) {
@@ -1037,7 +1040,7 @@
       x += '<div class="small" style="margin-top:6px">Target ' + new Date(t.target + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + ' · ' + (dl > 0 ? dl + ' day' + (dl === 1 ? '' : 's') + ' left' : 'passed') + '</div>';
     }
     x += '<div class="sgrid" style="margin-top:12px">' + tile('Pages today', T.pg) + tile('Pages this week', W.pg) + tile('Pages this month', M.pg) +
-      tile('Juz this month', jf(M.jz)) + tile('Days read this month', M.d) + tile('Average per reading day', A.d ? Math.round(A.pg / A.d) + ' pages' : '–') + '</div>';
+      tile('Juz this month', jf(M.jz)) + tile('Days read this month', M.d) + tile('Average per reading day', A.d ? Math.round(A.pg / A.d) + ' pages' : '–') + (nc ? tile('Completions', nc) : '') + '</div>';
     var rows = '';
     for (var i = 0; i < 7; i++) { var d = new Date(now); d.setDate(now.getDate() - i); var k = dk(d), v = D[k];
       rows += '<div class="rsday"><span>' + (i === 0 ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })) + '</span><b>' + (v && v.pg ? v.pg + ' page' + (v.pg === 1 ? '' : 's') + (v.to ? ' <span class="muted">→ P. ' + v.to + '</span>' : '') : '–') + '</b></div>'; }
@@ -1336,6 +1339,17 @@
       if (b.p === R.p) { App.toast('Bookmark is on P. ' + R.p); return; }
       var undo = S.setBm(R.p, R.n, R.rtag); buzz(); renderPanel();
       App.toast('Bookmarked P. ' + R.p, function () { undo(); renderPanel(); });
+    },
+    // v123 (SL8): Mark completion — date editable; the reading is archived (Main restarts at P. 1); Undo in the toast.
+    khatm: function () {
+      var tg = S.rtag(R.rtag), main = tg.id === 'def';
+      App.dialog({ title: 'Mark completion', msg: 'Khatm of “' + App.esc(tg.name) + '”. ' + (main ? 'Main starts again from P. 1.' : 'The reading is archived; start the next one as a new tag.'),
+        html: '<div class="dflds"><label>Completed on<input class="dinp" type="date" data-f="d" value="' + S.today() + '"></label></div>', ok: 'Mark' }, function (v, w, f) {
+        var tag = R.rtag, undo = S.complete(tag, f.d || S.today()); buzz();
+        if (!main) { S.d.ui.rtag = 'def'; S.saveUi(); }
+        R.noAsk = true; history.back();
+        App.toast('Khatm recorded · ' + tg.name, function () { undo(); if (!main) { S.d.ui.rtag = tag; S.saveUi(); } App.render(); });
+      });
     },
     bmGo: function () { var b = S.bm(R.rtag); if (b.p && b.p !== R.p) go(b.p, b.p > R.p ? 1 : -1, b.n); },
     spread: function () { S.d.settings.spread = S.d.settings.spread === false; S.saveSettings(); renderPanel(); layout(); },

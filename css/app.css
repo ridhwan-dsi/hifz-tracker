@@ -505,7 +505,7 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 #reader:not(.desk) .rpanel.dz-full:not(.cj) { min-height: var(--dh, 0px); display: flex; flex-direction: column; }
 #reader:not(.desk) .rpanel.dz-full:not(.cj) > .rrow.tools { margin-top: auto; }
 /* v116: Recitation mode switch in the home header (filled when Recitation is on) and Juz rows. */
-.ib.modesw.on { background: var(--acc); color: #fff; }
+.ib.modesw { color: var(--acc); }
 .srow .jsub { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
 /* v117: Recitation toolbar — Bookmark fixed in the centre; the tools either side spread evenly. */
 .rrow.tools.rtools { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0; }
@@ -542,3 +542,7 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 .rsday { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
 .rsday b { font-weight: 700; }
 .tb .tkdot + svg.i { margin-top: 0; }
+/* v123 (SL8): completed reading (khatm) — gold, also when shown archived */
+.chip.done { border-color: #b8860b; color: #b8860b; background: color-mix(in srgb, #d4a017 14%, transparent); }
+.chip.done.arch { opacity: .8; }
+.donec { color: #b8860b; font-weight: 600; }
