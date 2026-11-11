@@ -96,7 +96,7 @@
     return [];
   }
   /* v102: no masks — each page has one layer of boxes and lines (the old Mask 1; Masks 2–5 stay stored but unused). */
-  function activeMask() { return masksOf(R.p)[0] || null; }
+  function activeMask() { return R.rec ? null : masksOf(R.p)[0] || null; }
   function ensureLayer() { if (!masksOf(R.p).length) { saveMasks(function (ms) { ms.push(newMask(1)); }); loadItems(); } return activeMask(); }
   function saveMasks(fn) {
     var p = R.p, ms = JSON.parse(JSON.stringify(masksOf(p)));
@@ -157,7 +157,9 @@
   /* ---------- open / close ---------- */
   var Reader = {
     // range: optional list of unit keys (from the Memorizing tab) — swiping/arrows then stay within those pages.
-    open: function (p, n, range, tag) {
+    // v116: rec = Recitation mode — plain pages (no boxes, lines, joins or sections), free swipe, Timer + Back only.
+    open: function (p, n, range, tag, rec) {
+      R.rec = !!rec; if (R.rec) { range = null; tag = null; R.sub = R.sub === 'timer' ? 'timer' : null; R.edOpen = false; }
       R.style = boxDef(); R.palOpen = false; R.wasDesk = desk();
       if (!Reader.isOpen()) { R.wasPL = phoneLand(); if (R.wasPL) { R.panel = false; R.dszL = 'rib'; } } R.stat = false; R.tag = tag || null; // custom tag: counts shown for the tag, not the month
       p = clamp(p | 0, 1, 604); R.n = n || 0;
@@ -172,6 +174,7 @@
       R.sub = null; R.edit = false; R.sel = -1; App.render(); if (window.Tally) Tally.render();
     },
     isOpen: function () { return $('#reader').classList.contains('on'); },
+    rec: function () { return !!R.rec && Reader.isOpen(); },
     desk: function () { return desk(); },
     page: function () { return R.p; },
     unit: function () { return R.k; },
@@ -227,7 +230,7 @@
     if (R.sub === 'crop' || R.sub === 'join') R.sub = null;
     loadItems();
     syncSec(); // the page's section, then that section's waiting count (if any)
-    S.setLast(p, R.k);
+    if (R.rec) { S.d.rlast = { p: p, n: R.n, t: Date.now() }; S.persist(); } else S.setLast(p, R.k);
     if (history.state && history.state.reader) history.replaceState({ reader: 1 }, '', '#p' + p);
     renderPanel(); Tally.render();
     layout(dir);
@@ -867,7 +870,7 @@
     // No Memorizing toggle here (pages are added/removed from the home tabs only, so nothing is removed by accident).
     // Page stats are automatic: tally reads, stopwatch time, days read (5 min or a tally that day).
     // v109: read/time numbers live only on the Stat page.
-    x += maskRows();
+    if (!R.rec) x += maskRows();
     // Health and Tags live in the bottom toolbar and expand their row just above it.
     return x + toolsRow();
   }
@@ -881,6 +884,8 @@
       tb('tCrop', 'Crop', IC.crop, R.sub === 'crop') + tb('join', 'Join', IC.join, R.sub === 'join') : '') +
       tb('edGrp', 'Edit', open ? IC.x : IC.pen, false).replace('class="tb', 'class="tb edbtn') + '</div>';
     // While Edit is open, the other tools step aside so all edit tools and Back fit on screen.
+    if (R.rec) return '<div class="rrow scroll tools">' + timerTool() + (desk() ? tb('spread', '2 pages', IC.book, S.d.settings.spread !== false) : '') +
+      (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + tb('home', 'Back', IC.back, false) + '</div>';
     return '<div class="rrow scroll tools' + (open ? ' edopen' : '') + '">' + (open ? '' :
       tb('statOpen', 'Stat', IC.stat, false) + tb('tLine', 'Line', IC.line, R.sub === 'line' || (R.edit && R.etool === 'line')) + tb('tBox', 'Box', IC.box, R.sub === 'box' || (R.edit && R.etool === 'box')) +
       timerTool() + tb('tally', (Tally.kept(R.k) || (Tally.dirty() && Tally.unit() === R.k) ? '<i class="tkdot"></i>' : '') + 'Tally', IC.tally, R.sub === 'tally') +

@@ -503,3 +503,6 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 /* v113: Expanded drawer = the empty space under the page (toolbar pinned to the bottom), same for every tool */
 #reader:not(.desk) .rpanel.dz-full:not(.cj) { min-height: var(--dh, 0px); display: flex; flex-direction: column; }
 #reader:not(.desk) .rpanel.dz-full:not(.cj) > .rrow.tools { margin-top: auto; }
+/* v116: Recitation mode switch in the home header (filled when Recitation is on) and Juz rows. */
+.ib.modesw.on { background: var(--acc); color: #fff; }
+.srow .jsub { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }

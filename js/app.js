@@ -18,6 +18,7 @@
     chev: I('<path d="M6 9l6 6 6-6"/>'), back: I('<path d="M15 18l-6-6 6-6"/>'), fwd: I('<path d="M9 18l6-6-6-6"/>'),
     stats: I('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'), gear: I('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
     book: I('<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>'),
+    read: I('<path d="M2 5.5C4.5 4.3 7.5 4.3 12 6c4.5-1.7 7.5-1.7 10-.5v13c-2.5-1.2-5.5-1.2-10 .5-4.5-1.7-7.5-1.7-10-.5zM12 6v13.5"/>'),
     check: I('<path d="M20 6L9 17l-5-5"/>'), pen: I('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), play: I('<path d="M6 4l14 8-14 8z"/>')
   };
   var BUILTIN = [{ id: 'new', name: 'New' }, { id: 'review', name: 'Review' }];
@@ -41,7 +42,7 @@
   /* Local date the tag was created; counts "in this tag" run from here. */
   function tagSince(t) { if (t.c) return t.c; var d = new Date(tagBorn(t)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 
-  var st = { view: 'home', exp: { mem: {}, tom: {} }, edit: false, tedit: null, sel: {}, q: '', sf: 'all', srt: 'page', sdir: 0, sprd: 'all', ssel: {}, month: null, stab: 'rep', rp: 'day', ra: null, cal: null, cday: null, sper: 'all' };
+  var st = { view: 'home', exp: { mem: {}, tom: {}, rec: {}, juz: {} }, edit: false, tedit: null, sel: {}, q: '', sf: 'all', srt: 'page', sdir: 0, sprd: 'all', ssel: {}, month: null, stab: 'rep', rp: 'day', ra: null, cal: null, cday: null, sper: 'all' };
 
   var App = {
     esc: esc, ICON: ICON, tagSince: tagSince, sPages: sPages, onPage: onPage, pageTitle: pageTitle, hcol: hcol, allTags: allTags,
@@ -81,11 +82,52 @@
   }
 
   /* ---------------- Home ---------------- */
-  function home() {
-    var d = S.d, h = '';
-    h += '<header class="top"><div class="brand"><span class="dot">' + ICON.book + '</span>Hifz Tracker</div>' + syncChip() +
-      '<button class="ib" data-act="stats" aria-label="Stats">' + ICON.stats + '</button>' +
+  /* v116: two separate modes. Memorization (tabs Memorizing / To Memorize) and Recitation (Surah / Juz):
+     Recitation has its own time and last page; nothing crosses over. The book button flips between them. */
+  function isRec() { return S.d.ui.mode === 'rec'; }
+  function header() {
+    var rec = isRec();
+    return '<header class="top"><div class="brand"><span class="dot">' + ICON.book + '</span>' + (rec ? 'Recitation' : 'Hifz Tracker') + '</div>' + syncChip() +
+      (rec ? '' : '<button class="ib" data-act="stats" aria-label="Stats">' + ICON.stats + '</button>') +
+      '<button class="ib modesw' + (rec ? ' on' : '') + '" data-act="mode" aria-label="' + (rec ? 'Switch to Memorization' : 'Switch to Recitation') + '" title="' + (rec ? 'Memorization mode' : 'Recitation mode') + '">' + ICON.read + '</button>' +
       '<button class="ib" data-act="settings" aria-label="Settings">' + ICON.gear + '</button>' + viewSw() + '</header>';
+  }
+  function recHome() {
+    var d = S.d, h = header(), rl = d.rlast;
+    if (rl && rl.p) h += '<div class="cont min"><button class="go" data-act="ropen" data-p="' + rl.p + '" data-n="' + (rl.n || 0) + '">' + ICON.play + ' Continue · ' + esc(SUR[(rl.n || onPage(rl.p)[0]) - 1][0]) + ' · P. ' + rl.p + '</button></div>';
+    var t = d.ui.rtab === 'juz' ? 'juz' : 'sur';
+    h += '<nav class="tabs"><button class="' + (t === 'sur' ? 'on' : '') + '" data-act="rtab" data-t="sur">Surah</button><button class="' + (t === 'juz' ? 'on' : '') + '" data-act="rtab" data-t="juz">Juz</button></nav>';
+    return h + (t === 'juz' ? juzTab() : recSurTab());
+  }
+  function recSurTab() {
+    var q = st.q.trim().toLowerCase(), rows = '', lastJ = 0;
+    var h = '<div class="bar"><input type="search" placeholder="Search surah, number or page" value="' + esc(st.q) + '" data-in="q"></div>';
+    SUR.forEach(function (s, i) {
+      var n = i + 1;
+      if (q && !(String(n) === q || s[0].toLowerCase().indexOf(q) >= 0 || s[1].indexOf(st.q.trim()) >= 0 || (+q >= s[3] && +q <= s[4]))) return;
+      var j = juzOf(s[3]);
+      if (!q && j !== lastJ) { rows += '<div class="divider">Juz ' + j + '</div>'; lastJ = j; }
+      var open = st.exp.rec[n] || (q && +q >= s[3] && +q <= s[4]);
+      rows += '<div class="srow"><button class="sname" data-act="ropen" data-p="' + s[3] + '" data-n="' + n + '"><span class="num">' + n + '</span><span class="nm">' + esc(s[0]) + '</span><span class="ar">' + esc(s[1]) + '</span></button>' +
+        '<button class="exp ' + (open ? 'open' : '') + '" data-act="exp" data-k="rec" data-n="' + n + '" aria-label="Pages">' + ICON.chev + '</button></div>';
+      if (open) rows += '<div class="pages">' + sPages(n).map(function (p) { return '<button class="pl" data-act="ropen" data-p="' + p + '" data-n="' + n + '">P. ' + p + '</button>'; }).join('') + '</div>';
+    });
+    return h + '<div class="list">' + (rows || '<div class="empty">No surah matches.</div>') + '</div>';
+  }
+  function juzTab() {
+    var rows = '';
+    QURAN.J.forEach(function (p0, i) {
+      var j = i + 1, p1 = j < 30 ? QURAN.J[i + 1] - 1 : 604, a = QURAN.JA[i], open = st.exp.juz[j];
+      // In this mushaf every juz begins at the top of a page, so a juz runs up to the page before the next one.
+      rows += '<div class="srow"><button class="sname" data-act="ropen" data-p="' + p0 + '" data-n="' + a[0] + '"><span class="num">' + j + '</span><span class="nm">Juz ' + j + '</span><span class="jsub">' + esc(SUR[a[0] - 1][0]) + ' ' + a[0] + ':' + a[1] + ' · P. ' + p0 + '</span></button>' +
+        '<button class="exp ' + (open ? 'open' : '') + '" data-act="exp" data-k="juz" data-n="' + j + '" aria-label="Pages">' + ICON.chev + '</button></div>';
+      if (open) { var b = ''; for (var p = p0; p <= p1; p++) b += '<button class="pl" data-act="ropen" data-p="' + p + '">P. ' + p + '</button>'; rows += '<div class="pages">' + b + '</div>'; }
+    });
+    return '<div class="list">' + rows + '</div>';
+  }
+  function home() {
+    if (isRec()) return recHome();
+    var d = S.d, h = header();
     if (d.last && d.last.p) {
       var lp = d.last.p, lk = d.last.k || S.uk(lp);
       if (d.ui.contMin) h += '<div class="cont min"><button class="go" data-act="open" data-p="' + lk + '">' + ICON.play + ' P. ' + lp + '</button><button class="ib" data-act="contMin" aria-label="Expand">' + ICON.fwd + '</button></div>';
@@ -563,6 +605,9 @@
       var n = el.dataset.n; S.d.ui.tab = 'tom'; st.edit = true; st.q = ''; st.exp.tom = {}; st.exp.tom[n] = true; S.saveUi(); App.render();
       var r = document.getElementById('s' + n); if (r) r.scrollIntoView({ block: 'start' });
     },
+    mode: function () { S.d.ui.mode = isRec() ? 'mem' : 'rec'; st.q = ''; st.view = 'home'; S.saveUi(); App.render(); window.scrollTo(0, 0); },
+    rtab: function (el) { S.d.ui.rtab = el.dataset.t; S.saveUi(); App.render(); },
+    ropen: function (el) { closeSheet(); var p = +el.dataset.p, n = +el.dataset.n || 0; Reader.open(p, n, null, null, true); },
     contMin: function () { S.d.ui.contMin = !S.d.ui.contMin; S.saveUi(); App.render(); },
     stats: function () { st.view = 'stats'; st.ssel = {}; st.month = null; App.render(); window.scrollTo(0, 0); },
     home: function () { st.view = 'home'; App.render(); },
@@ -647,8 +692,10 @@
   Sync.init();
   // Reopen the page after a reload (e.g. Update app) with the same swipe scope as before, not the free mushaf.
   if (location.hash.match(/^#p\d+$/)) {
-    var p0 = +location.hash.slice(2), lk = S.d.last && S.kp(S.d.last.k) === p0 ? S.d.last.k : S.uk(p0), sc0 = scope(lk);
-    history.replaceState(null, '', location.pathname); Reader.open(p0, S.kn(lk), sc0 && sc0.rg, sc0 && sc0.tag);
+    var p0 = +location.hash.slice(2);
+    history.replaceState(null, '', location.pathname);
+    if (isRec()) Reader.open(p0, S.d.rlast && S.d.rlast.p === p0 ? S.d.rlast.n : 0, null, null, true);
+    else { var lk = S.d.last && S.kp(S.d.last.k) === p0 ? S.d.last.k : S.uk(p0), sc0 = scope(lk); Reader.open(p0, S.kn(lk), sc0 && sc0.rg, sc0 && sc0.tag); }
   }
   (function () {
     var u = null; try { u = JSON.parse(sessionStorage.getItem('hifzUpd')); sessionStorage.removeItem('hifzUpd'); } catch (e) {}

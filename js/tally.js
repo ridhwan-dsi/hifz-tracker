@@ -99,7 +99,7 @@
     dayReads: dayReads,
     render: function () {
       if (!el) build();
-      var vis = T.on && window.Reader && Reader.isOpen();
+      var vis = T.on && window.Reader && Reader.isOpen() && !Reader.rec();
       el.style.display = vis ? 'block' : 'none';
       num.textContent = T.n;
       if (vis) place();

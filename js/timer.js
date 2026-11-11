@@ -38,10 +38,11 @@
   function pageToday(p, md) { var q = day(S.today()).pages[p]; return q ? (md ? q[md] : q.r + q.n) : 0; }
 
   function credit(p, dt) {
-    var d = S.today(), md = modeOf(Reader.unit ? Reader.unit() : p), TM = S.d.time || (S.d.time = {});
-    var D = TM[d] || (TM[d] = {}), v = D[dev] || (D[dev] = { r: {}, n: {} }), m = v[md] || (v[md] = {});
+    var rec = !!(Reader.rec && Reader.rec()), key = rec ? 'rtime' : 'time';
+    var d = S.today(), md = rec ? 'c' : modeOf(Reader.unit ? Reader.unit() : p), TM = S.d[key] || (S.d[key] = {});
+    var D = TM[d] || (TM[d] = {}), v = D[dev] || (D[dev] = rec ? {} : { r: {}, n: {} }), m = v[md] || (v[md] = {});
     m[p] = Math.round(((m[p] || 0) + dt) * 10) / 10;
-    var k = d + '|' + md + '|' + p, cr = T.cr || (T.cr = {}); cr[k] = (cr[k] || 0) + dt;
+    var k = (rec ? 'R' : '') + d + '|' + md + '|' + p, cr = T.cr || (T.cr = {}); cr[k] = (cr[k] || 0) + dt;
     return md;
   }
 
@@ -71,7 +72,7 @@
   }
   function takeBack(cr) {
     Object.keys(cr).forEach(function (k) {
-      var a = k.split('|'), D = (S.d.time || {})[a[0]], v = D && D[dev], m = v && v[a[1]];
+      var rk = k.charAt(0) === 'R', a = (rk ? k.slice(1) : k).split('|'), D = (S.d[rk ? 'rtime' : 'time'] || {})[a[0]], v = D && D[dev], m = v && v[a[1]];
       if (m && m[a[2]] != null) { m[a[2]] = Math.max(0, Math.round((m[a[2]] - cr[k]) * 10) / 10); if (!m[a[2]]) delete m[a[2]]; }
     });
   }

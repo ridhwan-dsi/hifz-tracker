@@ -6,7 +6,7 @@
   function month() { return today().slice(0, 7); }
   function blank() {
     return {
-      v: 2, acct: null, pages: {}, tags: [], time: {}, su: 0, last: null,
+      v: 2, acct: null, pages: {}, tags: [], time: {}, rtime: {}, su: 0, last: null,
       settings: { theme: 'green', decayOn: true, decayAfter: 14, decayPct: 5, cover: '#ffffff', hideCol: '#f3e9d4', fit: 'page', trim: 'full', trimPad: 0.01, goalDay: 30, autoRev: 10, sessT: 0, tHold: 0.4, tDay: 0, tRuleN: 0, tRulePct: 5, tapShow: false },
       ui: { tab: 'mem', contMin: false, chips: [] }
     };
@@ -53,6 +53,7 @@
       this.d.tags = this.d.tags || [];
       this.d.pages = this.d.pages || {};
       this.d.time = this.d.time || {};
+      this.d.rtime = this.d.rtime || {}; // v116: Recitation mode's stopwatch time (never mixed with memorization)
       if (this.d.last && this.d.last.p && !this.d.last.k) this.d.last.k = uk(this.d.last.p);
       if (this.migrateUnits()) this.persist();
     },
@@ -126,14 +127,18 @@
       Object.keys(r.pages || {}).forEach(function (k) { var rp = r.pages[k], lp = L.pages[k]; if (!lp || (rp.u || 0) > (lp.u || 0)) L.pages[k] = rp; });
       if ((r.su || 0) > (L.su || 0)) { L.settings = Object.assign(L.settings, r.settings || {}); L.tags = r.tags || L.tags; L.su = r.su; }
       // Stopwatch time: day → device → mode → page seconds. Counts only grow, so keep the larger of each.
-      var T = L.time || (L.time = {});
-      Object.keys(r.time || {}).forEach(function (day) {
-        var rd = r.time[day], ld = T[day] || (T[day] = {});
-        Object.keys(rd).forEach(function (dev) {
-          var rv = rd[dev], lv = ld[dev] || (ld[dev] = { r: {}, n: {} });
-          ['r', 'n'].forEach(function (md) { var a = rv[md] || {}, b = lv[md] || (lv[md] = {}); for (var p in a) if ((a[p] || 0) > (b[p] || 0)) b[p] = a[p]; });
+      // v116: rtime (Recitation, mode 'c') merges the same way.
+      ['time', 'rtime'].forEach(function (key) {
+        var T = L[key] || (L[key] = {});
+        Object.keys(r[key] || {}).forEach(function (day) {
+          var rd = r[key][day], ld = T[day] || (T[day] = {});
+          Object.keys(rd).forEach(function (dev) {
+            var rv = rd[dev], lv = ld[dev] || (ld[dev] = {});
+            ['r', 'n', 'c'].forEach(function (md) { var a = rv[md]; if (!a) return; var b = lv[md] || (lv[md] = {}); for (var p in a) if ((a[p] || 0) > (b[p] || 0)) b[p] = a[p]; });
+          });
         });
       });
+      if (r.rlast && (!L.rlast || r.rlast.t > L.rlast.t)) L.rlast = r.rlast;
       if (r.last && (!L.last || r.last.t > L.last.t)) L.last = r.last;
       if (L.last && L.last.p && !L.last.k) L.last.k = uk(L.last.p);
       this.migrateUnits();
