@@ -897,12 +897,14 @@
       tb('edGrp', 'Edit', open ? IC.x : IC.pen, false).replace('class="tb', 'class="tb edbtn') + '</div>';
     // While Edit is open, the other tools step aside so all edit tools and Back fit on screen.
     // v117: Recitation toolbar — Bookmark sits in the exact centre (thumb's home); tools left and right of it spread evenly.
+    // v118: each side must fit its half, so when the Timer opens into its wide oval, Crop moves to the right side.
+    // Jump-to-bookmark lives in the Go to dialog (the separate To mark icon left no room for Crop).
     if (R.rec) {
-      var bm = S.bm(), here = bm.p === p;
-      return '<div class="rrow tools rtools"><div class="rside">' + timerTool() + tb('goPage', 'Go to', IC.hash, false) +
+      var bm = S.bm(), here = bm.p === p, oval = Timer.active() || R.sub === 'timer', crop = tb('tCrop', 'Crop', IC.crop, R.sub === 'crop');
+      return '<div class="rrow tools rtools"><div class="rside">' + timerTool() + (oval ? '' : crop) +
         (desk() ? tb('spread', '2 pages', IC.book, S.d.settings.spread !== false) : '') + '</div>' +
         '<button class="tb bmk' + (here ? ' on' : '') + '" data-ract="bmSet" aria-label="' + (here ? 'Bookmarked page' : 'Bookmark this page') + '"><span class="bmc">' + IC.bmk + '</span>' + (here ? 'Marked' : 'Bookmark') + '</button>' +
-        '<div class="rside">' + tb('bmGo', 'To mark', IC.bmgo, false, !bm.p || here) + (installed() ? '' : tb('fs', 'Full screen', IC.full, false)) + tb('home', 'Back', IC.back, false) + '</div></div>';
+        '<div class="rside">' + (oval ? crop : '') + tb('goPage', 'Go to', IC.hash, false) + tb('home', 'Back', IC.back, false) + '</div></div>';
     }
     return '<div class="rrow scroll tools' + (open ? ' edopen' : '') + '">' + (open ? '' :
       tb('statOpen', 'Stat', IC.stat, false) + tb('tLine', 'Line', IC.line, R.sub === 'line' || (R.edit && R.etool === 'line')) + tb('tBox', 'Box', IC.box, R.sub === 'box' || (R.edit && R.etool === 'box')) +
@@ -1308,7 +1310,10 @@
     },
     bmGo: function () { var b = S.bm(); if (b.p && b.p !== R.p) go(b.p, b.p > R.p ? 1 : -1, b.n); },
     goPage: function () {
-      App.dialog({ title: 'Go to page', input: String(R.p), num: true, ok: 'Go', msg: '1 – 604' }, function (v) {
+      var b = S.bm(), bb = b.p && b.p !== R.p;
+      App.dialog({ title: 'Go to page', input: '', num: true, msg: 'Page 1 – 604', col: false,
+        btns: [['x', 'Cancel']].concat(bb ? [['bm', 'Bookmark · P. ' + b.p]] : []).concat([['go', 'Go', 'pri']]) }, function (v, w) {
+        if (w === 'bm') { RACT.bmGo(); return; }
         var q = parseInt(v, 10); if (!(q >= 1 && q <= 604)) { App.toast('Type a page from 1 to 604'); return; }
         if (q !== R.p) go(q, q > R.p ? 1 : -1);
       });
