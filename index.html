@@ -12,9 +12,10 @@
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri&family=Manrope:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="css/app.css">
-<script>try{var t=JSON.parse(localStorage.getItem('hifz.v2'));if(t&&t.settings)document.documentElement.dataset.theme=t.settings.theme}catch(e){}</script>
+<script>/* v133: apply the saved look before anything paints (no flash) */
+(function(){var e=document.documentElement,L={},c='green';try{L=JSON.parse(localStorage.getItem('hifz.look'))||{}}catch(x){}try{var t=JSON.parse(localStorage.getItem('hifz.v2'));if(t&&t.settings&&t.settings.theme)c=t.settings.theme}catch(x){}var n=L.ui!=='classic';e.dataset.ui=n?'new':'classic';e.dataset.theme=n?(L.nt||'mushafw'):c;var m={mushafw:'#ffffff',mushaf:'#edf2e6',midnight:'#07090d',emerald:'#05100c',dusk:'#0d0a14',sand:'#f5efe3'}[e.dataset.theme];if(m)document.querySelector('meta[name=theme-color]').content=m})();</script>
 </head>
 <body>
 <div id="app"></div>

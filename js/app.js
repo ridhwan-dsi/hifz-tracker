@@ -52,13 +52,19 @@
 
   var st = { view: 'home', exp: { mem: {}, tom: {}, rec: {}, juz: {} }, edit: false, tedit: null, sel: {}, q: '', sf: 'all', srt: 'page', sdir: 0, sprd: 'all', ssel: {}, month: null, stab: 'rep', rp: 'day', ra: null, cal: null, cday: null, sper: 'all' };
 
+  /* v133: the look (New/Classic design + new colour mode) belongs to this phone, not the synced data. */
+  var NTHEMES = [['mushafw', 'Mushaf White', '#ffffff', '#e1ede0', '#278a3d'], ['mushaf', 'Mushaf', '#edf2e6', '#cfdcbf', '#2f8a3c'], ['midnight', 'Midnight', '#07090d', '#1a2029', '#3ba7ff'], ['emerald', 'Emerald', '#05100c', '#15291f', '#d9b25a'], ['dusk', 'Dusk', '#0d0a14', '#221a33', '#b68cff'], ['sand', 'Sand', '#f5efe3', '#e3d7c0', '#b4612a']];
+  function look() { var L = {}; try { L = JSON.parse(localStorage.getItem('hifz.look')) || {}; } catch (e) {} return { ui: L.ui === 'classic' ? 'classic' : 'new', nt: NTHEMES.some(function (t) { return t[0] === L.nt; }) ? L.nt : 'mushafw' }; }
+  function setLook(k, v) { var L = look(); L[k] = v; try { localStorage.setItem('hifz.look', JSON.stringify(L)); } catch (e) {} }
+
   var App = {
     dialog: function (o, cb) { dialog(o, cb); }, dialogClose: function () { if (dlg) endDlg(false); },
     esc: esc, ICON: ICON, tagSince: tagSince, sPages: sPages, onPage: onPage, pageTitle: pageTitle, hcol: hcol, allTags: allTags,
     render: function () {
-      document.documentElement.dataset.theme = S.d.settings.theme;
+      var lk = look(), de = document.documentElement;
+      de.dataset.ui = lk.ui; de.dataset.theme = lk.ui === 'new' ? lk.nt : S.d.settings.theme;
       var meta = document.querySelector('meta[name=theme-color]');
-      if (meta) meta.content = getComputedStyle(document.documentElement).getPropertyValue('--acc').trim() || '#1f7a52';
+      if (meta) meta.content = getComputedStyle(de).getPropertyValue(lk.ui === 'new' ? '--bg' : '--acc').trim() || '#1f7a52';
       document.body.classList.toggle('web', S.d.settings.view === 'web' && innerWidth >= 1000);
       $('#app').innerHTML = st.view === 'stats' ? stats() : home();
       try { offUse(); } catch (e) {}
@@ -691,7 +697,8 @@
      Mode-specific: each mode shows only the settings that do something there (shared ones in both). */
   var SHELP = {
     acct: 'Your progress, boxes and lines are kept in your own Google Drive and synced across devices. Sign out to use the app on this device only.',
-    theme: 'Colour of the app: Green (default), Blue or Dark.',
+    theme: 'Colour of the app. Kept on this phone only, so each device can have its own.',
+    design: 'New is the redesigned look; Classic is the earlier design, kept for now as a fallback. Your data and features are the same in both.',
     web: 'For laptops and big screens: a thin control bar across the bottom, page arrows at the sides, two facing pages. Off: the phone reader. Also on the switch beside Settings.',
     webTrim: 'Off: web view shows whole pages, like a printed mushaf.',
     fit: 'Whole page on screen, or fit the page width and scroll.',
@@ -726,11 +733,14 @@
       : S.d.acct ? '<div class="frow">' + nm('acct', esc(S.d.acct)) + '<span class="sst">' + (Sync.state === 'syncing' ? 'Syncing…' : Sync.state === 'error' ? 'Sync failed' : S.dirty ? 'Not synced — goes up on your next tap online' : 'Synced') + '</span><button class="btn sm" data-act="syncNow">Sync</button></div>' +
         '<div class="frow">' + nm('acct', 'Sign out') + '<button class="btn sm" data-act="signOut">Sign out</button></div>'
         : '<div class="frow">' + nm('acct', 'Google account') + '<button class="btn sm pri" data-act="signIn">Sign in</button></div>';
-    var themes = [['green', '#1f7a52', 'Green'], ['blue', '#1d5ca6', 'Blue'], ['dark', '#111513', 'Dark']];
+    var themes = [['green', '#1f7a52', 'Green'], ['blue', '#1d5ca6', 'Blue'], ['dark', '#111513', 'Dark']], lk = look();
     var ver = esc(((window.HIFZ_CONFIG || {}).appVersion || '—').split(' · ')[0]);
     var h = '<div class="sheetm sett" id="settingsSheet"><h3>Settings <span class="smode">' + (rec ? 'Recitation' : 'Memorization') + '</span></h3>' +
       '<h4>Account</h4>' + acct +
-      '<h4>Look</h4><div class="frow">' + nm('theme', 'Theme') + '<div class="themes">' + themes.map(function (t) { return '<button class="' + (s.theme === t[0] ? 'on' : '') + '" data-act="theme" data-t="' + t[0] + '"><span class="sq" style="background:' + t[1] + '"></span>' + t[2] + '</button>'; }).join('') + '</div></div>' +
+      '<h4>Appearance</h4>' + row('design', 'Design', '<div class="dsw">' + [['new', 'New'], ['classic', 'Classic']].map(function (d) { return '<button class="' + (lk.ui === d[0] ? 'on' : '') + '" data-act="design" data-d="' + d[0] + '">' + d[1] + '</button>'; }).join('') + '</div>') +
+      (lk.ui === 'new'
+        ? '<div class="frow lookblk">' + nm('theme', 'Colour mode') + '<div class="themes six">' + NTHEMES.map(function (t) { return '<button class="' + (lk.nt === t[0] ? 'on' : '') + '" data-act="ntheme" data-t="' + t[0] + '"><span class="sw3"><i style="background:' + t[2] + '"></i><i style="background:' + t[3] + '"></i><i style="background:' + t[4] + '"></i></span>' + t[1] + '</button>'; }).join('') + '</div></div>'
+        : '<div class="frow">' + nm('theme', 'Theme') + '<div class="themes">' + themes.map(function (t) { return '<button class="' + (s.theme === t[0] ? 'on' : '') + '" data-act="theme" data-t="' + t[0] + '"><span class="sq" style="background:' + t[1] + '"></span>' + t[2] + '</button>'; }).join('') + '</div></div>') +
       '<h4>Page display</h4>' +
       (innerWidth >= 1000 ? row('web', 'Web view', sw(s.view === 'web', 'webView')) + row('webTrim', 'Trim margins in web view', sw(s.webTrim, 'webTrim')) : '') +
       row('fit', 'Show pages', sel('fit', [['page', 'Whole page'], ['width', 'Fit width']], s.fit === 'width' ? 'width' : 'page')) +
@@ -975,6 +985,8 @@
       Promise.all([p1, p2, p3]).catch(function () {}).then(function () { location.replace(location.pathname + '?v=' + Date.now() + location.hash); });
     },
     theme: function (el) { S.d.settings.theme = el.dataset.t; S.saveSettings(); App.render(); openSettings(); },
+    ntheme: function (el) { setLook('nt', el.dataset.t); App.render(); openSettings(); },
+    design: function (el) { setLook('ui', el.dataset.d); App.render(); openSettings(); },
     swipeSur: function () { S.d.settings.swipeSur = S.d.settings.swipeSur === false; S.saveSettings(); openSettings(); },
     viewFlip: function () { S.d.settings.view = S.d.settings.view === 'web' ? 'mobile' : 'web'; S.saveSettings(); App.render(); },
     webTrim: function () { S.d.settings.webTrim = !S.d.settings.webTrim; S.saveSettings(); openSettings(); },
