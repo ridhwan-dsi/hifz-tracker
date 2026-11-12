@@ -118,7 +118,30 @@ svg.i{width:20px;height:20px;stroke:var(--tx);fill:none;stroke-width:2;stroke-li
 [data-t=mushaf] .hero,[data-t=mushaf] .dhero{box-shadow:inset 0 0 0 1.5px #2f8a3c66,inset 0 0 0 5px var(--s1),inset 0 0 0 6.5px #2f8a3c33}
 [data-t=mushaf] .lab .rose{color:var(--rose);margin-right:6px}
 [data-t=mushaf].rd{background:#e6eddc}
-.themes.five{grid-template-columns:repeat(5,1fr);gap:6px;padding:12px 10px}.themes.five .sw{height:62px}.themes.five p{font-size:10.5px}
+/* Mushaf White: white canvas, green only where something is a card or selected */
+[data-t=mushafw]{--bg:#ffffff;--s1:#f0f6ee;--s2:#e1ede0;--ln:#1d4a2416;--tx:#122a19;--mu:#5d7262;--ac:#278a3d;--ac2:#176a2b;--on:#fff;--rose:#c9527e;--ok:#2f9a4c;--mid:#d39b18;--bad:#d0533f}
+[data-t=mushafw] .hero{background:linear-gradient(160deg,#dcefd9,#f0f6ee 70%);box-shadow:inset 0 0 0 1.5px #278a3d55,inset 0 0 0 5px #eef6ec,inset 0 0 0 6.5px #278a3d2e}
+[data-t=mushafw] .lab .rose{color:var(--rose);margin-right:6px}
+[data-t=mushafw] .chip{background:#fff;box-shadow:inset 0 0 0 1.5px var(--s2);color:var(--mu)}
+[data-t=mushafw] .chip.on{background:var(--ac);color:#fff;box-shadow:none}
+[data-t=mushafw] .chip.add{box-shadow:none}
+[data-t=mushafw] .segc{background:var(--s1)}[data-t=mushafw] .segc div.on{background:#fff;color:var(--ac);box-shadow:0 1px 6px -1px #1d4a2430}
+[data-t=mushafw] .segc div.on em{color:var(--ac)}
+[data-t=mushafw] .nav{background:#fff;box-shadow:0 -6px 20px -12px #1d4a2433;border-top:0}
+[data-t=mushafw] .nav .on{color:var(--ac)}
+[data-t=mushafw] .ib{background:var(--s1)}[data-t=mushafw] .ib svg{stroke:var(--ac)}
+[data-t=mushafw] .av{background:var(--ac)}
+[data-t=mushafw] .grp,[data-t=mushafw] .card,[data-t=mushafw] .sq{background:#fff;box-shadow:inset 0 0 0 1.5px var(--s2)}
+[data-t=mushafw] .sq.h{background:linear-gradient(150deg,#d9eed6,#fff 80%)}
+[data-t=mushafw] .tile{background:var(--s1)}[data-t=mushafw] .tile.cur{background:#fff;box-shadow:inset 0 0 0 2px var(--ac)}
+[data-t=mushafw] .search{background:var(--s1)}
+[data-t=mushafw].rd{background:#edf4ea}
+[data-t=mushafw] .drw{background:#fff;box-shadow:0 -8px 24px -14px #1d4a2444}
+[data-t=mushafw] .secov span.on{background:var(--ac);color:#fff}
+[data-t=mushafw] .bars i{background:#cfe4cb}
+[data-t=mushafw] .cal div.g{background:#9fd19f}[data-t=mushafw] .cal div.g2{background:#d4ead1}
+[data-t=mushafw] .sr .chev{background:var(--s1)}
+.themes.five{grid-template-columns:repeat(3,1fr);gap:6px;padding:12px 10px}.themes.five .sw{height:54px}.themes.five p{font-size:10.5px}
 .dsw{margin-left:auto;display:flex;padding:3px;border-radius:12px;background:var(--s2)}.dsw span{padding:5px 11px;border-radius:9px;font-size:12px;font-weight:800;color:var(--mu)}.dsw span.on{background:var(--s1);color:var(--tx);box-shadow:0 1px 4px #0003}
 .ph .scroll{position:absolute;top:34px;left:0;right:0;bottom:72px;overflow:hidden}
 .hd .sync{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--mu);font-weight:600}
@@ -296,7 +319,8 @@ const sb='<div class="sb"><span>9:41</span><span>●●● ▮</span></div>';
 /* Generated surah covers: colour from the surah number (one stable hue each) */
 const G=['#0d3b66,#1f7ac9','#5b3a0c,#c89234','#0f4a30,#2fa36a','#4a1238,#c2457f','#2a1a5e,#7b5cd6','#123c45,#2b9aa8','#4d2614,#d06b3a','#1d2b3a,#566b80'];
 const SU={19:['Maryam','مريم'],36:['Yaseen','يس'],78:['An-Naba','النبأ'],67:['Al-Mulk','الملك'],1:['Al-Faatiha','الفاتحة'],2:['Al-Baqara','البقرة'],3:['Aal-i-Imraan','آل عمران'],16:['An-Nahl','النحل'],17:['Al-Israa','الإسراء'],18:['Al-Kahf','الكهف'],35:['Faatir','فاطر'],37:['As-Saaffaat','الصافات'],66:['At-Tahrim','التحريم'],68:['Al-Qalam','القلم'],79:['An-Naazi\'aat','النازعات'],80:['Abasa','عبس']};
-const hue=n=>G[(n*5)%G.length];
+let CT='';const GW=['#0e4d26,#2f9a4c','#1d5c3a,#5aa86f','#0f5a4a,#2e9e86','#3d5a1c,#86a845','#14532d,#4c9a62','#225a40,#69b083'];
+const hue=n=>CT=='mushafw'?GW[(n*5)%GW.length]:G[(n*5)%G.length];const W=(t,f)=>{CT=t;const r=f(t);CT='';return r};
 const cov=(n,sz,st,fs,lab)=>`<div class="cov${sz<60?' sm':''}" style="width:${sz}px;height:${sz}px;font-size:${fs||sz/7}px;padding:${Math.round(sz/11)}px;background:linear-gradient(145deg,${hue(n)})${st=='d-done'?';filter:saturate(.25) brightness(.75)':''}">${st?`<i class="dot ${st}"></i>`:''}<div class="ar">${SU[n][1]}</div><div class="en">${lab||SU[n][0]}</div></div>`;
 const hc=h=>h>=80?'var(--ok)':h>=50?'var(--mid)':h>0?'var(--bad)':'color-mix(in srgb,var(--tx) 16%,transparent)';
 const ring=(p,c='var(--ac)',sz=34,sw=3,txt)=>{const r=sz/2-sw-1,C=2*Math.PI*r;return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}" style="flex:none"><circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="none" stroke="color-mix(in srgb,var(--tx) 14%,transparent)" stroke-width="${sw}"/><circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${C*p/100} ${C}" transform="rotate(-90 ${sz/2} ${sz/2})"/>${txt?`<text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-size="${sz/(txt.length>4?4.6:3.8)}" font-weight="800" fill="var(--tx)" font-family="Manrope,system-ui">${txt}</text>`:''}</svg>`};
@@ -311,7 +335,7 @@ const srow=(n,sub,h,open,lead)=>`<div class="sr">${lead||''}${cov(n,48,'',8,' ')
 
 function homeMem(t){return `<div class="ph" data-t="${t}" style="--h1:${hue(36).split(',')[1]}66">${sb}<div class="scroll">
 ${head('Memorizing')}
-<div class="hero"><div class="lab" style="display:flex;justify-content:space-between"><span>${t=="mushaf"?'<span class="rose">✿</span>':''}CONTINUE WHERE YOU LEFT OFF</span><span style="color:var(--mu)">${ic('down','width:16px;height:16px;stroke:var(--mu)')}</span></div><div class="hrow">${cov(36,92,'',15,'Yaseen')}<div style="flex:1;min-width:0"><h2>Yaseen · P. 442</h2><p>Review · health 55% · read yesterday<br>12 reads this month · 1 h 45 m total</p></div></div>
+<div class="hero"><div class="lab" style="display:flex;justify-content:space-between"><span>${t.startsWith("mushaf")?'<span class="rose">✿</span>':''}CONTINUE WHERE YOU LEFT OFF</span><span style="color:var(--mu)">${ic('down','width:16px;height:16px;stroke:var(--mu)')}</span></div><div class="hrow">${cov(36,92,'',15,'Yaseen')}<div style="flex:1;min-width:0"><h2>Yaseen · P. 442</h2><p>Review · health 55% · read yesterday<br>12 reads this month · 1 h 45 m total</p></div></div>
 <div style="display:flex;align-items:flex-end;gap:12px"><div style="flex:1">${hstrip([85,70,55,40,90,60],2)}<div class="meta2"><span>Page 3 of 6 in Yaseen</span><span>avg health 67%</span></div></div><div class="pbtn">${PLAY}</div></div></div>
 <div class="segc"><div>New<em>3</em></div><div class="on">Review<em>12</em></div></div>
 <div class="sec" style="padding-top:14px;padding-bottom:6px"><h3 style="font-size:15px">Review <span style="color:var(--mu);font-weight:700;font-size:13px">· 12 pages</span></h3><div class="ibs">${ic('pen')}</div></div>
@@ -434,7 +458,7 @@ function settings(t){const sw=(n,bg,s1,ac,on)=>`<div class="th ${on?'on':''}"><d
 const it=(icn,name,val,sub)=>`<div class="it">${ic(icn,'stroke:var(--mu)')}<div>${name}${sub?`<small>${sub}</small>`:''}</div><span class="ch">${val||''}${ic('right')}</span></div>`;
 return `<div class="ph" data-t="${t}">${sb}<div class="scroll">
 <div class="hd"><div class="t"><small>Memorization mode</small><h1 style="font-size:26px">Settings</h1></div></div>
-<div class="gt" style="padding-top:6px">APPEARANCE</div><div class="grp"><div class="themes five">${sw('Mushaf','#edf2e6','#cfdcbf','#2f8a3c',t=='mushaf')}${sw('Midnight','#07090d','#1a2029','#3ba7ff',t=='midnight')}${sw('Emerald','#05100c','#15291f','#d9b25a',t=='emerald')}${sw('Dusk','#0d0a14','#221a33','#b68cff',t=='dusk')}${sw('Sand','#f5efe3','#e3d7c0','#b4612a',t=='sand')}</div>
+<div class="gt" style="padding-top:6px">APPEARANCE</div><div class="grp"><div class="themes five">${sw('Mushaf White','#ffffff','#e1ede0','#278a3d',t=='mushafw')}${sw('Mushaf','#edf2e6','#cfdcbf','#2f8a3c',t=='mushaf')}${sw('Midnight','#07090d','#1a2029','#3ba7ff',t=='midnight')}${sw('Emerald','#05100c','#15291f','#d9b25a',t=='emerald')}${sw('Dusk','#0d0a14','#221a33','#b68cff',t=='dusk')}${sw('Sand','#f5efe3','#e3d7c0','#b4612a',t=='sand')}</div>
 <div class="it">${ic('eye','stroke:var(--mu)')}<div>Design<small>Classic = the current look</small></div><div class="dsw"><span class="on">New</span><span>Classic</span></div></div>${it('eye','Hidden area','Paper')}</div>
 <div class="gt">ACCOUNT</div><div class="grp"><div class="it"><div class="av" style="width:32px;height:32px;font-size:13px">R</div><div>Ridhwan<small>Signed in with Google · synced</small></div></div>${it('dl','Offline pages','Manage','23 pages kept on this phone')}</div>
 <div class="gt">PAGE &amp; READER</div><div class="grp">${it('page','Show pages','Fit width')}${it('crop','Default crop','Auto-trim')}${it('box','New box width','11%')}${it('clock','Daily goal','30 min')}${it('tally','Hold to count','0.4 s')}</div>
@@ -481,6 +505,16 @@ const SG=[
  ['G · Recitation in Mushaf','',recHome('mushaf')],
  ['H · Long surahs in Emerald','same layout, dark',longSurah('emerald')],
 ];
+const SW=[
+ ['A · Settings — 6 colour modes','Mushaf White first',W('mushafw',settings)],
+ ['B · Memorizing — Mushaf White','white canvas, green cards',W('mushafw',homeMem)],
+ ['C · same screen — Mushaf (sage)','for comparison',homeMem('mushaf')],
+ ['D · Long surahs — Mushaf White','',W('mushafw',longSurah)],
+ ['E · Reader — Mushaf White','',W('mushafw',readerTally)],
+ ['F · To Memorize — Mushaf White','',W('mushafw',toMem)],
+ ['G · Stats — Mushaf White','',W('mushafw',stats)],
+ ['H · Recitation — Mushaf White','',W('mushafw',recHome)],
+];
 const S=[
  ['1 · Memorizing — Review','Emerald (default)',homeMem('emerald')],
  ['2 · Memorizing — New, select mode','pen → tick → Move',homeNewSel('emerald')],
@@ -499,5 +533,5 @@ const S=[
  ['15 · Recitation in Midnight','New tag dialog at the top',recDialog('midnight')],
  ['16 · Stats in Dusk','',stats('dusk')],
 ];
-if(location.hash=='#green'){document.body.innerHTML=SG.map(([a,b,h])=>`<div><div class="cap">${a} <small>${b}</small></div>${h}</div>`).join('')}else if(location.hash=='#desk'){document.body.style.cssText='width:auto;display:block;padding:0';document.body.innerHTML=`<div style="padding:10px 28px 28px"><div class="cap2">Desktop · Emerald — web view (opt-in, phone ⇄ monitor switch on wide screens)</div>${desk('emerald')}<div class="cap2">Desktop · Sand (light)</div>${desk('sand')}</div>`}else document.body.innerHTML=S.map(([a,b,h])=>`<div><div class="cap">${a} <small>${b}</small></div>${h}</div>`).join('');
+if(location.hash=='#white'){document.body.innerHTML=SW.map(([a,b,h])=>`<div><div class=\"cap\">${a} <small>${b}</small></div>${h}</div>`).join('')}else if(location.hash=='#green'){document.body.innerHTML=SG.map(([a,b,h])=>`<div><div class="cap">${a} <small>${b}</small></div>${h}</div>`).join('')}else if(location.hash=='#desk'){document.body.style.cssText='width:auto;display:block;padding:0';document.body.innerHTML=`<div style="padding:10px 28px 28px"><div class="cap2">Desktop · Emerald — web view (opt-in, phone ⇄ monitor switch on wide screens)</div>${desk('emerald')}<div class="cap2">Desktop · Sand (light)</div>${desk('sand')}</div>`}else document.body.innerHTML=S.map(([a,b,h])=>`<div><div class="cap">${a} <small>${b}</small></div>${h}</div>`).join('');
 </script></body></html>
