@@ -66,7 +66,7 @@
       var meta = document.querySelector('meta[name=theme-color]');
       if (meta) meta.content = getComputedStyle(de).getPropertyValue(lk.ui === 'new' ? '--bg' : '--acc').trim() || '#1f7a52';
       document.body.classList.toggle('web', S.d.settings.view === 'web' && innerWidth >= 1000);
-      $('#app').innerHTML = st.view === 'stats' ? stats() : home();
+      $('#app').innerHTML = st.view === 'stats' ? stats() + (NU() ? bnav() : '') : home() + (NU() && isRec() ? bnav() : '');
       try { offUse(); } catch (e) {}
     },
     syncChanged: function () { var el = $('#syncChip'); if (el) el.outerHTML = syncChip(); if ($('#settingsSheet')) openSettings(); },
@@ -118,9 +118,53 @@
       '<button class="ib modesw" data-act="mode" aria-label="' + (rec ? 'Recitation mode · tap for Memorization' : 'Memorization mode · tap for Recitation') + '" title="' + (rec ? 'Recitation mode' : 'Memorization mode') + '">' + (rec ? ICON.read : ICON.mem) + '</button>' +
       '<button class="ib" data-act="settings" aria-label="Settings">' + ICON.gear + '</button>' + viewSw() + '</header>';
   }
+  /* ---------- v136 New design: header, Continue card, surah badges, page tiles, bottom navigation ---------- */
+  function NU() { return document.documentElement.dataset.ui === 'new'; }
+  function badge(n, big) { var hu = (n * 47) % 360; return '<span class="sbadge' + (big ? ' big' : '') + (SUR[n - 1][1].length > 6 ? ' lng' : '') + '" style="--h1:hsl(' + hu + ' 42% 34%);--h2:hsl(' + ((hu + 40) % 360) + ' 48% 20%)"><span class="ar">' + esc(SUR[n - 1][1]) + '</span>' + (big ? '<span class="en">' + esc(SUR[n - 1][0]) + '</span>' : '') + '</span>'; }
+  function avgH(ks) { if (!ks.length) return 0; var t = 0; ks.forEach(function (k) { t += S.health(k); }); return Math.round(t / ks.length); }
+  function lastOf(ks) { var l = null; ks.forEach(function (k) { var d = S.lastActive(k); if (d && (!l || d > l)) l = d; }); return l; }
+  function ring(f) { var r = 9, c = 2 * Math.PI * r; return '<svg class="sring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="' + r + '"/>' + (f >= 1 ? '<circle class="full" cx="12" cy="12" r="' + r + '"/><path class="tk" d="M8 12.3l2.6 2.6L16 9.5"/>' : f > 0 ? '<circle class="arc" cx="12" cy="12" r="' + r + '" stroke-dasharray="' + (c * f).toFixed(1) + ' ' + c.toFixed(1) + '"/>' : '') + '</svg>'; }
+  function nuHeader() {
+    var rec = isRec(), d = S.d, t = st.view === 'stats' ? (rec ? 'Recitation stats' : 'Stats') : rec ? 'Recitation' : d.ui.tab === 'tom' ? 'To Memorize' : 'Memorizing';
+    return '<header class="nhd"><div class="t"><small>As-salāmu ʿalaykum · ' + syncChip() + '</small><h1>' + t + '</h1></div>' +
+      '<button class="ib modesw" data-act="mode" aria-label="' + (rec ? 'Recitation mode · tap for Memorization' : 'Memorization mode · tap for Recitation') + '" title="' + (rec ? 'Recitation mode' : 'Memorization mode') + '">' + (rec ? ICON.read : ICON.mem) + '</button>' + viewSw() + '</header>';
+  }
+  function bnav() {
+    var d = S.d, sv = st.view === 'stats', it;
+    if (isRec()) { var rt = d.ui.rtab === 'juz' ? 'juz' : d.ui.rtab === 'bm' ? 'bm' : 'sur'; it = [['sur', 'Surah', ICON.book], ['juz', 'Juz', ICON.read], ['bm', 'Reading log', ICON.bmk], ['stats', 'Stats', ICON.stats], ['set', 'Settings', ICON.gear]].map(function (x) { return x.concat([!sv && x[0] === rt || sv && x[0] === 'stats']); }); }
+    else it = [['mem', 'Memorizing', ICON.mem], ['tom', 'To Memorize', ICON.book], ['stats', 'Stats', ICON.stats], ['set', 'Settings', ICON.gear]].map(function (x) { return x.concat([sv ? x[0] === 'stats' : x[0] === (d.ui.tab === 'tom' ? 'tom' : 'mem')]); });
+    return '<nav class="bnav">' + it.map(function (x) { return '<button class="' + (x[3] ? 'on' : '') + '" data-act="nav" data-t="' + x[0] + '">' + x[2] + '<span>' + x[1] + '</span></button>'; }).join('') + '</nav>';
+  }
+  function nuCont() {
+    var d = S.d; if (!d.last || !d.last.p) return '';
+    var lp = d.last.p, lk = d.last.k || S.uk(lp), n = S.kn(lk);
+    if (d.ui.contMin) return '<div class="ncont min"><button class="go" data-act="open" data-p="' + lk + '">' + ICON.play + '<b>' + esc(SUR[n - 1][0]) + '</b> · P. ' + lp + '</button><button class="ib" data-act="contMin" aria-label="Expand">' + ICON.chev + '</button></div>';
+    var mem = units(n).filter(function (k) { return S.isMem(k); }), i = mem.indexOf(lk), hh = S.health(lk), la = S.lastActive(lk);
+    var line = (S.isMem(lk) ? (subOf(lk) === 'new' ? 'New' : 'Review') + ' · health ' + hh + '%' : 'Not in Memorizing') + ' · ' + (la ? 'read ' + ago(la) : 'not read yet');
+    var h = '<div class="ncont"><div class="lab"><span>CONTINUE WHERE YOU LEFT OFF</span><button class="ib" data-act="contMin" aria-label="Minimise">' + ICON.chev + '</button></div>' +
+      '<div class="hrow">' + badge(n, true) + '<div class="tx"><h2>' + esc(SUR[n - 1][0]) + ' · P. ' + lp + '</h2><p>' + line + '</p></div></div>';
+    if (i >= 0 && mem.length > 1) {
+      h += '<div class="segb">' + mem.slice(0, 24).map(function (k, j) { return '<i class="' + (j < i ? 'f' : j === i ? 'c' : '') + '" style="--hc:' + hcol(S.health(k)) + '"></i>'; }).join('') + '</div>' +
+        '<div class="meta2"><span>Page ' + (i + 1) + ' of ' + mem.length + ' in ' + esc(SUR[n - 1][0]) + '</span><span>avg health ' + avgH(mem) + '%</span></div>';
+    }
+    return h + '<button class="pbtn" data-act="open" data-p="' + lk + '" aria-label="Continue">' + ICON.play + '</button></div>';
+  }
+  function tiles(n, ks, act, sel, extra) {
+    var lk = S.d.last && (S.d.last.k || S.uk(S.d.last.p)), all = st.more && st.more[n], sh = all || ks.length <= 18 ? ks : ks.slice(0, 18);
+    return '<div class="tiles">' + sh.map(function (k) {
+      var hh = S.health(k), m = S.isMem(k), on = sel ? sel(k) : m;
+      return '<button class="tl' + (k === lk ? ' cur' : '') + (sel && on ? ' on' : '') + (!sel && act !== 'open' ? '' : '') + (!m ? ' off' : '') + '" data-act="' + act + '" data-k="' + (act === 'open' && !S.isMem(k) ? 'tom' : 'mem') + '" data-p="' + k + '">' +
+        (sel && on ? '<em>' + ICON.check + '</em>' : '') + '<small>P.</small><b>' + S.kp(k) + '</b><i style="background:' + (m ? hcol(hh) : 'transparent') + ';width:' + (m ? Math.max(hh, 8) : 0) + '%"></i></button>';
+    }).join('') + (sh.length < ks.length ? '<button class="tl more" data-act="more" data-n="' + n + '">Show all<b>' + ks.length + '</b></button>' : '') + (extra || '') + '</div>';
+  }
+  function nuSrow(n, act, ks, right, sub2, open, k2, pre) {
+    var s = SUR[n - 1];
+    return '<div class="nrow"' + (k2 === 'tom' ? ' id="s' + n + '"' : '') + '>' + (pre || '') + '<button class="sname" data-act="' + act + '" data-n="' + n + '" data-k="' + k2 + '">' + badge(n) + '<span class="tx"><span class="nm">' + esc(s[0]) + ' <span class="num">' + n + '</span></span><span class="sub">' + sub2 + '</span></span></button>' +
+      (right || '') + '<button class="exp ' + (open ? 'open' : '') + '" data-act="exp" data-k="' + k2 + '" data-n="' + n + '" aria-label="Pages">' + ICON.chev + '</button></div>';
+  }
   function rtag() { var t = S.rtag(S.d.ui.rtag || 'def'); return t.a && !showArch() ? 'def' : t.id; }
   function recHome() {
-    var d = S.d, h = header(), rl = d.rlast;
+    var d = S.d, h = NU() ? nuHeader() : header(), rl = d.rlast;
     var rt = rtag(), bm = S.bm(rt);
     // v119 (SL6): tags — Main plus his own readings (e.g. a Ramadan khatm), each with its own bookmark, log and stats.
     var rts = S.rtags(), rlist = rts.filter(function (t) { return !t.a; }).concat(showArch() ? rts.filter(function (t) { return t.a; }) : []);
@@ -249,7 +293,7 @@
     var NC = S.comps(all ? null : rt).filter(function (c) { return c.d >= s0 && c.d <= s1; }).length;
     var PG = 0, JZ = 0, ND = 0; for (var k in D) if (k >= s0 && k <= s1) { PG += D[k].pg; JZ += D[k].jz; if (D[k].pg) ND++; }
     var jf = function (j) { return j >= 10 ? Math.round(j) : Math.round(j * 10) / 10; };
-    var h = '<header class="top"><button class="ib" data-act="home" aria-label="Back">' + ICON.back + '</button><div class="brand">Recitation stats</div>' + viewSw() + '</header>';
+    var h = NU() ? nuHeader() : '<header class="top"><button class="ib" data-act="home" aria-label="Back">' + ICON.back + '</button><div class="brand">Recitation stats</div>' + viewSw() + '</header>';
     h += '<div class="seg"><button class="' + (all ? '' : 'on') + '" data-act="rall" data-v="0">' + esc(S.rtag(rt).name) + '</button><button class="' + (all ? 'on' : '') + '" data-act="rall" data-v="1">All readings</button></div>';
     h += '<div class="seg mini" style="margin-top:4px">' + [['day', 'Daily'], ['week', 'Weekly'], ['month', 'Monthly'], ['year', 'Yearly']].map(function (x) { return '<button class="' + (pd === x[0] ? 'on' : '') + '" data-act="rp" data-p="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
     if (pd === 'year' && hij(td)) h += '<div class="seg mini" style="margin-top:4px">' + [['cal', 'Calendar year'], ['ram', 'Ramadan to Ramadan']].map(function (x) { return '<button class="' + ((S.d.settings.ryear === 'ram') === (x[0] === 'ram') ? 'on' : '') + '" data-act="ryear" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
@@ -285,6 +329,7 @@
   function home() {
     if (isRec()) return recHome();
     var d = S.d, h = header();
+    if (NU()) { h = nuHeader() + nuCont(); h += d.ui.tab === 'mem' ? memTab() : tomTab(); return h + bnav(); }
     if (d.last && d.last.p) {
       var lp = d.last.p, lk = d.last.k || S.uk(lp);
       if (d.ui.contMin) h += '<div class="cont min"><button class="go" data-act="open" data-p="' + lk + '">' + ICON.play + ' P. ' + lp + '</button><button class="ib" data-act="contMin" aria-label="Expand">' + ICON.fwd + '</button></div>';
@@ -333,6 +378,12 @@
       var n = i + 1, pg = units(n).filter(memMatch);
       if (!pg.length) return;
       var open = st.exp.mem[n];
+      if (NU()) {
+        var ah = avgH(pg), la = lastOf(pg);
+        rows += nuSrow(n, 'openS', pg, '<span class="pct" style="color:' + hcol(ah) + '">' + ah + '%</span>', pg.length + ' page' + (pg.length === 1 ? '' : 's') + (la ? ' · read ' + ago(la) : ''), open, 'mem');
+        if (open) rows += tiles(n, pg, 'open', null, '<button class="tl add" data-act="addPages" data-n="' + n + '">+ add<br>pages</button>');
+        return;
+      }
       rows += '<div class="srow"><button class="sname" data-act="openS" data-n="' + n + '" data-k="mem"><span class="num">' + n + '</span><span class="nm">' + esc(s[0]) + '</span><span class="ar">' + esc(s[1]) + '</span></button>' +
         '<button class="exp ' + (open ? 'open' : '') + '" data-act="exp" data-k="mem" data-n="' + n + '" aria-label="Pages">' + ICON.chev + '</button></div>';
       if (open) rows += '<div class="pages">' + pg.map(function (p) {
@@ -379,6 +430,7 @@
   function tomTab() {
     var q = st.q.trim().toLowerCase(), rows = '', lastJ = 0;
     var h = '<div class="bar"><input type="search" placeholder="Search surah, number or page" value="' + esc(st.q) + '" data-in="q">' + (st.edit ? '<button class="btn pri" data-act="edit">Done</button>' : '<button class="ib pen" data-act="edit" aria-label="Edit">' + ICON.pen + '</button>') + '</div>';
+    if (NU()) h += '<div class="legend"><span><i style="background:var(--line)"></i>Not started</span><span><i style="background:var(--acc);opacity:.55"></i>Partly</span><span><i style="background:var(--acc)"></i>All pages</span></div>'; else
     h += '<div class="legend"><span><i style="background:var(--line)"></i>Not started</span><span><i style="background:var(--mid)"></i>Partly</span><span><i style="background:var(--acc)"></i>All pages</span></div>';
     SUR.forEach(function (s, i) {
       var n = i + 1;
@@ -388,6 +440,12 @@
       var pg = units(n), sel = pg.filter(function (p) { return S.isMem(p); }).length, frac = sel / pg.length;
       var mark = sel === 0 ? '' : '<span class="mark" style="background:' + (frac === 1 ? 'var(--acc)' : 'var(--mid)') + '"></span>';
       var open = st.exp.tom[n] || (q && +q >= s[3] && +q <= s[4]);
+      if (NU()) {
+        var tk = st.edit ? '<button class="tick ' + (frac === 1 ? 'on' : sel ? 'part' : '') + '" data-act="tickS" data-n="' + n + '" aria-label="Select surah">' + (frac === 1 ? ICON.check : '') + '</button>' : '';
+        rows += nuSrow(n, st.edit ? 'tickS' : 'openS', pg, ring(frac), s[2] + ' ayahs · P. ' + s[3] + (s[4] > s[3] ? '–' + s[4] : '') + (sel ? ' · ' + (frac === 1 ? 'all pages' : sel + ' of ' + pg.length + ' pages') : ''), open, 'tom', tk);
+        if (open) rows += tiles(n, pg, st.edit ? 'tickP' : 'open', st.edit ? function (k) { return S.isMem(k); } : null);
+        return;
+      }
       rows += '<div class="srow" id="s' + n + '"><span class="prog" style="width:' + (frac * 100).toFixed(1) + '%"></span>' + mark +
         (st.edit ? '<button class="tick ' + (frac === 1 ? 'on' : sel ? 'part' : '') + '" data-act="tickS" data-n="' + n + '" aria-label="Select surah">' + (frac === 1 ? ICON.check : '') + '</button>' : '') +
         '<button class="sname" data-act="' + (st.edit ? 'tickS' : 'openS') + '" data-n="' + n + '" data-k="tom"><span class="num">' + n + '</span><span class="nm">' + esc(s[0]) + '</span><span class="ar">' + esc(s[1]) + '</span></button>' +
@@ -487,7 +545,7 @@
     var m = S.month(), monthTotal = 0, all = 0, sumH = 0, months = {};
     Object.keys(S.d.pages).forEach(function (k) { var rv = S.d.pages[k].rv || {}; for (var mm in rv) { months[mm] = (months[mm] || 0) + rv[mm]; all += rv[mm]; if (mm === m) monthTotal += rv[mm]; } });
     mem.forEach(function (p) { sumH += S.health(p); });
-    var h = '<header class="top"><button class="ib" data-act="home" aria-label="Back">' + ICON.back + '</button><div class="brand">Stats</div>' + viewSw() + '</header>';
+    var h = NU() ? nuHeader() : '<header class="top"><button class="ib" data-act="home" aria-label="Back">' + ICON.back + '</button><div class="brand">Stats</div>' + viewSw() + '</header>';
     h += '<div class="seg">' + [['rep', 'Report'], ['prog', 'Progress'], ['time', 'Calendar']].map(function (x) { return '<button class="' + (st.stab === x[0] ? 'on' : '') + '" data-act="stab" data-t="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
     if (st.stab === 'time') return h + timeStats();
     if (st.stab === 'rep') return h + report();
@@ -777,6 +835,15 @@
 
   /* ---------------- Actions ---------------- */
   var ACT = {
+    nav: function (el) {
+      var t = el.dataset.t;
+      if (t === 'stats') return ACT.stats();
+      if (t === 'set') return openSettings();
+      st.view = 'home'; st.tedit = null;
+      if (isRec()) S.d.ui.rtab = t; else S.d.ui.tab = t;
+      S.saveUi(); App.render(); window.scrollTo(0, 0);
+    },
+    more: function (el) { st.more = st.more || {}; st.more[el.dataset.n] = 1; App.render(); },
     tab: function (el) { st.tedit = null; S.d.ui.tab = el.dataset.t; S.saveUi(); App.render(); window.scrollTo(0, 0); },
     chip: function (el) { // one tag at a time; opening a custom tag moves it to the front
       st.tedit = null; var b = sub(); S.d.ui.cts[b] = el.dataset.t;
