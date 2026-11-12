@@ -4,6 +4,12 @@
 /*KIT*/
 /* ---- Hifz additions (same tokens) ---- */
 :root{--ok:#36c275;--mid:#e0a526;--bad:#ff5a5f}
+[data-t=mushaf]{--bg:#edf2e6;--s1:#fbfcf7;--s2:#e0e9d4;--ln:#1d4a2412;--tx:#16301b;--mu:#62755f;--ac:#2f8a3c;--ac2:#1c6a2b;--on:#fff;--rose:#c9527e;--ok:#2f9a4c;--mid:#d39b18;--bad:#d0533f}
+[data-t=mushaf] .hero,[data-t=mushaf] .dhero{box-shadow:inset 0 0 0 1.5px #2f8a3c66,inset 0 0 0 5px var(--s1),inset 0 0 0 6.5px #2f8a3c33}
+[data-t=mushaf] .lab .rose{color:var(--rose);margin-right:6px}
+[data-t=mushaf].rd{background:#e6eddc}
+.themes.five{grid-template-columns:repeat(5,1fr);gap:6px;padding:12px 10px}.themes.five .sw{height:62px}.themes.five p{font-size:10.5px}
+.dsw{margin-left:auto;display:flex;padding:3px;border-radius:12px;background:var(--s2)}.dsw span{padding:5px 11px;border-radius:9px;font-size:12px;font-weight:800;color:var(--mu)}.dsw span.on{background:var(--s1);color:var(--tx);box-shadow:0 1px 4px #0003}
 .ph .scroll{position:absolute;top:34px;left:0;right:0;bottom:72px;overflow:hidden}
 .hd .sync{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--mu);font-weight:600}
 .hd .sync i{width:7px;height:7px;border-radius:50%;background:var(--ok)}
@@ -22,12 +28,15 @@
 .sr .chev{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center}.sr .chev svg{width:18px;height:18px;stroke:var(--mu)}
 .sr .chev.open svg{transform:rotate(180deg)}
 .hp{font-size:12px;font-weight:800;width:38px;text-align:right}
-.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:2px 20px 10px 80px}
-.tile{border-radius:12px;background:var(--s1);padding:8px 9px 9px;position:relative}
-.tile b{font-size:15px;font-weight:800;display:block}.tile small{font-size:10.5px;color:var(--mu);font-weight:700}
-.tile .hb{height:4px;border-radius:2px;margin-top:6px;background:color-mix(in srgb,var(--tx) 14%,transparent);overflow:hidden}.tile .hb i{display:block;height:100%}
+.tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;padding:2px 20px 10px 80px}
+.tile{border-radius:10px;background:var(--s1);height:38px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.tile b{font-size:13.5px;font-weight:800;display:block;margin-top:-2px}.tile small{font-size:10.5px;color:var(--mu);font-weight:700}
+.tile .hb{position:absolute;left:0;right:0;bottom:0;height:4px;background:color-mix(in srgb,var(--tx) 14%,transparent);overflow:hidden}.tile .hb i{display:block;height:100%}
 .tile.addt{background:none;border:1.5px dashed color-mix(in srgb,var(--mu) 55%,transparent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--ac)}
 .tile.cur{box-shadow:inset 0 0 0 2px var(--ac)}
+.tile.addt{grid-column:span 2;font-size:11.5px}
+.more{grid-column:1/-1;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12.5px;font-weight:800;color:var(--ac);background:color-mix(in srgb,var(--ac) 10%,transparent)}.more svg{width:15px;height:15px;stroke:var(--ac)}
+.jmp{display:flex;gap:6px;padding:0 20px 8px 80px}.jmp span{font-size:11px;font-weight:800;color:var(--mu);padding:4px 9px;border-radius:9px;background:var(--s1)}.jmp span.on{background:var(--tx);color:var(--bg)}
 .tick{width:26px;height:26px;border-radius:50%;border:2px solid color-mix(in srgb,var(--mu) 70%,transparent);flex:none;display:flex;align-items:center;justify-content:center}
 .tick.on{background:var(--ac);border-color:var(--ac)}.tick.on svg{stroke:var(--on);width:15px;height:15px;stroke-width:3}
 .tick.part{border-color:var(--ac)}.tick.part:after{content:"";width:10px;height:3px;border-radius:2px;background:var(--ac)}
@@ -110,7 +119,7 @@
 .notes{color:#cfcfcf;font:500 13.5px/1.55 Manrope,system-ui;max-width:1660px;padding:4px 2px 0}
 .notes b{color:#fff}
 /*DESK*/
-.dk .sr{padding:8px 0}.dk .tiles{padding:2px 0 10px 60px;grid-template-columns:repeat(8,1fr)}
+.dk .sr{padding:8px 0}.dk .tiles{padding:2px 0 10px 60px;grid-template-columns:repeat(12,1fr)}
 .dk .segc{margin:0;width:300px}.dk .chips{padding:0}
 .dbar2{grid-column:1/4;grid-row:2;border-top:1px solid var(--ln);background:var(--s1);display:grid;grid-template-columns:330px 1fr 380px;align-items:center;padding:0 22px}
 .pgimg{width:296px;border-radius:14px;display:block;box-shadow:0 30px 60px -20px #000c}
@@ -156,12 +165,12 @@ const hstrip=(hs,cur)=>'<div class="seg" style="gap:3px">'+hs.map((h,i)=>`<i sty
 const navM=on=>'<div class="nav">'+[['mem','Memorizing'],['tom','To Memorize'],['stat','Stats'],['gear','Settings']].map(([i,l])=>`<div class="${l==on?'on':''}" style="width:84px"><svg viewBox="0 0 24 24">${I[i]}</svg>${l}</div>`).join('')+'</div>';
 const navR=on=>'<div class="nav">'+[['read','Surah'],['bmk','Juz'],['cal','Reading log'],['stat','Stats'],['gear','Settings']].map(([i,l])=>`<div class="${l==on?'on':''}" style="width:70px"><svg viewBox="0 0 24 24">${I[i]}</svg>${l}</div>`).join('')+'</div>';
 const head=(title,mode,sub)=>`<div class="hd"><div class="t"><small>${sub||'As-salāmu ʿalaykum · <span class="sync"><i></i>Synced</span>'}</small><h1>${title}</h1></div><div class="ib acc" title="${mode=='rec'?'Recitation mode':'Memorization mode'}">${ic(mode=='rec'?'read':'mem')}</div><div class="av">R</div></div>`;
-const tile=(p,h,cur)=>`<div class="tile ${cur?'cur':''}"><small>P.</small><b>${p}</b><div class="hb"><i style="width:${Math.max(h,4)}%;background:${hc(h)}"></i></div></div>`;
+const tile=(p,h,cur)=>`<div class="tile ${cur?'cur':''}"><b>${p}</b><div class="hb"><i style="width:${Math.max(h,4)}%;background:${hc(h)}"></i></div></div>`;
 const srow=(n,sub,h,open,lead)=>`<div class="sr">${lead||''}${cov(n,48,'',8,' ')}<div class="tx"><h4>${SU[n][0]}<small>${n}</small></h4><p>${sub}</p></div><div class="hp" style="color:${hc(h)}">${h}%</div><div class="chev ${open?'open':''}">${ic('down')}</div></div>`;
 
 function homeMem(t){return `<div class="ph" data-t="${t}" style="--h1:${hue(36).split(',')[1]}66">${sb}<div class="scroll">
 ${head('Memorizing')}
-<div class="hero"><div class="lab" style="display:flex;justify-content:space-between">CONTINUE WHERE YOU LEFT OFF<span style="color:var(--mu)">${ic('down','width:16px;height:16px;stroke:var(--mu)')}</span></div><div class="hrow">${cov(36,92,'',15,'Yaseen')}<div style="flex:1;min-width:0"><h2>Yaseen · P. 442</h2><p>Review · health 55% · read yesterday<br>12 reads this month · 1 h 45 m total</p></div></div>
+<div class="hero"><div class="lab" style="display:flex;justify-content:space-between"><span>${t=="mushaf"?'<span class="rose">✿</span>':''}CONTINUE WHERE YOU LEFT OFF</span><span style="color:var(--mu)">${ic('down','width:16px;height:16px;stroke:var(--mu)')}</span></div><div class="hrow">${cov(36,92,'',15,'Yaseen')}<div style="flex:1;min-width:0"><h2>Yaseen · P. 442</h2><p>Review · health 55% · read yesterday<br>12 reads this month · 1 h 45 m total</p></div></div>
 <div style="display:flex;align-items:flex-end;gap:12px"><div style="flex:1">${hstrip([85,70,55,40,90,60],2)}<div class="meta2"><span>Page 3 of 6 in Yaseen</span><span>avg health 67%</span></div></div><div class="pbtn">${PLAY}</div></div></div>
 <div class="segc"><div>New<em>3</em></div><div class="on">Review<em>12</em></div></div>
 <div class="sec" style="padding-top:14px;padding-bottom:6px"><h3 style="font-size:15px">Review <span style="color:var(--mu);font-weight:700;font-size:13px">· 12 pages</span></h3><div class="ibs">${ic('pen')}</div></div>
@@ -207,6 +216,21 @@ ${r(20,'P. 312–321','',0)}
 <div class="juz">JUZ 22–23</div>${r(36,'P. 440–445 · all 6 pages','on')}${r(37,'P. 446–452','')}
 </div>${navM('To Memorize')}</div>`}
 SU[20]=['Taa-Haa','طه'];
+function longSurah(t){const ps=(a,b,hs)=>{const o=[];for(let p=a;p<=b;p++)o.push([p,hs[(p*7)%hs.length]]);return o};
+const H=[90,85,70,60,55,40,30,0,75,95,65,20];
+const kahf=ps(293,304,H).map(([p,h])=>tile(p,h,p==297)).join('');
+const baq=ps(2,49,H);
+return `<div class="ph" data-t="${t}">${sb}<div class="scroll">
+${head('Memorizing')}
+<div class="segc"><div>New<em>3</em></div><div class="on">Review<em>60</em></div></div>
+<div class="sec" style="padding-top:14px;padding-bottom:6px"><h3 style="font-size:15px">Review <span style="color:var(--mu);font-weight:700;font-size:13px">· 60 pages</span></h3><div class="ibs">${ic('pen')}</div></div>
+<div class="chips" style="padding-bottom:8px"><span class="chip on">All</span><span class="chip">Weak pages</span><span class="chip add">+ Tag</span></div>
+${srow(2,'48 pages · read today',64,1)}
+<div class="tiles">${baq.slice(0,18).map(([p,h])=>tile(p,h)).join('')}<div class="more">${ic('down')}Show all 48 pages</div></div>
+${srow(18,'12 pages · yesterday',61,1)}
+<div class="tiles">${kahf}<div class="tile addt">+ add pages</div></div>
+${srow(36,'6 pages · read today',67)}
+</div>${navM('Memorizing')}</div>`}
 
 const PAGE='../pages/p440.jpg';
 function drawerBase(extra,toolOn,timer){const tbs=[['stat','Stat'],['line','Line'],['box','Box'],['clock','Timer'],['tally','Tally'],['full','Full screen'],['pen','Edit'],['back','Back']];
@@ -269,8 +293,8 @@ function settings(t){const sw=(n,bg,s1,ac,on)=>`<div class="th ${on?'on':''}"><d
 const it=(icn,name,val,sub)=>`<div class="it">${ic(icn,'stroke:var(--mu)')}<div>${name}${sub?`<small>${sub}</small>`:''}</div><span class="ch">${val||''}${ic('right')}</span></div>`;
 return `<div class="ph" data-t="${t}">${sb}<div class="scroll">
 <div class="hd"><div class="t"><small>Memorization mode</small><h1 style="font-size:26px">Settings</h1></div></div>
-<div class="gt" style="padding-top:6px">APPEARANCE</div><div class="grp"><div class="themes">${sw('Midnight','#07090d','#1a2029','#3ba7ff',t=='midnight')}${sw('Emerald','#05100c','#15291f','#d9b25a',t=='emerald')}${sw('Dusk','#0d0a14','#221a33','#b68cff',t=='dusk')}${sw('Sand','#f5efe3','#e3d7c0','#b4612a',t=='sand')}</div>
-${it('eye','Hidden area','Paper')}</div>
+<div class="gt" style="padding-top:6px">APPEARANCE</div><div class="grp"><div class="themes five">${sw('Mushaf','#edf2e6','#cfdcbf','#2f8a3c',t=='mushaf')}${sw('Midnight','#07090d','#1a2029','#3ba7ff',t=='midnight')}${sw('Emerald','#05100c','#15291f','#d9b25a',t=='emerald')}${sw('Dusk','#0d0a14','#221a33','#b68cff',t=='dusk')}${sw('Sand','#f5efe3','#e3d7c0','#b4612a',t=='sand')}</div>
+<div class="it">${ic('eye','stroke:var(--mu)')}<div>Design<small>Classic = the current look</small></div><div class="dsw"><span class="on">New</span><span>Classic</span></div></div>${it('eye','Hidden area','Paper')}</div>
 <div class="gt">ACCOUNT</div><div class="grp"><div class="it"><div class="av" style="width:32px;height:32px;font-size:13px">R</div><div>Ridhwan<small>Signed in with Google · synced</small></div></div>${it('dl','Offline pages','Manage','23 pages kept on this phone')}</div>
 <div class="gt">PAGE &amp; READER</div><div class="grp">${it('page','Show pages','Fit width')}${it('crop','Default crop','Auto-trim')}${it('box','New box width','11%')}${it('clock','Daily goal','30 min')}${it('tally','Hold to count','0.4 s')}</div>
 <div class="gt">APP</div><div class="grp">${it('upd','Update app','<b style="color:var(--tx)">v132</b>')}${it('shr','Share the app','Copy link')}</div>
@@ -306,6 +330,16 @@ ${blk(19,'4 pages · read today',55,[[305,75],[306,65],[307,50],[308,30]])}
 <div></div><div class="rr"><span class="kb"><b>Enter</b> open <b>←</b><b>→</b> page <b>Space</b> count a read</span></div></div>
 </div>`}
 
+const SG=[
+ ['A · Settings — Mushaf green + Design switch','5 colour modes; New ⇄ Classic',settings('mushaf')],
+ ['B · Memorizing in Mushaf','compact page tiles',homeMem('mushaf')],
+ ['C · Long surahs','Al-Baqara 48 pages, Al-Kahf 12',longSurah('mushaf')],
+ ['D · Reader in Mushaf','',readerTally('mushaf')],
+ ['E · To Memorize in Mushaf','',toMem('mushaf')],
+ ['F · Stats in Mushaf','',stats('mushaf')],
+ ['G · Recitation in Mushaf','',recHome('mushaf')],
+ ['H · Long surahs in Emerald','same layout, dark',longSurah('emerald')],
+];
 const S=[
  ['1 · Memorizing — Review','Emerald (default)',homeMem('emerald')],
  ['2 · Memorizing — New, select mode','pen → tick → Move',homeNewSel('emerald')],
@@ -318,11 +352,11 @@ const S=[
  ['9 · Stats — Report','Daily',stats('emerald')],
  ['10 · Stats — Calendar','goal ring + month',calendar('emerald')],
  ['11 · Recitation home','book icon = Recitation mode',recHome('emerald')],
- ['12 · Settings — 4 colour modes','swatch cards',settings('emerald')],
+ ['12 · Settings — colour modes','swatch cards',settings('emerald')],
  ['13 · Memorizing in Sand','light theme',homeMem('sand')],
  ['14 · Reader in Sand','',readerTally('sand')],
  ['15 · Recitation in Midnight','New tag dialog at the top',recDialog('midnight')],
  ['16 · Stats in Dusk','',stats('dusk')],
 ];
-if(location.hash=='#desk'){document.body.style.cssText='width:auto;display:block;padding:0';document.body.innerHTML=`<div style="padding:10px 28px 28px"><div class="cap2">Desktop · Emerald — web view (opt-in, phone ⇄ monitor switch on wide screens)</div>${desk('emerald')}<div class="cap2">Desktop · Sand (light)</div>${desk('sand')}</div>`}else document.body.innerHTML=S.map(([a,b,h])=>`<div><div class="cap">${a} <small>${b}</small></div>${h}</div>`).join('');
+if(location.hash=='#green'){document.body.innerHTML=SG.map(([a,b,h])=>`<div><div class="cap">${a} <small>${b}</small></div>${h}</div>`).join('')}else if(location.hash=='#desk'){document.body.style.cssText='width:auto;display:block;padding:0';document.body.innerHTML=`<div style="padding:10px 28px 28px"><div class="cap2">Desktop · Emerald — web view (opt-in, phone ⇄ monitor switch on wide screens)</div>${desk('emerald')}<div class="cap2">Desktop · Sand (light)</div>${desk('sand')}</div>`}else document.body.innerHTML=S.map(([a,b,h])=>`<div><div class="cap">${a} <small>${b}</small></div>${h}</div>`).join('');
 </script></body></html>
