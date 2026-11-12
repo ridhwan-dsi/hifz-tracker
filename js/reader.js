@@ -245,7 +245,7 @@
     if (R.sub === 'crop' || R.sub === 'join') R.sub = null;
     loadItems();
     syncSec(); // the page's section, then that section's waiting count (if any)
-    if (R.rec) { S.d.rlast = { p: p, n: R.n, t: Date.now() }; S.persist(); } else S.setLast(p, R.k);
+    if (R.rec) { S.d.rlast = { p: p, n: R.n, t: Date.now() }; S.persist(); if (window.App && App.precache) App.precache(); } else S.setLast(p, R.k);
     if (history.state && history.state.reader) history.replaceState({ reader: 1 }, '', '#p' + p);
     renderPanel(); Tally.render();
     layout(dir);

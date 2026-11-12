@@ -73,6 +73,10 @@
       var set = {};
       Object.keys(S.d.pages).forEach(function (k) { if (S.d.pages[k].m) { var p = S.kp(k); set[p] = 1; if (p > 1) set[p - 1] = 1; if (p < 604) set[p + 1] = 1; } });
       if (S.d.last) set[S.d.last.p] = 1;
+      // v131 (SL16): Recitation — every live tag's bookmark page and the next 10, plus the last page read, stay cached for offline reading.
+      var add = function (p) { p = p | 0; if (!p) return; for (var i = 0; i <= 10 && p + i <= 604; i++) set[p + i] = 1; };
+      ['def'].concat((S.d.rtags || []).filter(function (t) { return !t.a; }).map(function (t) { return t.id; })).forEach(function (id) { var b = S.d.rbm && S.d.rbm[id]; if (b && b.p) add(Math.min(b.p, 604)); });
+      if (S.d.rlast && S.d.rlast.p) add(S.d.rlast.p);
       var urls = Object.keys(set).map(function (p) { return 'pages/p' + String(p).padStart(3, '0') + '.jpg'; });
       navigator.serviceWorker.controller.postMessage({ type: 'precache', urls: urls });
     }
@@ -85,8 +89,10 @@
 
   function syncChip() {
     var s = Sync.state, cid = Sync.cid();
-    var label = !cid ? 'Local only' : s === 'ok' ? 'Synced' : s === 'syncing' ? 'Syncing…' : s === 'paused' ? 'Tap to sync' : s === 'error' ? 'Sync error' : 'Sign in';
-    var cls = s === 'ok' ? 'ok' : s === 'error' ? 'err' : s === 'paused' ? 'paused' : '';
+    // v131 (SL27/SL17): green "Synced" when nothing is waiting; "Not synced" while changes wait (offline or token expired) — they go up on the next tap online.
+    var wait = S.d.acct && S.dirty && s !== 'syncing' && s !== 'error';
+    var label = !cid ? 'Local only' : !S.d.acct ? 'Sign in' : s === 'syncing' ? 'Syncing…' : s === 'error' ? 'Sync error' : wait ? 'Not synced' : 'Synced';
+    var cls = s === 'error' ? 'err' : wait ? 'paused' : s === 'syncing' ? '' : S.d.acct ? 'ok' : '';
     return '<button id="syncChip" class="sync ' + cls + '" data-act="syncChip">' + label + '</button>';
   }
 
@@ -712,7 +718,7 @@
     var sw = function (on, act) { return '<button class="sw ' + (on ? 'on' : '') + '" data-act="' + act + '"></button>'; };
     var sel = function (inp, vals, cur, lbl) { return '<select data-in="' + inp + '">' + vals.map(function (v) { var x = Array.isArray(v) ? v : [v, lbl(v)]; return '<option value="' + x[0] + '"' + (String(cur) === String(x[0]) ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>'; };
     var acct = !cid ? row('acct', 'Data on this device only')
-      : S.d.acct ? '<div class="frow">' + nm('acct', esc(S.d.acct)) + '<span class="sst">' + ({ ok: 'Synced', syncing: 'Syncing…', paused: 'Paused', error: 'Sync failed' }[Sync.state] || '') + '</span><button class="btn sm" data-act="syncNow">Sync</button></div>' +
+      : S.d.acct ? '<div class="frow">' + nm('acct', esc(S.d.acct)) + '<span class="sst">' + (Sync.state === 'syncing' ? 'Syncing…' : Sync.state === 'error' ? 'Sync failed' : S.dirty ? 'Not synced — goes up on your next tap online' : 'Synced') + '</span><button class="btn sm" data-act="syncNow">Sync</button></div>' +
         '<div class="frow">' + nm('acct', 'Sign out') + '<button class="btn sm" data-act="signOut">Sign out</button></div>'
         : '<div class="frow">' + nm('acct', 'Google account') + '<button class="btn sm pri" data-act="signIn">Sign in</button></div>';
     var themes = [['green', '#1f7a52', 'Green'], ['blue', '#1d5ca6', 'Blue'], ['dark', '#111513', 'Dark']];
@@ -955,7 +961,7 @@
       el.disabled = true; el.textContent = 'Updating…';
       var sw = navigator.serviceWorker, files = ['./', 'index.html', 'css/app.css', 'js/config.js', 'js/quran.js', 'js/autocrop.js', 'js/store.js', 'js/timer.js', 'js/tally.js', 'js/reader.js', 'js/app.js', 'sw.js'];
       var p1 = sw ? sw.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }) : Promise.resolve();
-      var p2 = window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k !== 'hifz-pages'; }).map(function (k) { return caches.delete(k); })); }) : Promise.resolve();
+      var p2 = window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k !== 'hifz-pages' && k !== 'hifz-fonts'; }).map(function (k) { return caches.delete(k); })); }) : Promise.resolve();
       // Refetch the app files past the browser's HTTP cache so the reload gets fresh copies.
       var p3 = Promise.all(files.map(function (f) { return fetch(f, { cache: 'reload' }).catch(function () {}); }));
       // v110: come back to Settings at the same scroll spot, so the result of the update is visible.
@@ -976,7 +982,7 @@
     cover: function (el) { S.d.settings.hideCol = el.dataset.c; S.saveSettings(); openSettings(); },
     signIn: function () { Sync.signIn(false); },
     signOut: function () { if (confirm('Sign out? Your data stays safe in your Google Drive.')) { Sync.signOut(); closeSheet(); } },
-    syncNow: function () { if (Sync.tok) Sync.pull(); else Sync.signIn(true); },
+    syncNow: function () { if (navigator.onLine === false) { App.toast('You’re offline — changes are kept and sync later'); return; } Sync.now(); },
     syncChip: function () { if (!Sync.cid() || !S.d.acct) openSettings(); else ACT.syncNow(); },
     precache: function () { App.precache(); App.toast('Saving pages for offline…'); }
   };

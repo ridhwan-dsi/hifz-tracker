@@ -22,7 +22,7 @@
   function kn(k) { k = String(k); var i = k.indexOf(':'); return i > 0 ? +k.slice(i + 1) : onPage(kp(k))[0]; }
 
   var S = {
-    d: null, dirty: false,
+    d: null,
     uk: uk, kp: kp, kn: kn, onPage: onPage,
     // Old data kept memorization state on the shared page itself; give it to the surah(s) it was really selected for.
     migrateUnits: function () {
@@ -302,45 +302,55 @@
     lastActive: function (k) { var a = this.activeDays(k); return a.length ? a[a.length - 1] : this.get(k).lr || null; },
     exportData: function () { var c = JSON.parse(JSON.stringify(this.d)); delete c.ui; return c; }
   };
+  /* v131 (SL27/SL17): "changes waiting to sync" survives closing the app, so changes made offline still go up later. */
+  var dirtyV = false; try { dirtyV = localStorage.getItem('hifz.dirty') === '1'; } catch (e) {}
+  Object.defineProperty(S, 'dirty', { get: function () { return dirtyV; }, set: function (v) { v = !!v; if (v === dirtyV) return; dirtyV = v; try { localStorage.setItem('hifz.dirty', v ? '1' : ''); } catch (e) {} } });
   window.S = S;
 
-  /* ---------- Google Drive sync (appDataFolder, private to each user) ---------- */
-  var API = 'https://www.googleapis.com';
+  /* ---------- Google Drive sync (appDataFolder, private to each user) ----------
+     v131 (SL27, ported from Habits v5): offline-first. Changes never wait for Google.
+     - the token is kept in localStorage for its hour, so reopening the app doesn't ask Google again;
+     - a token is asked for only when there are changes waiting (or he taps the sync chip), on his next tap,
+       never on open or while he's only reading — that tap lets Google's popup open and close at once;
+     - offline or weak signal: changes wait quietly; when the connection comes back they go up by themselves.
+     States: off | idle (signed in, nothing waiting) | paused (changes waiting) | syncing | ok | error */
+  var API = 'https://www.googleapis.com', TK = 'hifz.tok';
   var Sync = {
-    tok: null, exp: 0, fileId: null, state: 'off', timer: null, client: null, lastSync: 0,
+    tok: null, exp: 0, fileId: null, state: 'off', timer: null, client: null, lastSync: 0, asking: false,
     cid: function () { return (window.HIFZ_CONFIG || {}).googleClientId || ''; },
     gisReady: function () { return !!(window.google && google.accounts && google.accounts.oauth2); },
     set: function (st) { this.state = st; if (window.App) App.syncChanged(); },
+    valid: function () { return !!this.tok && this.exp > Date.now() + 60000; },
+    saveTok: function (acct) { try { localStorage.setItem(TK, JSON.stringify({ tok: this.tok, exp: this.exp, acct: acct })); } catch (e) {} },
+    dropTok: function () { this.tok = null; this.exp = 0; try { localStorage.removeItem(TK); sessionStorage.removeItem(TK); } catch (e) {} },
     init: function () {
-      try {
-        var t = JSON.parse(sessionStorage.getItem('hifz.tok'));
-        if (t && t.exp > Date.now() + 60000 && t.acct === S.d.acct) { this.tok = t.tok; this.exp = t.exp; }
-      } catch (e) {}
-      if (this.tok) { this.set('syncing'); this.pull(); }
-      else if (S.d.acct) {
-        this.set('paused');
-        // Resume silently on the first tap anywhere (a user gesture lets Google's token popup open and close instantly).
-        var self = this;
-        document.addEventListener('click', function once() { document.removeEventListener('click', once, true); if (!self.tok) self.signIn(true); }, true);
-      }
+      var self = this;
+      try { var t = JSON.parse(localStorage.getItem(TK)); if (t && t.exp > Date.now() + 60000 && t.acct === S.d.acct) { this.tok = t.tok; this.exp = t.exp; } } catch (e) {}
+      if (!this.cid()) return;
+      var onTap = function () { setTimeout(function () { if (!S.d.acct || self.asking) return; if (S.dirty && !self.valid() && navigator.onLine !== false) self.signIn(true); }, 30); };
+      document.addEventListener('click', onTap, true); document.addEventListener('pointerup', onTap, true);
+      window.addEventListener('online', function () { if (self.valid()) self.pull(); else if (S.d.acct) self.set(S.dirty ? 'paused' : 'idle'); });
+      if (this.valid()) this.pull();
+      else if (S.d.acct) this.set(S.dirty ? 'paused' : 'idle');
     },
     signIn: function (silent) {
       var self = this;
       if (!this.cid()) { App.toast('Google sign-in is not set up yet'); return; }
-      if (!this.gisReady()) { App.toast('Google sign-in is still loading — try again'); return; }
+      if (!this.gisReady()) { if (!silent) App.toast(navigator.onLine === false ? 'You’re offline — changes are kept and sync later' : 'Google sign-in is still loading — try again'); return; }
       if (!this.client) {
         this.client = google.accounts.oauth2.initTokenClient({
           client_id: this.cid(),
           scope: 'https://www.googleapis.com/auth/drive.appdata openid email',
-          callback: function (r) { self.onToken(r); },
-          error_callback: function () { self.set(S.d.acct ? 'paused' : 'off'); }
+          callback: function (r) { self.asking = false; self.onToken(r); },
+          error_callback: function () { self.asking = false; self.set(S.d.acct ? (S.dirty ? 'paused' : 'idle') : 'off'); }
         });
       }
+      this.asking = true;
       this.client.requestAccessToken({ prompt: silent ? '' : 'select_account', login_hint: S.d.acct || undefined });
     },
     onToken: function (r) {
       var self = this;
-      if (!r || r.error) { this.set(S.d.acct ? 'paused' : 'off'); return; }
+      if (!r || r.error) { this.set(S.d.acct ? (S.dirty ? 'paused' : 'idle') : 'off'); return; }
       this.tok = r.access_token; this.exp = Date.now() + (r.expires_in || 3600) * 1000;
       this.set('syncing');
       fetch(API + '/oauth2/v3/userinfo', { headers: { Authorization: 'Bearer ' + this.tok } })
@@ -349,28 +359,31 @@
           var email = u.email;
           if (S.d.acct && S.d.acct !== email) { S.reset(email); self.fileId = null; App.render(); }
           else if (!S.d.acct) { S.d.acct = email; S.dirty = true; S.persist(); }
-          sessionStorage.setItem('hifz.tok', JSON.stringify({ tok: self.tok, exp: self.exp, acct: email }));
+          self.saveTok(email);
           self.pull();
         })
-        .catch(function () { self.set('error'); });
+        .catch(function (e) { self.fail(e); });
     },
     signOut: function () {
       if (this.tok && this.gisReady()) try { google.accounts.oauth2.revoke(this.tok, function () {}); } catch (e) {}
-      this.tok = null; this.fileId = null; sessionStorage.removeItem('hifz.tok');
+      this.dropTok(); this.fileId = null;
       S.reset(null); this.set('off'); App.render();
     },
     api: function (url, opt) {
       var self = this;
       opt = opt || {}; opt.headers = Object.assign({ Authorization: 'Bearer ' + this.tok }, opt.headers || {});
       return fetch(url, opt).then(function (r) {
-        if (r.status === 401) { self.tok = null; sessionStorage.removeItem('hifz.tok'); self.set('paused'); throw new Error('auth'); }
+        if (r.status === 401) { self.dropTok(); self.set('paused'); throw new Error('auth'); }
         if (!r.ok) return r.json().catch(function () { return {}; }).then(function (j) {
-          var m = (j.error && j.error.message) || ('HTTP ' + r.status);
-          if (window.App) App.toast('Sync error: ' + m.slice(0, 120));
-          throw new Error('http ' + r.status);
+          var e = new Error('http'); e.status = r.status; e.msg = (j.error && j.error.message) || ('HTTP ' + r.status); throw e;
         });
         return r;
       });
+    },
+    fail: function (e) {
+      if (e && e.message === 'auth') return;
+      if (!e || !e.status) { S.dirty = true; this.set('paused'); return; } // no connection: wait quietly, retry when it's back
+      this.set('error'); if (e.msg && window.App) App.toast('Sync error: ' + e.msg.slice(0, 120));
     },
     findFile: function () {
       var self = this;
@@ -380,9 +393,9 @@
         .then(function (r) { return r.json(); })
         .then(function (j) { self.fileId = (j.files && j.files[0] && j.files[0].id) || null; return self.fileId; });
     },
-    pull: function () {
+    pull: function () { // remote → merge → push merged result
       var self = this;
-      if (!this.tok) return;
+      if (!this.valid()) return;
       this.set('syncing');
       this.findFile().then(function (id) {
         if (!id) { S.dirty = true; return null; }
@@ -390,18 +403,18 @@
       }).then(function (remote) {
         if (remote) { S.merge(remote); App.render(); }
         return self.push(true);
-      }).catch(function (e) { if (e.message !== 'auth') self.set('error'); });
+      }).catch(function (e) { self.fail(e); });
     },
+    now: function () { if (this.valid()) this.pull(); else this.signIn(true); }, // the sync chip / Sync button
     schedule: function () {
       var self = this;
-      if (!this.tok) return;
       clearTimeout(this.timer);
+      if (!this.valid()) { if (S.d.acct && this.state !== 'syncing') this.set('paused'); return; } // the next tap asks for a token
       this.timer = setTimeout(function () { self.push(); }, 2500);
     },
     push: function (force) {
       var self = this;
-      if (!this.tok) return Promise.resolve();
-      if (!S.dirty && !force) { this.set('ok'); return Promise.resolve(); }
+      if (!this.valid()) return Promise.resolve();
       if (!S.dirty) { this.lastSync = Date.now(); this.set('ok'); return Promise.resolve(); }
       this.set('syncing');
       var body = JSON.stringify(S.exportData());
@@ -416,8 +429,8 @@
         p = this.api(API + '/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + b }, body: multi })
           .then(function (r) { return r.json(); }).then(function (j) { self.fileId = j.id; });
       }
-      return p.then(function () { self.lastSync = Date.now(); self.set('ok'); })
-        .catch(function (e) { S.dirty = true; if (e.message !== 'auth') self.set('error'); });
+      return p.then(function () { self.lastSync = Date.now(); if (S.dirty) { self.schedule(); return; } self.set('ok'); })
+        .catch(function (e) { S.dirty = true; self.fail(e); });
     }
   };
   window.Sync = Sync;
