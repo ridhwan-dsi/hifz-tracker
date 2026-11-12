@@ -53,7 +53,7 @@
   var st = { view: 'home', exp: { mem: {}, tom: {}, rec: {}, juz: {} }, edit: false, tedit: null, sel: {}, q: '', sf: 'all', srt: 'page', sdir: 0, sprd: 'all', ssel: {}, month: null, stab: 'rep', rp: 'day', ra: null, cal: null, cday: null, sper: 'all' };
 
   /* v133: the look (New/Classic design + new colour mode) belongs to this phone, not the synced data. */
-  var NTHEMES = [['mushafw', 'Mushaf White', '#ffffff', '#e1ede0', '#278a3d'], ['mushaf', 'Mushaf', '#edf2e6', '#cfdcbf', '#2f8a3c'], ['midnight', 'Midnight', '#07090d', '#1a2029', '#3ba7ff'], ['emerald', 'Emerald', '#05100c', '#15291f', '#d9b25a'], ['dusk', 'Dusk', '#0d0a14', '#221a33', '#b68cff'], ['sand', 'Sand', '#f5efe3', '#e3d7c0', '#b4612a'], ['cgreen', 'Classic Green', '#f4f7f5', '#e1e8e3', '#1f7a52']];
+  var NTHEMES = [['mushafw', 'Mushaf White', '#ffffff', '#e1ede0', '#278a3d'], ['mushaf', 'Mushaf', '#edf2e6', '#cfdcbf', '#2f8a3c'], ['midnight', 'Midnight', '#07090d', '#1a2029', '#3ba7ff'], ['emerald', 'Emerald', '#05100c', '#15291f', '#d9b25a'], ['dusk', 'Dusk', '#0d0a14', '#221a33', '#b68cff'], ['sand', 'Sand', '#f5efe3', '#e3d7c0', '#b4612a'], ['cgreen', 'Classic Green', '#111513', '#2a332e', '#4cbf8a']];
   function look() { var L = {}; try { L = JSON.parse(localStorage.getItem('hifz.look')) || {}; } catch (e) {} return { ui: L.ui === 'classic' ? 'classic' : 'new', nt: NTHEMES.some(function (t) { return t[0] === L.nt; }) ? L.nt : 'mushafw' }; }
   function setLook(k, v) { var L = look(); L[k] = v; try { localStorage.setItem('hifz.look', JSON.stringify(L)); } catch (e) {} }
 
