@@ -53,6 +53,10 @@
     } else if (!hl) ds.forEach(function (x) { s += '<polyline points="' + divPts(x) + '" style="fill:none;stroke:#e0662c;stroke-width:2.5;stroke-dasharray:10 7;opacity:.75"/>'; });
     return s;
   }
+  /* SL15: phone portrait (mobile view) two-step zoom — pinch out snaps to "zoomed", where the inner edge of the
+     mushaf's ornamental frame fills the screen width and the page scrolls down; pinch in snaps back. */
+  function pzOn() { return !!R.pz && !land() && !desk(); }
+  function innerOf(p) { var a = window.AUTOCROP && AUTOCROP.inner && AUTOCROP.inner[p - 1]; return a && a[0] + a[1] < 0.7 ? a : [0.16, 0.16]; }
   function zkey() { return desk() ? 'lz' : 'lzm'; } // mobile view and web view each keep their own zoom
   function zmax() { return desk() ? 300 : 100; } // web view can zoom past the fitted page; mobile stops at full width
   function lzoom() { var z = S.d.settings[zkey()]; return land() && z ? clamp(z, 40, zmax()) / 100 : 1; }
@@ -161,7 +165,7 @@
     open: function (p, n, range, tag, rec) {
       R.rec = !!rec; R.rtag = S.d.ui.rtag || 'def'; if (R.rec) { range = null; tag = null; R.sub = R.sub === 'timer' ? 'timer' : null; R.edOpen = false; }
       R.style = boxDef(); R.palOpen = false; R.wasDesk = desk();
-      if (!Reader.isOpen()) { R.wasPL = phoneLand(); if (R.wasPL) { R.panel = false; R.dszL = 'rib'; } } R.stat = false; R.pstat = false; R.tag = tag || null; // custom tag: counts shown for the tag, not the month
+      if (!Reader.isOpen()) { R.wasPL = phoneLand(); R.pz = false; if (R.wasPL) { R.panel = false; R.dszL = 'rib'; } } R.stat = false; R.pstat = false; R.tag = tag || null; // custom tag: counts shown for the tag, not the month
       p = clamp(p | 0, 1, 604); R.n = n || 0;
       R.range = range && range.length ? range.slice().sort(function (a, b) { return S.kp(a) - S.kp(b) || S.kn(a) - S.kn(b); }) : null;
       if (!Reader.isOpen()) history.pushState({ reader: 1 }, '', '#p' + p);
@@ -273,6 +277,12 @@
       else if (fitPage()) { var Ub = U; segs.forEach(function (s, i) { if (s.role === 'this') Ub = dims[i].ch / dims[i].cw; }); W = Math.min(vw, vhW / Math.min(U, Ub)); }
       else W = Math.min(vw, 820);
       W = Math.max(120, Math.floor(W * lzoom()));
+      var pzX = 0; // SL15: zoomed — widen so the frame's inner edges meet the screen sides, and shift left to the inner edge
+      if (pzOn() && !fitAll && !two) segs.forEach(function (s, i) {
+        if (s.role !== 'this') return;
+        var c = dims[i].c, cwf = 1 - c.l - c.r, inr = innerOf(s.p), iw = 1 - inr[0] - inr[1], Wz = Math.floor(vw * cwf / iw);
+        if (Wz > W) { W = Wz; pzX = clamp(Math.round((inr[0] - c.l) / cwf * W), 0, W - vw); }
+      });
       var html = '';
       segs.forEach(function (s, i) {
         var d = dims[i], k = W / d.cw, sx = d.c.l * d.nw, sy = d.c.t * d.nh + s.y0 * d.ch;
@@ -300,6 +310,7 @@
       sheet.style.order = 1;
       var fit = (fitPage() || fitAll) && H <= (desk() || fitAll ? vh : innerHeight - R.ph) + 2;
       sheet.style.width = W + 'px'; sheet.style.marginLeft = sheet.style.marginRight = sheet.style.marginTop = '';
+      if (W > vw + 1 && !desk()) { spr.style.justifyContent = 'flex-start'; sheet.style.marginLeft = -pzX + 'px'; } else spr.style.justifyContent = '';
       // v91: only web view centres the page vertically; the phone reader keeps it at the top, leaving the space below free (e.g. for the tally button)
       spr.style.marginTop = (fit && document.body.classList.contains('web') ? Math.max(top, (innerHeight - R.ph - H) / 2) : 0) + 'px';
       spr.style.transition = 'none'; spr.style.transform = '';
@@ -568,7 +579,7 @@
     sc.addEventListener('wheel', wheelZoom, { passive: false });
     /* Two-finger pinch, phone on its side (mobile view) only: scales the page live, then sets the same zoom as the
        − / + chip (40–100%, 100% = full width) when the fingers lift. */
-    function pinchOK() { return land() && !desk() && innerHeight < 600 && !R.edit && R.sub !== 'crop' && R.sub !== 'join'; }
+    function pinchOK() { return !desk() && (!land() || innerHeight < 600) && !R.edit && R.sub !== 'crop' && R.sub !== 'join'; } // SL15: portrait too (two-step)
     function fd(t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
     sc.addEventListener('touchstart', function (e) {
       if (e.touches.length !== 2 || !pinchOK()) return;
@@ -576,17 +587,24 @@
       var sp = $('#spr'), r = sp.getBoundingClientRect(), t = e.touches;
       sp.style.transition = 'none';
       sp.style.transformOrigin = ((t[0].clientX + t[1].clientX) / 2 - r.left) + 'px ' + ((t[0].clientY + t[1].clientY) / 2 - r.top) + 'px';
-      pz = { d0: fd(t) || 1, z0: lzoom(), f: 1 };
+      pz = { d0: fd(t) || 1, z0: lzoom(), f: 1, step: !land(), my: (t[0].clientY + t[1].clientY) / 2 };
     }, { passive: true });
     sc.addEventListener('touchmove', function (e) {
       if (!pz || e.touches.length !== 2) return;
       e.preventDefault();
-      pz.f = clamp(fd(e.touches) / pz.d0, 0.4 / pz.z0, 1 / pz.z0);
+      pz.f = pz.step ? clamp(fd(e.touches) / pz.d0, 0.6, 1.6) : clamp(fd(e.touches) / pz.d0, 0.4 / pz.z0, 1 / pz.z0);
       $('#spr').style.transform = 'scale(' + pz.f + ')';
     }, { passive: false });
     function pinchEnd() {
-      if (!pz) return; var z = pz.z0 * pz.f; pz = null;
+      if (!pz) return; var z = pz.z0 * pz.f, q = pz; pz = null;
       var sp = $('#spr'); sp.style.transform = ''; sp.style.transformOrigin = '';
+      if (q.step) { // portrait: snap to zoomed / normal, keeping the line under the fingers in place
+        var want = q.f > 1.1 ? true : q.f < 0.92 ? false : !!R.pz;
+        if (want === !!R.pz) return;
+        var sh = $('#sheet'), r = sc.getBoundingClientRect(), my = q.my - r.top, fy = (sc.scrollTop + my) / Math.max(1, sh.offsetHeight);
+        R.pz = want; layout().then(function () { sc.scrollTop = Math.max(0, fy * $('#sheet').offsetHeight - my); });
+        return;
+      }
       S.d.settings[zkey()] = clamp(Math.round(z * 100), 40, 100); S.saveSettings(); afterPanel(); relayout();
     }
     sc.addEventListener('touchend', function (e) { if (e.touches.length < 2) pinchEnd(); });
