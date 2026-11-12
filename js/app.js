@@ -387,11 +387,12 @@
   var dlg = null, dlgO = null;
   function dialog(o, cb) {
     var sc = document.getElementById('scrim'); dlg = cb; dlgO = o;
-    sc.innerHTML = '<div class="sheetm pbox"><div class="pbt">' + esc(o.title) + '</div>' + (o.msg ? '<p class="small">' + o.msg + '</p>' : '') +
+    var drg = o.input != null || /data-f=/.test(o.html || '');
+    sc.innerHTML = '<div class="sheetm pbox' + (drg ? ' drg' : '') + '">' + (drg ? '<div class="dgrip" title="Drag to move"></div>' : '') + '<div class="pbt">' + esc(o.title) + '</div>' + (o.msg ? '<p class="small">' + o.msg + '</p>' : '') +
       (o.input != null ? '<input class="dinp" id="dinp" maxlength="40" enterkeyhint="done"' + (o.num ? ' inputmode="numeric"' : '') + ' value="' + esc(o.input) + '" autocomplete="off">' : '') +
       (o.html || '') + '<div class="pbtns' + (o.col ? ' col' : '') + '">' + (o.btns ? o.btns.map(function (b) { return '<button class="btn ' + (b[2] || '') + '" data-dg="' + b[0] + '">' + esc(b[1]) + '</button>'; }).join('') :
         '<button class="btn" data-dg="x">Cancel</button><button class="btn ' + (o.danger ? 'danger' : 'pri') + '" data-dg="ok">' + esc(o.ok) + '</button>') + '</div></div>';
-    sc.classList.toggle('top', o.input != null); sc.style.display = 'flex'; fitScrim();
+    sc.classList.toggle('top', drg); sc.style.display = 'flex'; fitScrim(); if (drg) placeDlg();
     var inp = document.getElementById('dinp');
     if (inp) { setTimeout(function () { inp.focus(); inp.select(); }, 30); inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); endDlg(true); } }); }
   }
@@ -401,7 +402,30 @@
     var sc = document.getElementById('scrim'), vv = window.visualViewport;
     if (!vv || sc.style.display !== 'flex') return;
     sc.style.top = vv.offsetTop + 'px'; sc.style.bottom = 'auto'; sc.style.height = vv.height + 'px';
+    placeDlg();
   }
+  /* v129 (SL14): text-input dialogs have a grip; drag it to move the dialog up or down (e.g. just above the keyboard).
+     The spot is remembered (px from the top of the visible area) and reused until moved again; kept fully on screen. */
+  var DPK = 'hifz.dlgY', dlgY = null;
+  try { var dy0 = localStorage.getItem(DPK); dlgY = dy0 == null ? null : +dy0; } catch (e) {}
+  function placeDlg(y) {
+    var sc = document.getElementById('scrim'), b = sc && sc.querySelector('.sheetm.drg'); if (!b) return;
+    if (y == null) y = dlgY; if (y == null) { b.style.marginTop = ''; sc.classList.remove('moved'); return; }
+    var max = Math.max(0, sc.clientHeight - b.offsetHeight - 6);
+    sc.classList.add('moved'); b.style.marginTop = Math.max(6, Math.min(max, y)) + 'px';
+  }
+  document.addEventListener('pointerdown', function (e) {
+    var g = e.target.closest && e.target.closest('.dgrip'); if (!g) return;
+    e.preventDefault();
+    var sc = document.getElementById('scrim'), b = g.parentNode, y0 = e.clientY, top0 = b.getBoundingClientRect().top - sc.getBoundingClientRect().top, y = top0;
+    try { g.setPointerCapture(e.pointerId); } catch (er) {}
+    function mv(ev) { y = top0 + ev.clientY - y0; placeDlg(y); }
+    function up() {
+      g.removeEventListener('pointermove', mv); g.removeEventListener('pointerup', up); g.removeEventListener('pointercancel', up);
+      dlgY = parseFloat(b.style.marginTop) || 0; try { localStorage.setItem(DPK, dlgY); } catch (er) {}
+    }
+    g.addEventListener('pointermove', mv); g.addEventListener('pointerup', up); g.addEventListener('pointercancel', up);
+  }, true);
   if (window.visualViewport) { visualViewport.addEventListener('resize', fitScrim); visualViewport.addEventListener('scroll', fitScrim); }
   function endDlg(ok, id) {
     var sc = document.getElementById('scrim'), inp = document.getElementById('dinp'), v = inp ? inp.value : null, cb = dlg, o = dlgO || {}, f = {};
@@ -979,11 +1003,28 @@
   App.render();
   Sync.init();
   // Reopen the page after a reload (e.g. Update app) with the same swipe scope as before, not the free mushaf.
+  function reopen(p0) {
+    if (isRec()) Reader.open(p0, S.d.rlast && S.d.rlast.p === p0 ? S.d.rlast.n : 0, null, null, true);
+    else { var lk = S.d.last && S.kp(S.d.last.k) === p0 ? S.d.last.k : S.uk(p0), sc0 = scope(lk); Reader.open(p0, S.kn(lk), sc0 && sc0.rg, sc0 && sc0.tag); }
+  }
+  /* v129 (SL30): on leaving the app, note where he was. Reopened within 1 hour = same screen (reader page, Stats or home)
+     and scroll position; later = the home page. A reload with #pNNN (Update app) still reopens that page as before. */
+  var RSK = 'hifz.resume', rs = null, upd = false;
+  try { rs = JSON.parse(localStorage.getItem(RSK)); upd = !!sessionStorage.getItem('hifzUpd'); } catch (e) {}
+  function saveResume() {
+    var h = location.hash.match(/^#p(\d+)$/), ro = Reader.isOpen();
+    try { localStorage.setItem(RSK, JSON.stringify({ t: Date.now(), v: ro ? 'reader' : st.view, p: ro && h ? +h[1] : 0, rec: isRec(), y: window.scrollY })); } catch (e) {}
+  }
+  document.addEventListener('visibilitychange', function () { if (document.hidden) saveResume(); });
+  window.addEventListener('pagehide', saveResume);
   if (location.hash.match(/^#p\d+$/)) {
     var p0 = +location.hash.slice(2);
     history.replaceState(null, '', location.pathname);
-    if (isRec()) Reader.open(p0, S.d.rlast && S.d.rlast.p === p0 ? S.d.rlast.n : 0, null, null, true);
-    else { var lk = S.d.last && S.kp(S.d.last.k) === p0 ? S.d.last.k : S.uk(p0), sc0 = scope(lk); Reader.open(p0, S.kn(lk), sc0 && sc0.rg, sc0 && sc0.tag); }
+    reopen(p0);
+  } else if (!upd && rs && Date.now() - rs.t < 3600e3 && !!rs.rec === isRec()) {
+    if (rs.v === 'stats') { st.view = 'stats'; App.render(); }
+    if (rs.v === 'reader' && rs.p) reopen(rs.p);
+    var ry = rs.y || 0; if (ry) { window.scrollTo(0, ry); requestAnimationFrame(function () { window.scrollTo(0, ry); }); setTimeout(function () { if (window.scrollY < ry - 4) window.scrollTo(0, ry); }, 600); }
   }
   (function () {
     var u = null; try { u = JSON.parse(sessionStorage.getItem('hifzUpd')); sessionStorage.removeItem('hifzUpd'); } catch (e) {}
