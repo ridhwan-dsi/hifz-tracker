@@ -604,3 +604,7 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 .scrim.moved, .scrim.top.moved { align-items: flex-start; }
 .scrim.moved .sheetm.drg { border-radius: 18px; padding-top: 22px; width: calc(100% - 16px); }
 .scrim.moved .sheetm.drg .dgrip { top: 0; }
+
+/* v132 (SL18): offline manager */
+.offm .prow { padding: 9px 2px; } .offm .offn { display: flex; flex-direction: column; min-width: 0; flex: 1; } .offm .offn .small { font-size: 12px; }
+.offm .tick[disabled] { opacity: .35; }

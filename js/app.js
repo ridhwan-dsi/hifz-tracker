@@ -61,6 +61,7 @@
       if (meta) meta.content = getComputedStyle(document.documentElement).getPropertyValue('--acc').trim() || '#1f7a52';
       document.body.classList.toggle('web', S.d.settings.view === 'web' && innerWidth >= 1000);
       $('#app').innerHTML = st.view === 'stats' ? stats() : home();
+      try { offUse(); } catch (e) {}
     },
     syncChanged: function () { var el = $('#syncChip'); if (el) el.outerHTML = syncChip(); if ($('#settingsSheet')) openSettings(); },
     toast: function (msg, undo, label, ms) {
@@ -68,8 +69,7 @@
       t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove('on'); }, ms || (undo ? 5000 : 2200));
       if (undo) $('#toastUndo').onclick = function () { undo(); t.classList.remove('on'); };
     },
-    precache: function () {
-      if (!navigator.serviceWorker || !navigator.serviceWorker.controller) return;
+    autoPages: function () { // pages always kept offline (Memorizing + neighbours, last page, Recitation bookmarks + 10)
       var set = {};
       Object.keys(S.d.pages).forEach(function (k) { if (S.d.pages[k].m) { var p = S.kp(k); set[p] = 1; if (p > 1) set[p - 1] = 1; if (p < 604) set[p + 1] = 1; } });
       if (S.d.last) set[S.d.last.p] = 1;
@@ -77,6 +77,11 @@
       var add = function (p) { p = p | 0; if (!p) return; for (var i = 0; i <= 10 && p + i <= 604; i++) set[p + i] = 1; };
       ['def'].concat((S.d.rtags || []).filter(function (t) { return !t.a; }).map(function (t) { return t.id; })).forEach(function (id) { var b = S.d.rbm && S.d.rbm[id]; if (b && b.p) add(Math.min(b.p, 604)); });
       if (S.d.rlast && S.d.rlast.p) add(S.d.rlast.p);
+      return set;
+    },
+    precache: function () {
+      if (!navigator.serviceWorker || !navigator.serviceWorker.controller) return;
+      var set = App.autoPages();
       var urls = Object.keys(set).map(function (p) { return 'pages/p' + String(p).padStart(3, '0') + '.jpg'; });
       navigator.serviceWorker.controller.postMessage({ type: 'precache', urls: urls });
     }
@@ -706,7 +711,7 @@
     arch: 'Archived tags show greyed at the end of the tag row, in both modes. Long-press one to unarchive it. Tags are created with + Tag; long-press a tag to rename, archive or delete it.',
     ram: 'For the Ramadan-to-Ramadan year in Stats. Day 1 comes from the Umm al-Qura calendar; move it a day for local moon sighting.',
     main: 'Long-press Main on the Recitation home to set its start page and the day counting begins, so pages read elsewhere don’t count.',
-    offline: 'Saves your Memorizing pages (and the pages beside them) on this device, for reading without internet.',
+    offline: 'Choose which tags (or the whole mushaf) are kept on this device for reading without internet, with their size before downloading. Pages you are memorizing and the next 10 pages of each reading are always kept. You can be reminded to free the pages of tags you stop opening.',
     share: 'Copies the app link. Each person signs in with their own Google account, so your data stays yours.',
     update: 'Clears the cached app files and reloads. Your data and offline pages are kept. The version beside the button shows which one you have.',
     install: 'Open the browser menu → “Install app” / “Add to Home screen” for full screen.'
@@ -751,7 +756,7 @@
     h += '<h4>Tags</h4>' + row('arch', 'Show archived tags', sw(s.showArch, 'showArch')) +
       '<h4>App</h4>' + row('update', 'Update app', '<span class="sst">' + ver + '</span><button class="btn sm" data-act="updateApp">Update</button>') +
       row('share', 'Share the app', '<button class="btn sm" data-act="shareApp">Copy link</button>') +
-      (rec ? '' : row('offline', 'Offline pages', '<button class="btn sm" data-act="precache">Save</button>')) +
+      row('offline', 'Offline pages', '<button class="btn sm" data-act="offOpen">Manage</button>') +
       (instEv ? row('install', 'Install app', '<button class="btn sm pri" data-act="install">' + ICON.down + ' Install</button>') : installedApp() ? '' : row('install', 'Install app', '<span class="sst">Browser menu</span>')) +
       '<div style="text-align:right;margin-top:10px"><button class="btn" data-act="closeSheet">Close</button></div>' +
       '<div class="shelp" id="shelp" data-act="shelpX"></div></div>';
@@ -997,6 +1002,7 @@
     if (k === 'q') {
       st.q = e.target.value; var pos = e.target.selectionStart; App.render();
       var inp = document.querySelector('[data-in=q]'); if (inp) { inp.focus(); try { inp.setSelectionRange(pos, pos); } catch (x) {} }
+    } else if (k === 'offRem') { S.d.settings.offRem = +e.target.value; S.saveSettings();
     } else if (k === 'decayAfter' || k === 'decayPct' || k === 'trimPad' || k === 'goalDay' || k === 'autoRev' || k === 'tHold' || k === 'boxW' || k === 'tDay' || k === 'tRuleN' || k === 'tRulePct') { S.d.settings[k] = +e.target.value; S.saveSettings(); App.render(); if (k === 'tRuleN') openSettings(); }
     else if (k === 'srt') { st.srt = e.target.value; st.sdir = 0; App.render(); }
     else if (k === 'sprd') { st.sprd = e.target.value; App.render(); }
@@ -1004,10 +1010,130 @@
   });
   document.addEventListener('click', function (e) { if (e.target.id === 'scrim') closeSheet(); });
 
+  /* ---------------- Offline manager (v132, SL18) + reminder for unused offline tags (SL19) ----------------
+     Device-only record in localStorage 'hifz.off': sel = chosen keys { key: { at } }, used = { key: last opened },
+     asked = { key: when the reminder was answered }. Keys: 'all' (whole mushaf), 'mem' (all Memorizing pages),
+     'm:<tag id>' (Memorization tag), 'r:<tag id>' (Recitation reading: bookmark → end of the mushaf). */
+  var OFK = 'hifz.off', PCN = 'hifz-pages';
+  function offD() { var o = null; try { o = JSON.parse(localStorage.getItem(OFK)); } catch (e) {} o = o || {}; o.sel = o.sel || {}; o.used = o.used || {}; o.asked = o.asked || {}; return o; }
+  function offW(o) { try { localStorage.setItem(OFK, JSON.stringify(o)); } catch (e) {} }
+  function pgUrl(p) { return new URL('pages/p' + String(p).padStart(3, '0') + '.jpg', location.href).href; }
+  function kbOf(ps) { var K = (window.AUTOCROP && AUTOCROP.kb) || []; return ps.reduce(function (a, p) { return a + (K[p - 1] || 250); }, 0); }
+  function mb(kb) { var m = kb / 1024; return (m >= 10 ? Math.round(m) : m.toFixed(1)) + ' MB'; }
+  function offList() { // [{ k, name, grp, pages: [p…] }]
+    var L = [{ k: 'all', name: 'Whole mushaf', grp: '', pages: Array.from({ length: 604 }, function (_, i) { return i + 1; }) }];
+    var memK = Object.keys(S.d.pages).filter(function (k) { return S.d.pages[k].m; });
+    var uniq = function (ks) { var o = {}; ks.forEach(function (k) { o[S.kp(k)] = 1; }); return Object.keys(o).map(Number).sort(function (a, b) { return a - b; }); };
+    L.push({ k: 'mem', name: 'All Memorizing pages', grp: 'Memorization', pages: uniq(memK) });
+    S.d.tags.forEach(function (t) { L.push({ k: 'm:' + t.id, name: t.name, grp: 'Memorization', arch: !!t.a, pages: uniq(memK.filter(function (k) { return S.hasTag(k, t.id); })) }); });
+    S.rtags().forEach(function (t) {
+      var b = S.bm(t.id), p0 = b.p || t.start || 1, ps = [];
+      for (var p = Math.max(1, p0); p <= 604; p++) ps.push(p);
+      L.push({ k: 'r:' + t.id, name: t.name, grp: 'Recitation', arch: !!t.a, pages: ps });
+    });
+    return L;
+  }
+  function offCached() { // Promise → { page: 1 } for every page saved on this device
+    if (!window.caches) return Promise.resolve({});
+    return caches.open(PCN).then(function (c) { return c.keys(); }).then(function (ks) {
+      var o = {}; ks.forEach(function (r) { var m = /\/p(\d{3})\.jpg/.exec(r.url); if (m) o[+m[1]] = 1; }); return o;
+    }).catch(function () { return {}; });
+  }
+  var ofs = null; // open manager: { tick: { key: 1 }, cached, busy, prog }
+  function offRender() {
+    if (!ofs) return;
+    var L = offList(), C = ofs.cached || {}, s = S.d.settings, nC = Object.keys(C).length;
+    var need = {}; L.forEach(function (x) { if (ofs.tick[x.k]) x.pages.forEach(function (p) { need[p] = 1; }); });
+    var dl = Object.keys(need).filter(function (p) { return !C[p]; }).map(Number);
+    var row = function (x) {
+      if (x.k !== 'all' && x.k !== 'mem' && x.arch && !ofs.tick[x.k]) return '';
+      var have = x.pages.filter(function (p) { return C[p]; }).length, on = !!ofs.tick[x.k];
+      var st2 = !x.pages.length ? 'No pages' : x.pages.length + ' pages · ' + mb(kbOf(x.pages)) + ' · ' + (have === x.pages.length ? 'all saved' : have ? have + ' saved' : 'not saved');
+      return '<div class="prow offr"><button class="tick ' + (on ? 'on' : '') + '" style="margin:0" data-act="offTick" data-k="' + esc(x.k) + '"' + (x.pages.length ? '' : ' disabled') + '>' + (on ? ICON.check : '') + '</button>' +
+        '<div class="offn"><b>' + esc(x.name) + '</b><span class="small muted">' + st2 + '</span></div></div>';
+    };
+    var grp = function (g) { var r = L.filter(function (x) { return x.grp === g; }).map(row).join(''); return r ? '<h4>' + g + '</h4>' + r : ''; };
+    var h = '<div class="sheetm sett offm" id="offSheet"><h3>Offline pages</h3>' +
+      '<p class="small">On this device: <b>' + nC + ' pages · ' + mb(kbOf(Object.keys(C).map(Number))) + '</b>. Pages you are memorizing and the next 10 pages of each reading are always kept.</p>' +
+      L.filter(function (x) { return !x.grp; }).map(row).join('') + grp('Memorization') + grp('Recitation') +
+      '<h4>Reminder</h4><div class="frow"><span class="slbl">Ask to free a tag not opened for</span><select data-in="offRem">' + [0, 14, 30, 60, 90].map(function (v) { return '<option value="' + v + '"' + ((s.offRem == null ? 30 : +s.offRem) === v ? ' selected' : '') + '>' + (v ? v + ' days' : 'Never') + '</option>'; }).join('') + '</select></div>' +
+      '<p class="small" id="offProg" style="min-height:1.2em">' + (ofs.prog || (dl.length ? 'To download: ' + dl.length + ' pages · ' + mb(kbOf(dl)) : '')) + '</p>' +
+      '<div class="pbtns" style="justify-content:space-between"><button class="btn danger" data-act="offClear"' + (ofs.busy ? ' disabled' : '') + '>Remove all</button>' +
+      '<span><button class="btn" data-act="offBack">Back</button> <button class="btn pri" data-act="offSave"' + (ofs.busy ? ' disabled' : '') + '>' + (dl.length ? 'Download' : 'Save') + '</button></span></div></div>';
+    var sc = $('#scrim'); sc.innerHTML = h; sc.style.display = 'flex';
+  }
+  /* Bring the device in line with the ticks: download what's missing, remove pages that no ticked choice
+     and no always-kept page needs (only pages of choices that were unticked, so other cached pages stay). */
+  function offApply(tick, done) {
+    var o = offD(), L = offList(), prev = o.sel, now = Date.now(), need = {}, gone = {}, auto = App.autoPages();
+    var sel = {}; Object.keys(tick).forEach(function (k) { if (tick[k]) sel[k] = prev[k] || { at: now }; }); o.sel = sel; offW(o);
+    L.forEach(function (x) { if (sel[x.k]) x.pages.forEach(function (p) { need[p] = 1; }); });
+    L.forEach(function (x) { if (prev[x.k] && !sel[x.k]) x.pages.forEach(function (p) { if (!need[p] && !auto[p]) gone[p] = 1; }); });
+    if (!window.caches) { done && done(0, 0, 0); return; }
+    caches.open(PCN).then(function (c) {
+      return Promise.all(Object.keys(gone).map(function (p) { return c.delete(pgUrl(p)); })).then(function () { return offCached(); }).then(function (C) {
+        var q = Object.keys(need).filter(function (p) { return !C[p]; }).map(Number), n = q.length, ok = 0, bad = 0, i = 0;
+        if (!n) { done && done(0, 0, Object.keys(gone).length); return; }
+        var tick1 = function () { if (ofs) { ofs.prog = 'Downloading… ' + (ok + bad) + ' of ' + n; var el = $('#offProg'); if (el) el.textContent = ofs.prog; } };
+        var next = function () {
+          if (i >= n) return Promise.resolve(); var u = pgUrl(q[i++]);
+          return fetch(u).then(function (r) { if (!r.ok) throw 0; return c.put(u, r); }).then(function () { ok++; }, function () { bad++; }).then(function () { tick1(); return next(); });
+        };
+        tick1();
+        return Promise.all([next(), next(), next(), next()]).then(function () { done && done(ok, bad, Object.keys(gone).length); });
+      });
+    }).catch(function () { done && done(0, 1, 0); });
+  }
+  function offOpenM() { var o = offD(), t = {}; Object.keys(o.sel).forEach(function (k) { t[k] = 1; }); ofs = { tick: t, cached: null }; offRender(); offCached().then(function (C) { if (ofs) { ofs.cached = C; offRender(); } }); }
+  function offUse() { // note which tag is open, for the reminder
+    var k = isRec() ? 'r:' + rtag() : (ctag() ? 'm:' + ctag().id : null); if (!k) return;
+    var o = offD(); if (!o.sel[k]) return; var t = Date.now(); if (t - (o.used[k] || 0) < 3600000) return; o.used[k] = t; offW(o);
+  }
+  function offRemind() { // SL19: one question per unused offline tag; answered again only after it is used and left unused again
+    var days = S.d.settings.offRem == null ? 30 : +S.d.settings.offRem; if (!days) return;
+    if ((window.Reader && Reader.isOpen()) || $('#scrim').style.display === 'flex') return;
+    var o = offD(), L = offList(), now = Date.now();
+    var x = L.filter(function (x) {
+      if (!o.sel[x.k] || x.k === 'all' || x.k === 'mem') return false;
+      var last = Math.max(o.sel[x.k].at || 0, o.used[x.k] || 0);
+      return now - last > days * 86400000 && !((o.asked[x.k] || 0) > last);
+    })[0];
+    if (!x) return;
+    dialog({ title: 'Offline pages', msg: '“' + esc(x.name) + '” (' + (x.grp === 'Recitation' ? 'reading' : 'tag') + ') hasn’t been opened for ' + days + ' days. Keep its ' + mb(kbOf(x.pages)) + ' of offline pages on this device?', always: true, btns: [['keep', 'Keep', 'pri'], ['rm', 'Remove offline pages']] }, function (v, w) {
+      var o2 = offD(); o2.asked[x.k] = Date.now(); offW(o2);
+      if (w === 'rm') { var t = {}; Object.keys(o2.sel).forEach(function (k) { if (k !== x.k) t[k] = 1; }); offApply(t, function (a, b, g) { App.toast('Removed ' + g + ' offline pages'); }); }
+    });
+  }
+  Object.assign(ACT, {
+    offOpen: function () { offOpenM(); },
+    offBack: function () { if (ofs && ofs.busy) return; ofs = null; openSettings(); },
+    offTick: function (el) { if (!ofs || ofs.busy) return; var k = el.dataset.k; if (ofs.tick[k]) delete ofs.tick[k]; else ofs.tick[k] = 1; ofs.prog = ''; offRender(); },
+    offSave: function () {
+      if (!ofs || ofs.busy) return;
+      if (navigator.onLine === false && Object.keys(ofs.tick).length) App.toast('You’re offline — pages download when you’re back online');
+      ofs.busy = true; offRender();
+      offApply(ofs.tick, function (ok, bad, gone) {
+        if (!ofs) { App.toast(bad ? 'Some pages couldn’t download' : 'Offline pages updated'); return; }
+        ofs.busy = false; ofs.prog = (ok ? ok + ' pages downloaded. ' : '') + (gone ? gone + ' removed. ' : '') + (bad ? bad + ' couldn’t download — check your connection and tap Download again.' : ok || gone ? '' : 'Up to date.');
+        offCached().then(function (C) { if (ofs) { ofs.cached = C; offRender(); } });
+      });
+    },
+    offClear: function () {
+      if (!ofs || ofs.busy) return;
+      dialog({ title: 'Remove all offline pages?', msg: 'Every tag is unticked and its pages are removed from this device. Pages you are memorizing and the next 10 pages of each reading stay.', always: true, btns: [['x', 'Cancel'], ['go', 'Remove all', 'danger']] }, function (v, w) {
+        if (w !== 'go') { offRender(); return; }
+        var auto = App.autoPages(); var o = offD(); o.sel = {}; offW(o); ofs.tick = {}; ofs.busy = true; offRender();
+        caches.open(PCN).then(function (c) { return c.keys().then(function (ks) { return Promise.all(ks.filter(function (r) { var m = /\/p(\d{3})\.jpg/.exec(r.url); return !m || !auto[+m[1]]; }).map(function (r) { return c.delete(r); })); }); })
+          .catch(function () {}).then(function () { return offCached(); }).then(function (C) { if (ofs) { ofs.busy = false; ofs.cached = C; ofs.prog = 'Removed.'; offRender(); } });
+      });
+    }
+  });
+
   /* ---------------- Boot ---------------- */
   S.load();
   App.render();
   Sync.init();
+  setTimeout(function () { try { offRemind(); } catch (e) {} }, 4000);
   // Reopen the page after a reload (e.g. Update app) with the same swipe scope as before, not the free mushaf.
   function reopen(p0) {
     if (isRec()) Reader.open(p0, S.d.rlast && S.d.rlast.p === p0 ? S.d.rlast.n : 0, null, null, true);
