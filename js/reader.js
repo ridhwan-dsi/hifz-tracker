@@ -922,7 +922,8 @@
     if (R.sub === 'health') R.sub = null; // v109: health moved to the Stat page
     var tool = R.sub === 'timer' || R.sub === 'tally' || R.sub === 'box' || R.sub === 'line';
     // v110: one swap area of fixed height — the surah name and page strip, or the open tool's row in their place.
-    if (R.rec && R.pstat && !tool) return planStats() + toolsRow();
+    if (tool) R.pstat = false; // v142: opening a tool row closes the stats sheet
+    if (R.rec && R.pstat) return planStats() + toolsRow();
     x += '<div class="rswap">';
     if (!tool || desk()) x += '<div class="rrow nav">' + navBtns('in') + '<div class="rtitle tcol"><div class="tname">' + (R.rec ? recTitle(p) : surahTitle(p)) + '</div>' + pstrip() + '</div></div>';
     if (tool) { x += '<div class="rslot">';
@@ -934,37 +935,41 @@
     // No Memorizing toggle here (pages are added/removed from the home tabs only, so nothing is removed by accident).
     // Page stats are automatic: tally reads, stopwatch time, days read (5 min or a tally that day).
     // v109: read/time numbers live only on the Stat page.
-    if (!R.rec) x += maskRows();
-    else if (!tool) x += planLine();
+    if (!R.rec) x += maskRows(); // v142: Recitation's "Today … · See stats" line removed; the Stat icon opens the sheet
     // Health and Tags live in the bottom toolbar and expand their row just above it.
     return x + toolsRow();
   }
-  /* v128 (SL11/SL12) Daily plan line under the page strip (Recitation, reading with a target date). */
+  /* v128 helpers for the plan sheet. */
   function fmtD(k, wd) { return new Date(k + 'T00:00:00').toLocaleDateString(undefined, wd ? { weekday: 'short', day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short' }); }
   function pr(a, b) { return a === b ? 'P. ' + a : 'P. ' + a + '–' + b; }
-  function planLine() {
-    var pl = infoPlan(); if (!pl) return '';
-    var si = S.planSec(pl, R.p), dl = pl.dl + ' day' + (pl.dl === 1 ? '' : 's') + ' left', t;
-    if (pl.passed) t = '<b>Target date passed</b> · ' + pl.left + ' pages left';
-    else if (si > 0) t = '<b>' + fmtD(pl.secs[si].d, 1) + ':</b> ' + pr(pl.secs[si].a, pl.secs[si].b) + ' · ' + (pl.secs[si].b - pl.secs[si].a + 1) + ' pages';
-    else if (pl.done) t = '<b class="pdone">' + IC.check + 'Today ' + pr(pl.s0, pl.e0) + ' done</b>' + (pl.next ? ' · next ' + pr(pl.next.a, pl.next.b) : '');
-    else t = '<b>Today:</b> ' + pr(pl.s0, pl.e0) + ' · ' + pl.q + ' page' + (pl.q === 1 ? '' : 's') + ' · ' + (pl.fixed ? 'done ~' + fmtD(pl.target) : dl);
-    return '<div class="rplan"><span class="rpt">' + t + '</span><button class="rpsee" data-ract="planStat">See stats</button></div>';
-  }
-  // "See stats": the drawer grows to half the screen with the plan's numbers; tap again (or the arrow) to fold it.
+  /* v142 Recitation Stat sheet (opened by the Stat icon): the drawer grows to half the screen with the plan's numbers;
+     "See more" expands the rest of this reading's stats (progress, week/month, last 7 days) — nothing shown twice. */
   function planStats() {
-    var pl = infoPlan(); if (!pl) { R.pstat = false; return ''; }
+    var pl = infoPlan(), t = S.rtag(R.rtag), N = recNums();
     var tl = function (l, v, sub) { return '<div class="stile"><span>' + l + '</span><b>' + v + '</b>' + (sub ? '<i>' + sub + '</i>' : '') + '</div>'; };
     var pd = function (n) { return n + ' page' + (n === 1 ? '' : 's'); };
-    if (pl.fixed) return '<div class="rpstats"><div class="rphd"><b>' + App.esc(S.rtag(R.rtag).name) + ' · daily pages</b><button class="icb" data-ract="planStat" aria-label="Close stats">' + IC.x + '</button></div>' +
-      '<div class="rpsub">Today ' + pr(pl.s0, pl.e0) + ' · at ' + pd(pl.q) + ' a day you finish ~' + fmtD(pl.target, 1) + '</div>' +
+    var hd = function (k) { return '<div class="rpstats' + (R.pmore ? ' more' : '') + '"><div class="rphd"><b>' + App.esc(t.name) + ' · ' + k + '</b><button class="icb" data-ract="statOpen" aria-label="Close stats">' + IC.x + '</button></div>'; };
+    var x;
+    if (!pl) x = hd('stats') + '<div class="rpsub">' + N.bmLine + '</div><div class="sgrid">' + tl('Pages read today', N.T.pg) + tl('Average per reading day', N.avgRd) + '</div>';
+    else if (pl.fixed) x = hd('daily pages') + '<div class="rpsub">Today ' + pr(pl.s0, pl.e0) + ' · at ' + pd(pl.q) + ' a day you finish ~' + fmtD(pl.target, 1) + '</div>' +
       '<div class="sgrid">' + tl('Pages read today', pl.readToday, pl.done ? 'today\'s set done' : pd(pl.todayLeft) + ' to go') + tl('Daily average', pl.avg, 'pages a day since ' + fmtD(pl.since)) +
-      tl('Daily pages', pd(pl.q), 'your own pace') + tl('Days to finish', pl.dl, 'at this pace') + tl('Pages left', pl.left) + '</div></div>';
-    return '<div class="rpstats"><div class="rphd"><b>' + App.esc(S.rtag(R.rtag).name) + ' · daily plan</b><button class="icb" data-ract="planStat" aria-label="Close stats">' + IC.x + '</button></div>' +
-      '<div class="rpsub">' + (pl.passed ? 'Target ' + fmtD(pl.target) + ' has passed' : 'Today ' + pr(pl.s0, pl.e0) + ' · target ' + fmtD(pl.target)) + '</div>' +
+      tl('Daily pages', pd(pl.q), 'your own pace') + tl('Days to finish', pl.dl, 'at this pace') + tl('Pages left', pl.left) + '</div>';
+    else x = hd('daily plan') + '<div class="rpsub">' + (pl.passed ? 'Target ' + fmtD(pl.target) + ' has passed' : 'Today ' + pr(pl.s0, pl.e0) + ' · target ' + fmtD(pl.target)) + '</div>' +
       '<div class="sgrid">' + tl('Pages read today', pl.readToday, pl.done ? 'today\'s set done' : pd(pl.todayLeft) + ' to go') + tl('Daily average', pl.avg, 'pages a day since ' + fmtD(pl.since)) +
       tl('Original daily target', pd(pl.orig)) + tl('Current daily target', pd(pl.q), pl.q > pl.orig ? 'behind plan' : pl.q < pl.orig ? 'ahead of plan' : 'on plan') +
-      tl('Days left', pl.passed ? 0 : pl.dl, 'incl. today') + tl('Pages left', pl.left) + '</div></div>';
+      tl('Days left', pl.passed ? 0 : pl.dl, 'incl. today') + tl('Pages left', pl.left) + '</div>';
+    x += '<button class="rpmore" data-ract="pmore" aria-expanded="' + !!R.pmore + '">' + (R.pmore ? 'See less' : 'See more') + IC.down + '</button>';
+    if (R.pmore) {
+      var tile = function (l, v) { return '<div class="stile"><span>' + l + '</span><b>' + v + '</b></div>'; };
+      x += '<div class="rpmx">';
+      if (pl) x += '<div class="rpsub">' + N.bmLine + '</div>';
+      x += '<div class="shl"><div class="hbar sbar"><i style="width:' + N.pc + '%;background:var(--acc)"></i></div><b>' + N.pc + '%</b></div>' +
+        '<div class="rpsub">' + N.done + ' of ' + N.tot + ' pages from P. ' + N.base + '</div>';
+      x += '<div class="sgrid">' + tile('Pages this week', N.W.pg) + tile('Pages this month', N.M.pg) + tile('Juz this month', N.jf(N.M.jz)) +
+        tile('Days read this month', N.M.d) + (pl ? tile('Average per reading day', N.avgRd) : '') + (N.nc ? tile('Completions', N.nc) : '') + '</div>';
+      x += '<div class="rplbl">Last 7 days</div><div class="rsdays">' + N.rows + '</div></div>';
+    }
+    return x + '</div>';
   }
   // The bottom toolbar stays put in every mode; each tool opens its row above it and a second tap closes it.
   function toolsRow() {
@@ -980,7 +985,7 @@
     // v119: Stat, Timer | Bookmark | Crop, Back. The Timer stays a plain icon until it is running or tapped open;
     // while its wide oval shows, Stat moves to the right side so each half still fits.
     if (R.rec) {
-      var bm = S.bm(R.rtag), here = bm.p === p, oval = recOval(), stat = tb('statOpen', 'Stat', IC.stat, false);
+      var bm = S.bm(R.rtag), here = bm.p === p, oval = recOval(), stat = tb('statOpen', 'Stat', IC.stat, !!R.pstat);
       return '<div class="rrow tools rtools"><div class="rside">' + (oval ? '' : stat) + timerTool() +
         (desk() ? tb('spread', '2 pages', IC.book, S.d.settings.spread !== false) : '') + '</div>' +
         '<button class="tb bmk' + (here ? ' on' : '') + '" data-ract="bmSet" aria-label="' + (here ? 'Bookmarked page' : 'Bookmark this page') + '"><span class="bmc">' + IC.bmk + '</span>' + (here ? 'Marked' : 'Bookmark') + '</button>' +
@@ -1083,7 +1088,6 @@
   }
   /* v109 Stat page: this page's numbers on a full page; Back sits bottom-right where the reader's Back is. */
   function statPage() {
-    if (R.rec) return recStatPage();
     var p = R.p, k = R.k, m = S.isMem(k), h = S.health(k), all = S.tally(k), mo = S.month();
     var sn = R.tag && App.tagSince(R.tag), prd = function (d) { return sn ? d >= sn : d.slice(0, 7) === mo; };
     var per = sn ? 'in ' + App.esc(R.tag.name) : 'this month', ns = S.nSec(p), g = S.d.settings.goalDay, dd = Timer.day(S.today()), la = S.lastActive(k);
@@ -1100,33 +1104,22 @@
     x += '<div class="slbl">Last read</div><div>' + (la ? App.esc(new Date(la + 'T00:00:00').toDateString()) : 'Not yet') + '</div>';
     return x + '</div><div class="sfoot"><button class="tb" data-ract="statBack">' + IC.back + 'Back</button></div></div>';
   }
-  /* v119 (SL9) Recitation Stat page for the open tag: progress from its bookmark and pages read per day. */
-  function recStatPage() {
+  /* v119 (SL9) numbers for the open Recitation tag — progress from its bookmark and pages read per day.
+     v142: shown in the Stat sheet's "See more" (the separate Stat page is gone in Recitation). */
+  function recNums() {
     var t = S.rtag(R.rtag), b = S.bm(R.rtag), rr = S.rread(R.rtag), D = rr.days, td = S.today(), now = new Date();
     var dk = function (d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
     var ws = new Date(now); ws.setDate(now.getDate() - (now.getDay() + 1) % 7); ws = dk(ws); var mo = td.slice(0, 7);
     var sum = function (f) { var o = { pg: 0, jz: 0, d: 0 }; for (var k in D) if (f(k)) { o.pg += D[k].pg; o.jz += D[k].jz; if (D[k].pg) o.d++; } return o; };
-    var T = sum(function (k) { return k === td; }), W = sum(function (k) { return k >= ws; }), M = sum(function (k) { return k.slice(0, 7) === mo; }), A = sum(function () { return true; });
-    var base = t.start || rr.base || 1, done = b.p ? Math.max(0, b.p - base) : 0, tot = 605 - base, pc = tot > 0 ? Math.round(done / tot * 100) : 0;
-    var jf = function (j) { return j >= 10 ? Math.round(j) : Math.round(j * 10) / 10; };
-    var tile = function (l, v) { return '<div class="stile"><span>' + l + '</span><b>' + v + '</b></div>'; };
-    var fd = function (d) { return new Date(d + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }); }, nc = S.comps(t.id).length;
-    var x = '<div class="spage"><div class="sbody"><div class="shead"><b>' + App.esc(t.name) + '</b><span>' + (t.done ? 'Completed ' + fd(t.done) : b.p ? 'Bookmark P. ' + b.p + ' · ' + App.esc(App.pageTitle(b.p)) : 'No bookmark yet') + '</span></div>';
-    x += '<div class="slbl">Progress</div><div class="shl"><div class="hbar sbar"><i style="width:' + pc + '%;background:var(--acc)"></i></div><b>' + pc + '%</b></div>' +
-      '<div class="small muted" style="margin-top:2px">' + done + ' of ' + tot + ' pages from P. ' + base + '</div>';
-    if (t.target) {
-      var dl = Math.round((new Date(t.target + 'T00:00:00') - new Date(td + 'T00:00:00')) / 864e5) + 1;
-      x += '<div class="small" style="margin-top:6px">Target ' + new Date(t.target + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + ' · ' + (dl > 0 ? dl + ' day' + (dl === 1 ? '' : 's') + ' left' : 'passed') + '</div>';
-    }
-    var pl = S.plan(R.rtag);
-    if (pl && !pl.passed) x += '<div class="small" style="margin-top:2px">Today ' + pr(pl.s0, pl.e0) + ' · ' + pl.q + ' pages a day now (planned ' + pl.orig + ')</div>';
-    x += '<div class="sgrid" style="margin-top:12px">' + tile('Pages today', T.pg) + tile('Pages this week', W.pg) + tile('Pages this month', M.pg) +
-      tile('Juz this month', jf(M.jz)) + tile('Days read this month', M.d) + tile('Average per reading day', A.d ? Math.round(A.pg / A.d) + ' pages' : '–') + (nc ? tile('Completions', nc) : '') + '</div>';
+    var A = sum(function () { return true; }), base = t.start || rr.base || 1, done = b.p ? Math.max(0, b.p - base) : 0, tot = 605 - base;
+    var fd = function (d) { return new Date(d + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }); };
     var rows = '';
     for (var i = 0; i < 7; i++) { var d = new Date(now); d.setDate(now.getDate() - i); var k = dk(d), v = D[k];
       rows += '<div class="rsday"><span>' + (i === 0 ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })) + '</span><b>' + (v && v.pg ? v.pg + ' page' + (v.pg === 1 ? '' : 's') + (v.ed ? ' <span class="muted">· edited</span>' : v.to ? ' <span class="muted">→ P. ' + Math.min(604, v.to) + '</span>' : '') : '–') + '</b></div>'; }
-    x += '<div class="slbl">Last 7 days</div><div class="rsdays">' + rows + '</div>';
-    return x + '</div><div class="sfoot"><button class="tb" data-ract="statBack">' + IC.back + 'Back</button></div></div>';
+    return { T: sum(function (k) { return k === td; }), W: sum(function (k) { return k >= ws; }), M: sum(function (k) { return k.slice(0, 7) === mo; }),
+      base: base, done: done, tot: tot, pc: tot > 0 ? Math.round(done / tot * 100) : 0, nc: S.comps(t.id).length, rows: rows,
+      avgRd: A.d ? Math.round(A.pg / A.d) + ' pages' : '–', jf: function (j) { return j >= 10 ? Math.round(j) : Math.round(j * 10) / 10; },
+      bmLine: t.done ? 'Completed ' + fd(t.done) : b.p ? 'Bookmark P. ' + b.p + ' · ' + App.esc(App.pageTitle(b.p)) : 'No bookmark yet' };
   }
   function editPanel() {
     var am = activeMask(), m = R.items[R.sel], x = '';
@@ -1274,7 +1267,13 @@
       syncSec();
       renderPanel(); draw();
     },
-    statOpen: function () { leaveModes(); R.stat = true; history.pushState({ stat: 1 }, '', location.href); renderPanel(); },
+    statOpen: function () {
+      // v142: in Recitation, Stat opens/closes the half-screen stats sheet (grows a Ribbon drawer first).
+      if (R.rec) { leaveModes(); R.sub = null; R.pmore = false;
+        if (!desk() && R.panel && dzCur() === 'rib') { if (phoneLand()) R.dszL = 'full'; else { S.d.settings.dsz = 'full'; S.saveSettings(); } R.fitU = R.U; R.pstat = true; }
+        else R.pstat = !R.pstat;
+        renderPanel(); return; }
+      leaveModes(); R.stat = true; history.pushState({ stat: 1 }, '', location.href); renderPanel(); },
     statBack: function () { if (R.stat) history.back(); },
     tRem: function () { S.d.settings.tRem = !S.d.settings.tRem; S.saveSettings(); renderPanel(); },
     tlySec: function (el) {
@@ -1432,7 +1431,7 @@
         App.toast('Khatm recorded · ' + tg.name, function () { undo(); if (!main) { S.d.ui.rtag = tag; S.saveUi(); } App.render(); });
       });
     },
-    planStat: function () { R.pstat = !R.pstat; renderPanel(); },
+    pmore: function () { R.pmore = !R.pmore; renderPanel(); },
     // v128 (SL12): jump to the first page of the next plan section (it re-plans once that set is bookmarked).
     nextSec: function () { var pl = recPlan(), i = S.planSec(pl, R.p), nx = pl && pl.secs[i + 1]; if (nx) go(nx.a, 1); },
     // v139: scroll icon — cycle the strip modes this reading has; a short note names the new one.
