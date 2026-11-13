@@ -744,19 +744,19 @@
     if (sec) { var a = []; for (var q = sec.a; q <= sec.b; q++) a.push(q === R.p ? R.k : S.uk(q, S.onPage(q)[0])); return a; }
     // Memorizing: only this surah's listed pages — the strip, like swiping, never shows another surah's pages.
     if (R.range) { var m = R.range.filter(function (u) { return S.kn(u) === R.n; }); return m.length ? m : [R.k]; }
-    // v139: Recitation's full strip is the whole surah, or the whole juz with Settings → Page strip by juz.
-    if (R.rec && S.d.settings.rsJuz) { var jz = juzOf(R.p), a = [], e = jz < 30 ? QURAN.J[jz] - 1 : 604; for (var q = QURAN.J[jz - 1]; q <= e; q++) a.push(q === R.p ? R.k : S.uk(q, S.onPage(q)[0])); return a; }
+    // v140: Recitation's 'juz' strip mode holds the whole juz this page is in.
+    if (R.rec && rsMode() === 'juz') { var jz = juzOf(R.p), a = [], e = jz < 30 ? QURAN.J[jz] - 1 : 604; for (var q = QURAN.J[jz - 1]; q <= e; q++) a.push(q === R.p ? R.k : S.uk(q, S.onPage(q)[0])); return a; }
     var s = QURAN.S[R.n - 1], a = []; if (!s) return [String(R.p)];
     for (var q = s[3]; q <= s[4]; q++) a.push(S.uk(q, R.n));
     return a;
   }
   function juzOf(p) { var J = QURAN.J, i = 0; while (i < 29 && p >= J[i + 1]) i++; return i + 1; }
   /* v139 Recitation strip modes, switched with the scroll icon beside the surah name:
-     'all' = whole surah (or juz), 'plan' = the target date's daily sections, 'daily' = his own daily pages.
+     'all' = whole surah, 'juz' = whole juz (v140, its own mode), 'plan' = the target date's daily sections, 'daily' = his own daily pages.
      A mode needs its setting on the reading (target date / daily pages); without it the strip is the whole surah. */
-  function rsModes() { var t = S.rtag(R.rtag), m = ['all']; if (t.target && !t.done) m.push('plan'); if (t.daily > 0 && !t.done) m.push('daily'); return m; }
+  function rsModes() { var t = S.rtag(R.rtag), m = ['all', 'juz']; if (t.target && !t.done) m.push('plan'); if (t.daily > 0 && !t.done) m.push('daily'); return m; }
   function rsMode() { var m = S.d.settings.rsm || 'all'; return rsModes().indexOf(m) >= 0 ? m : 'all'; }
-  function rsName(m) { return m === 'plan' ? 'Target date plan' : m === 'daily' ? 'Daily pages · ' + S.rtag(R.rtag).daily + ' a day' : S.d.settings.rsJuz ? 'Whole juz' : 'Whole surah'; }
+  function rsName(m) { return m === 'plan' ? 'Target date plan' : m === 'daily' ? 'Daily pages · ' + S.rtag(R.rtag).daily + ' a day' : m === 'juz' ? 'Whole juz' : 'Whole surah'; }
   function recPlan() { if (!R.rec) return null; var m = rsMode(); return m === 'plan' ? S.plan(R.rtag) : m === 'daily' ? S.plan(R.rtag, true) : null; }
   // The plan line and its stats: the strip's own plan, else (whole surah/juz) the target date's plan if there is one.
   function infoPlan() { return recPlan() || (R.rec ? S.plan(R.rtag) || S.plan(R.rtag, true) : null); }
@@ -773,7 +773,7 @@
   // v139: at the end of a whole-surah / whole-juz strip (Recitation), a chip to the next surah or juz.
   function nextUnit() {
     if (!R.rec) return null;
-    if (S.d.settings.rsJuz) { var j = juzOf(R.p); if (j >= 30) return null; var q = QURAN.J[j]; return { p: q, n: S.onPage(q)[0], t: 'Juz ' + (j + 1) }; }
+    if (rsMode() === 'juz') { var j = juzOf(R.p); if (j >= 30) return null; var q = QURAN.J[j]; return { p: q, n: S.onPage(q)[0], t: 'Juz ' + (j + 1) }; }
     if (R.n >= 114) return null; var s = QURAN.S[R.n]; return { p: s[3], n: R.n + 1, t: (R.n + 1) + '. ' + s[0] };
   }
   function stripMid(ps) {
@@ -1438,7 +1438,6 @@
     // v139: scroll icon — cycle the strip modes this reading has; a short note names the new one.
     rsMode: function () {
       var ms = rsModes(), i = ms.indexOf(rsMode()), m = ms[(i + 1) % ms.length];
-      if (ms.length < 2) { App.toast(rsName('all') + ' · set a target date or daily pages on the reading for more', null, null, 2600); return; }
       S.d.settings.rsm = m; S.saveSettings(); R.pstat = false; renderPanel(); App.toast(rsName(m), null, null, 1400);
     },
     nextUnit: function (el) { go(+el.dataset.p, 1, +el.dataset.n); },

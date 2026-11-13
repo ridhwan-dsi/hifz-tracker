@@ -794,7 +794,6 @@
     tRule: 'Every so many reads of a page raises its health by the percentage you pick.',
     arch: 'Archived tags show greyed at the end of the tag row, in both modes. Long-press one to unarchive it. Tags are created with + Tag; long-press a tag to rename, archive or delete it.',
     ram: 'For the Ramadan-to-Ramadan year in Stats. Day 1 comes from the Umm al-Qura calendar; move it a day for local moon sighting.',
-    rsJuz: 'The row of page numbers under the surah name. Off: it holds the whole surah, ending with “Next: <surah>”. On: the whole juz, ending with “Next: Juz <n>”. The scroll icon beside the surah name switches the strip between this, the target date plan and your daily pages.',
     main: 'Long-press Main on the Recitation home to set its start page and the day counting begins, so pages read elsewhere don’t count.',
     offline: 'Choose which tags (or the whole mushaf) are kept on this device for reading without internet, with their size before downloading. Pages you are memorizing and the next 10 pages of each reading are always kept. You can be reminded to free the pages of tags you stop opening.',
     share: 'Copies the app link. Each person signs in with their own Google account, so your data stays yours.',
@@ -840,7 +839,7 @@
       '<h4>Health</h4>' + row('decay', 'Lose health', sw(s.decayOn, 'decayOn')) +
       (s.decayOn ? row('decay', 'Start after', sel('decayAfter', [7, 10, 14, 21, 30], s.decayAfter, function (v) { return v + ' days'; })) +
         row('decay', 'Then lose', sel('decayPct', [5, 10, 15], s.decayPct, function (v) { return v + '% / week'; })) : '');
-    else h += '<h4>Reading</h4>' + row('rsJuz', 'Page strip by juz', sw(s.rsJuz, 'rsJuz')) + row('main', 'Main start page', '<span class="sst">' + (S.d.rmain ? 'P. ' + S.d.rmain.start : 'Not set') + '</span><button class="btn sm" data-act="rmainSet">Set</button>') +
+    else h += '<h4>Reading</h4>' + row('main', 'Main start page', '<span class="sst">' + (S.d.rmain ? 'P. ' + S.d.rmain.start : 'Not set') + '</span><button class="btn sm" data-act="rmainSet">Set</button>') +
       '<div class="frow">' + nm('ram', 'Ramadan start') + '</div><div class="seg mini">' + [[-1, '1 day earlier'], [0, 'Umm al-Qura'], [1, '1 day later']].map(function (x) { return '<button class="' + ((+s.ramAdj || 0) === x[0] ? 'on' : '') + '" data-act="ramAdj" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
     h += '<h4>Tags</h4>' + row('arch', 'Show archived tags', sw(s.showArch, 'showArch')) +
       '<h4>App</h4>' + row('update', 'Update app', '<span class="sst">' + ver + '</span><button class="btn sm" data-act="updateApp">Update</button>') +
@@ -1083,7 +1082,6 @@
     tapShow: function () { S.d.settings.tapShow = !S.d.settings.tapShow; S.saveSettings(); openSettings(); },
     boxHLock: function () { S.d.settings.boxHLock = S.d.settings.boxHLock === false; S.saveSettings(); openSettings(); },
     cropRestore: function () { if (!confirm('Restore the default crop to the auto-trim?')) return; S.d.settings.cropDef = null; S.saveSettings(); /* null, not delete, so the restore syncs to other devices */ openSettings(); App.render(); App.toast('Default crop restored'); },
-    rsJuz: function () { S.d.settings.rsJuz = !S.d.settings.rsJuz; S.saveSettings(); openSettings(); },
     showArch: function () { S.d.settings.showArch = !S.d.settings.showArch; S.saveSettings(); openSettings(); App.render(); },
     decayOn: function () { S.d.settings.decayOn = !S.d.settings.decayOn; S.saveSettings(); openSettings(); App.render(); },
     cover: function (el) { S.d.settings.hideCol = el.dataset.c; S.saveSettings(); openSettings(); },
