@@ -1114,7 +1114,17 @@
      Device-only record in localStorage 'hifz.off': sel = chosen keys { key: { at } }, used = { key: last opened },
      asked = { key: when the reminder was answered }. Keys: 'all' (whole mushaf), 'mem' (all Memorizing pages),
      'm:<tag id>' (Memorization tag), 'r:<tag id>' (Recitation reading: bookmark → end of the mushaf). */
-  var OFK = 'hifz.off', PCN = 'hifz-pages';
+  var OFK = 'hifz.off', PCN = 'hifz-pages-2x'; // v141: pages are now 2× sharper images in a new cache; the old one is dropped
+  /* v141: once, after the switch to sharper pages, offer to re-download the offline pages he had chosen
+     (the old copies went with the old cache). Not automatic, as the whole mushaf is ~290 MB. */
+  setTimeout(function () {
+    try { if (localStorage.getItem('hifz.pg2x')) return; localStorage.setItem('hifz.pg2x', '1'); } catch (e) { return; }
+    var o = offD(), ks = Object.keys(o.sel); if (!ks.length) return;
+    var t = {}; ks.forEach(function (k) { t[k] = 1; });
+    App.toast('Pages are sharper now · your offline pages need downloading again', function () {
+      App.toast('Downloading offline pages…'); offApply(t, function (ok, bad) { App.toast(bad ? ok + ' pages saved, ' + bad + ' failed — try again in Settings → Offline pages' : ok + ' sharper pages saved offline'); });
+    }, 'Download', 12000);
+  }, 2500);
   function offD() { var o = null; try { o = JSON.parse(localStorage.getItem(OFK)); } catch (e) {} o = o || {}; o.sel = o.sel || {}; o.used = o.used || {}; o.asked = o.asked || {}; return o; }
   function offW(o) { try { localStorage.setItem(OFK, JSON.stringify(o)); } catch (e) {} }
   function pgUrl(p) { return new URL('pages/p' + String(p).padStart(3, '0') + '.jpg', location.href).href; }
