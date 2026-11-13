@@ -689,6 +689,7 @@
     pen: I('<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), up: I('<path d="M18 15l-6-6-6 6"/>'), down: I('<path d="M6 9l6 6 6-6"/>'), trash: I('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'), x: I('<path d="M6 6l12 12M18 6L6 18"/>'), back: I('<path d="M19 12H5M12 19l-7-7 7-7"/>'), tally: I('<circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/>'),
     phone: I('<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/>'),
     bmk: I('<path d="M6.5 3h11v18l-5.5-4.2L6.5 21z"/>'), bmgo: I('<path d="M5 3h9v18l-4.5-3.4L5 21z"/><path d="M15 12h6M18.5 9l2.5 3-2.5 3"/>'),
+    scroll: I('<path d="M15 12h-5M15 8h-5M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/>'),
     hash: I('<path d="M9 3L7 21M17 3l-2 18M4 8.5h17M3 15.5h17"/>'),
     book: I('<path d="M2 5.5C4.5 4.3 7.5 4.3 12 6c4.5-1.7 7.5-1.7 10-.5v13c-2.5-1.2-5.5-1.2-10 .5-4.5-1.7-7.5-1.7-10-.5zM12 6v13.5"/>')
   };
@@ -743,19 +744,37 @@
     if (sec) { var a = []; for (var q = sec.a; q <= sec.b; q++) a.push(q === R.p ? R.k : S.uk(q, S.onPage(q)[0])); return a; }
     // Memorizing: only this surah's listed pages — the strip, like swiping, never shows another surah's pages.
     if (R.range) { var m = R.range.filter(function (u) { return S.kn(u) === R.n; }); return m.length ? m : [R.k]; }
+    // v139: Recitation's full strip is the whole surah, or the whole juz with Settings → Page strip by juz.
+    if (R.rec && S.d.settings.rsJuz) { var jz = juzOf(R.p), a = [], e = jz < 30 ? QURAN.J[jz] - 1 : 604; for (var q = QURAN.J[jz - 1]; q <= e; q++) a.push(q === R.p ? R.k : S.uk(q, S.onPage(q)[0])); return a; }
     var s = QURAN.S[R.n - 1], a = []; if (!s) return [String(R.p)];
     for (var q = s[3]; q <= s[4]; q++) a.push(S.uk(q, R.n));
     return a;
   }
-  function recPlan() { return R.rec ? S.plan(R.rtag) : null; }
+  function juzOf(p) { var J = QURAN.J, i = 0; while (i < 29 && p >= J[i + 1]) i++; return i + 1; }
+  /* v139 Recitation strip modes, switched with the scroll icon beside the surah name:
+     'all' = whole surah (or juz), 'plan' = the target date's daily sections, 'daily' = his own daily pages.
+     A mode needs its setting on the reading (target date / daily pages); without it the strip is the whole surah. */
+  function rsModes() { var t = S.rtag(R.rtag), m = ['all']; if (t.target && !t.done) m.push('plan'); if (t.daily > 0 && !t.done) m.push('daily'); return m; }
+  function rsMode() { var m = S.d.settings.rsm || 'all'; return rsModes().indexOf(m) >= 0 ? m : 'all'; }
+  function rsName(m) { return m === 'plan' ? 'Target date plan' : m === 'daily' ? 'Daily pages · ' + S.rtag(R.rtag).daily + ' a day' : S.d.settings.rsJuz ? 'Whole juz' : 'Whole surah'; }
+  function recPlan() { if (!R.rec) return null; var m = rsMode(); return m === 'plan' ? S.plan(R.rtag) : m === 'daily' ? S.plan(R.rtag, true) : null; }
+  // The plan line and its stats: the strip's own plan, else (whole surah/juz) the target date's plan if there is one.
+  function infoPlan() { return recPlan() || (R.rec ? S.plan(R.rtag) || S.plan(R.rtag, true) : null); }
   function recSec() { var pl = recPlan(), i = S.planSec(pl, R.p); return i >= 0 ? pl.secs[i] : null; }
   function pstrip() {
     // Right to left like the mushaf: later pages sit to the left. Spacers let the first/last page reach the centre.
     // v128 (SL12): after the section's last page (far left) comes "Continue to next section".
-    var pl = recPlan(), si = S.planSec(pl, R.p), nx = si >= 0 && pl.secs[si + 1];
-    return '<div class="pswrap"><i class="pring"></i><div class="pstrip"><i class="psp"></i>' + (nx ? '<button class="pnext" data-ract="nextSec">Continue to next section</button>' : '') + stripKeys().slice().reverse().map(function (k) {
+    var pl = recPlan(), si = S.planSec(pl, R.p), nx = si >= 0 && pl.secs[si + 1], nu = !pl || si < 0 ? nextUnit() : null;
+    return '<div class="pswrap"><i class="pring"></i><div class="pstrip"><i class="psp"></i>' + (nx ? '<button class="pnext" data-ract="nextSec">Continue to next section</button>' : '') +
+      (nu ? '<button class="pnext" data-ract="nextUnit" data-p="' + nu.p + '" data-n="' + nu.n + '">Next: ' + App.esc(nu.t) + '</button>' : '') + stripKeys().slice().reverse().map(function (k) {
       var q = S.kp(k); return '<button class="pc' + (q === R.p ? ' cur' : '') + '" data-ract="pgo" data-p="' + q + '" data-n="' + S.kn(k) + '">' + q + '</button>';
     }).join('') + '<i class="psp"></i></div></div>';
+  }
+  // v139: at the end of a whole-surah / whole-juz strip (Recitation), a chip to the next surah or juz.
+  function nextUnit() {
+    if (!R.rec) return null;
+    if (S.d.settings.rsJuz) { var j = juzOf(R.p); if (j >= 30) return null; var q = QURAN.J[j]; return { p: q, n: S.onPage(q)[0], t: 'Juz ' + (j + 1) }; }
+    if (R.n >= 114) return null; var s = QURAN.S[R.n]; return { p: s[3], n: R.n + 1, t: (R.n + 1) + '. ' + s[0] };
   }
   function stripMid(ps) {
     var c = ps.scrollLeft + ps.clientWidth / 2, best = null, bd = 1e9;
@@ -877,6 +896,12 @@
       ss.slice().reverse().map(function (n) { return '<button class="' + (n === R.n ? 'on' : '') + '" data-ract="surah" data-n="' + n + '">' + nm(n) + '</button>'; }).join('') +
       (pv ? '<button class="nb" data-ract="nbS" data-n="' + pv + '" data-d="-1" aria-label="Previous surah">' + nm(pv) + ' ›</button>' : '') + '</span>';
   }
+  /* v139 Recitation title: "17. Surah Al-Isra · Juz 15" (the dot is a centred dot), with the strip-mode scroll icon. */
+  function recTitle(p) {
+    var s = QURAN.S[R.n - 1], nm = s ? R.n + '. Surah ' + App.esc(s[0]) : App.esc(App.pageTitle(p));
+    return '<span class="rectl"><button class="rsmb" data-ract="rsMode" aria-label="Page strip: ' + rsName(rsMode()) + '">' + IC.scroll + '</button>' +
+      '<span class="rectn">' + nm + '<i class="mdot"></i>Juz ' + juzOf(p) + '</span></span>';
+  }
   /* Section oval (1 2 3 … All, greyed when there are no lines). */
   function maskRows() {
     var am = activeMask(), it = R.items, nb = it.some(function (q) { return q.k === 'box'; }), nd = nDiv(it);
@@ -899,7 +924,7 @@
     // v110: one swap area of fixed height — the surah name and page strip, or the open tool's row in their place.
     if (R.rec && R.pstat && !tool) return planStats() + toolsRow();
     x += '<div class="rswap">';
-    if (!tool || desk()) x += '<div class="rrow nav">' + navBtns('in') + '<div class="rtitle tcol"><div class="tname">' + surahTitle(p) + '</div>' + pstrip() + '</div></div>';
+    if (!tool || desk()) x += '<div class="rrow nav">' + navBtns('in') + '<div class="rtitle tcol"><div class="tname">' + (R.rec ? recTitle(p) : surahTitle(p)) + '</div>' + pstrip() + '</div></div>';
     if (tool) { x += '<div class="rslot">';
       if (R.sub === 'timer') x += timerPanel();
       if (R.sub === 'tally') x += tallyPanel();
@@ -918,19 +943,23 @@
   function fmtD(k, wd) { return new Date(k + 'T00:00:00').toLocaleDateString(undefined, wd ? { weekday: 'short', day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short' }); }
   function pr(a, b) { return a === b ? 'P. ' + a : 'P. ' + a + '–' + b; }
   function planLine() {
-    var pl = recPlan(); if (!pl) return '';
+    var pl = infoPlan(); if (!pl) return '';
     var si = S.planSec(pl, R.p), dl = pl.dl + ' day' + (pl.dl === 1 ? '' : 's') + ' left', t;
     if (pl.passed) t = '<b>Target date passed</b> · ' + pl.left + ' pages left';
     else if (si > 0) t = '<b>' + fmtD(pl.secs[si].d, 1) + ':</b> ' + pr(pl.secs[si].a, pl.secs[si].b) + ' · ' + (pl.secs[si].b - pl.secs[si].a + 1) + ' pages';
     else if (pl.done) t = '<b class="pdone">' + IC.check + 'Today ' + pr(pl.s0, pl.e0) + ' done</b>' + (pl.next ? ' · next ' + pr(pl.next.a, pl.next.b) : '');
-    else t = '<b>Today:</b> ' + pr(pl.s0, pl.e0) + ' · ' + pl.q + ' page' + (pl.q === 1 ? '' : 's') + ' · ' + dl;
+    else t = '<b>Today:</b> ' + pr(pl.s0, pl.e0) + ' · ' + pl.q + ' page' + (pl.q === 1 ? '' : 's') + ' · ' + (pl.fixed ? 'done ~' + fmtD(pl.target) : dl);
     return '<div class="rplan"><span class="rpt">' + t + '</span><button class="rpsee" data-ract="planStat">See stats</button></div>';
   }
   // "See stats": the drawer grows to half the screen with the plan's numbers; tap again (or the arrow) to fold it.
   function planStats() {
-    var pl = recPlan(); if (!pl) { R.pstat = false; return ''; }
+    var pl = infoPlan(); if (!pl) { R.pstat = false; return ''; }
     var tl = function (l, v, sub) { return '<div class="stile"><span>' + l + '</span><b>' + v + '</b>' + (sub ? '<i>' + sub + '</i>' : '') + '</div>'; };
     var pd = function (n) { return n + ' page' + (n === 1 ? '' : 's'); };
+    if (pl.fixed) return '<div class="rpstats"><div class="rphd"><b>' + App.esc(S.rtag(R.rtag).name) + ' · daily pages</b><button class="icb" data-ract="planStat" aria-label="Close stats">' + IC.x + '</button></div>' +
+      '<div class="rpsub">Today ' + pr(pl.s0, pl.e0) + ' · at ' + pd(pl.q) + ' a day you finish ~' + fmtD(pl.target, 1) + '</div>' +
+      '<div class="sgrid">' + tl('Pages read today', pl.readToday, pl.done ? 'today\'s set done' : pd(pl.todayLeft) + ' to go') + tl('Daily average', pl.avg, 'pages a day since ' + fmtD(pl.since)) +
+      tl('Daily pages', pd(pl.q), 'your own pace') + tl('Days to finish', pl.dl, 'at this pace') + tl('Pages left', pl.left) + '</div></div>';
     return '<div class="rpstats"><div class="rphd"><b>' + App.esc(S.rtag(R.rtag).name) + ' · daily plan</b><button class="icb" data-ract="planStat" aria-label="Close stats">' + IC.x + '</button></div>' +
       '<div class="rpsub">' + (pl.passed ? 'Target ' + fmtD(pl.target) + ' has passed' : 'Today ' + pr(pl.s0, pl.e0) + ' · target ' + fmtD(pl.target)) + '</div>' +
       '<div class="sgrid">' + tl('Pages read today', pl.readToday, pl.done ? 'today\'s set done' : pd(pl.todayLeft) + ' to go') + tl('Daily average', pl.avg, 'pages a day since ' + fmtD(pl.since)) +
@@ -1406,6 +1435,13 @@
     planStat: function () { R.pstat = !R.pstat; renderPanel(); },
     // v128 (SL12): jump to the first page of the next plan section (it re-plans once that set is bookmarked).
     nextSec: function () { var pl = recPlan(), i = S.planSec(pl, R.p), nx = pl && pl.secs[i + 1]; if (nx) go(nx.a, 1); },
+    // v139: scroll icon — cycle the strip modes this reading has; a short note names the new one.
+    rsMode: function () {
+      var ms = rsModes(), i = ms.indexOf(rsMode()), m = ms[(i + 1) % ms.length];
+      if (ms.length < 2) { App.toast(rsName('all') + ' · set a target date or daily pages on the reading for more', null, null, 2600); return; }
+      S.d.settings.rsm = m; S.saveSettings(); R.pstat = false; renderPanel(); App.toast(rsName(m), null, null, 1400);
+    },
+    nextUnit: function (el) { go(+el.dataset.p, 1, +el.dataset.n); },
     bmGo: function () { var b = S.bm(R.rtag); if (b.p && b.p !== R.p) go(b.p, b.p > R.p ? 1 : -1, b.n); },
     spread: function () { S.d.settings.spread = S.d.settings.spread === false; S.saveSettings(); renderPanel(); layout(); },
     fit: function () { S.d.settings.fit = fitPage() ? 'width' : 'page'; S.saveSettings(); renderPanel(); layout(); },

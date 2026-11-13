@@ -279,10 +279,28 @@
     });
     return rtocBar(v, 'juz', keys) + '<div class="list">' + (rows || '<div class="empty">Every page of this reading is read.</div>') + '</div>';
   }
-  function tagFields(start, target, noStart) {
+  function tagFields(start, target, noStart, daily, from) {
     return '<div class="dflds">' + (noStart ? '' : '<label>Start page<input class="dinp" data-f="start" inputmode="numeric" value="' + start + '"></label>') +
-      '<label>Target date <span class="muted">(optional)</span><input class="dinp" type="date" data-f="target" value="' + esc(target) + '"></label></div>';
+      dailyField(daily, from) + '<label>Target date <span class="muted">(optional)</span><input class="dinp" type="date" data-f="target" value="' + esc(target) + '"></label></div>';
   }
+  /* v139: his own daily pages for a reading (used by the reader's "Daily pages" strip mode). "Work out date" fills the
+     target date from the pages left at that pace — only a suggestion; the target date stays his to change. */
+  function dailyField(daily, from) {
+    return '<label>Daily pages <span class="muted">(optional)</span><span class="drow"><input class="dinp" data-f="daily" inputmode="numeric" value="' + (daily > 0 ? daily : '') + '" placeholder="e.g. 7">' +
+      '<button class="btn sm" type="button" data-calc="1"' + (from ? ' data-from="' + from + '"' : '') + '>Work out date</button></span><span class="dnote" id="dnote"></span></label>';
+  }
+  function ymd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-calc]'); if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    var box = b.closest('.dflds'), q = function (k) { var i = box.querySelector('[data-f="' + k + '"]'); return i; };
+    var n = parseInt(q('daily').value, 10), st = q('start'), from = b.dataset.from ? +b.dataset.from : parseInt(st && st.value, 10) || 1;
+    var note = box.querySelector('#dnote');
+    if (!(n > 0)) { if (note) note.textContent = 'Enter how many pages a day first'; return; }
+    var days = Math.max(1, Math.ceil((605 - Math.min(604, Math.max(1, from))) / n)), d = new Date(); d.setDate(d.getDate() + days - 1);
+    q('target').value = ymd(d);
+    if (note) note.textContent = (605 - from) + ' pages left from P. ' + from + ' ÷ ' + n + ' a day = ' + days + ' day' + (days === 1 ? '' : 's') + '. Change the date if you like.';
+  }, true);
   /* v119 (SL9) Recitation stats: pages and juz read per day / week / month / year, for one tag or all tags.
      Pages read on a day = that day's last bookmark minus the previous reading day's (S.rread). */
   function recStats() {
@@ -776,6 +794,7 @@
     tRule: 'Every so many reads of a page raises its health by the percentage you pick.',
     arch: 'Archived tags show greyed at the end of the tag row, in both modes. Long-press one to unarchive it. Tags are created with + Tag; long-press a tag to rename, archive or delete it.',
     ram: 'For the Ramadan-to-Ramadan year in Stats. Day 1 comes from the Umm al-Qura calendar; move it a day for local moon sighting.',
+    rsJuz: 'The row of page numbers under the surah name. Off: it holds the whole surah, ending with “Next: <surah>”. On: the whole juz, ending with “Next: Juz <n>”. The scroll icon beside the surah name switches the strip between this, the target date plan and your daily pages.',
     main: 'Long-press Main on the Recitation home to set its start page and the day counting begins, so pages read elsewhere don’t count.',
     offline: 'Choose which tags (or the whole mushaf) are kept on this device for reading without internet, with their size before downloading. Pages you are memorizing and the next 10 pages of each reading are always kept. You can be reminded to free the pages of tags you stop opening.',
     share: 'Copies the app link. Each person signs in with their own Google account, so your data stays yours.',
@@ -821,7 +840,7 @@
       '<h4>Health</h4>' + row('decay', 'Lose health', sw(s.decayOn, 'decayOn')) +
       (s.decayOn ? row('decay', 'Start after', sel('decayAfter', [7, 10, 14, 21, 30], s.decayAfter, function (v) { return v + ' days'; })) +
         row('decay', 'Then lose', sel('decayPct', [5, 10, 15], s.decayPct, function (v) { return v + '% / week'; })) : '');
-    else h += '<h4>Reading</h4>' + row('main', 'Main start page', '<span class="sst">' + (S.d.rmain ? 'P. ' + S.d.rmain.start : 'Not set') + '</span><button class="btn sm" data-act="rmainSet">Set</button>') +
+    else h += '<h4>Reading</h4>' + row('rsJuz', 'Page strip by juz', sw(s.rsJuz, 'rsJuz')) + row('main', 'Main start page', '<span class="sst">' + (S.d.rmain ? 'P. ' + S.d.rmain.start : 'Not set') + '</span><button class="btn sm" data-act="rmainSet">Set</button>') +
       '<div class="frow">' + nm('ram', 'Ramadan start') + '</div><div class="seg mini">' + [[-1, '1 day earlier'], [0, 'Umm al-Qura'], [1, '1 day later']].map(function (x) { return '<button class="' + ((+s.ramAdj || 0) === x[0] ? 'on' : '') + '" data-act="ramAdj" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
     h += '<h4>Tags</h4>' + row('arch', 'Show archived tags', sw(s.showArch, 'showArch')) +
       '<h4>App</h4>' + row('update', 'Update app', '<span class="sst">' + ver + '</span><button class="btn sm" data-act="updateApp">Update</button>') +
@@ -947,11 +966,11 @@
     rchip: function (el) { S.d.ui.rtag = el.dataset.t; S.saveUi(); App.render(); },
     // v119 (SL6): new recitation tag — name, start page (default 1) and an optional target date.
     raddTag: function () {
-      dialog({ title: 'New reading', input: '', ok: 'Create', html: tagFields(1, '') }, function (name, w, f) {
+      dialog({ title: 'New reading', input: '', ok: 'Create', html: tagFields(1, '', false, 0) }, function (name, w, f) {
         name = (name || '').trim(); if (!name) { App.toast('Give it a name'); return; }
         var sp = parseInt(f.start, 10); if (!(sp >= 1 && sp <= 604)) sp = 1;
         var id = 'r' + Date.now().toString(36);
-        S.d.rtags.push({ id: id, name: name, start: sp, target: f.target || '', c: S.today() });
+        S.d.rtags.push({ id: id, name: name, start: sp, target: f.target || '', daily: parseInt(f.daily, 10) || 0, c: S.today() });
         var b = S.bm(id); b.p = sp; b.n = onPage(sp)[0]; b.t = Date.now();
         S.d.ui.rtag = id; S.saveRtags(); App.render(); App.toast(name + ' · starts at P. ' + sp);
       });
@@ -964,8 +983,8 @@
           if (w === 'arc') { t.a = 1; if (S.d.ui.rtag === t.id) S.d.ui.rtag = 'def'; } else delete t.a;
           S.saveRtags(); App.render(); App.toast(w === 'arc' ? 'Reading archived' + (showArch() ? '' : ' · Settings → Show archived tags') : 'Reading unarchived'); return;
         }
-        if (w === 'ed') dialog({ title: 'Edit reading', input: t.name, ok: 'Save', html: tagFields(t.start || 1, t.target || '', true) }, function (name, w2, f) {
-          name = (name || '').trim(); if (name) t.name = name; t.target = f.target || ''; S.saveRtags(); App.render();
+        if (w === 'ed') dialog({ title: 'Edit reading', input: t.name, ok: 'Save', html: tagFields(t.start || 1, t.target || '', true, t.daily, S.bm(t.id).p || t.start || 1) }, function (name, w2, f) {
+          name = (name || '').trim(); if (name) t.name = name; t.target = f.target || ''; t.daily = parseInt(f.daily, 10) || 0; S.saveRtags(); App.render();
         });
         else if (w === 'del') dialog({ title: 'Delete reading', msg: 'Delete “' + esc(t.name) + '” with its bookmark and log?', ok: 'Delete', danger: true }, function () {
           S.d.rtags = S.d.rtags.filter(function (q) { return q.id !== t.id; }); delete S.d.rbm[t.id];
@@ -979,11 +998,11 @@
       var m = S.d.rmain || {}, b = S.bm('def');
       dialog({ title: 'Main · start', ok: 'Save', html: '<div class="dflds"><label>Start page<input class="dinp" data-f="start" inputmode="numeric" value="' + (m.start || b.p || 1) + '"></label>' +
         '<label>Count from<input class="dinp" type="date" data-f="from" value="' + esc(m.from || S.today()) + '"></label>' +
-        '<label>Target date <span class="muted">(optional)</span><input class="dinp" type="date" data-f="target" value="' + esc(m.target || '') + '"></label></div>',
+        dailyField(m.daily, b.p || 0) + '<label>Target date <span class="muted">(optional)</span><input class="dinp" type="date" data-f="target" value="' + esc(m.target || '') + '"></label></div>',
         btns: m.start ? [['ok', 'Save', 'pri'], ['clr', 'Clear'], ['x', 'Cancel']] : null }, function (v, w, f) {
         if (w === 'clr') { delete S.d.rmain; S.saveRtags(); App.render(); App.toast('Main start cleared'); return; }
         var sp = parseInt(f.start, 10); if (!(sp >= 1 && sp <= 604)) { App.toast('Start page 1–604'); return; }
-        S.d.rmain = { start: sp, from: f.from || S.today(), target: f.target || '' };
+        S.d.rmain = { start: sp, from: f.from || S.today(), target: f.target || '', daily: parseInt(f.daily, 10) || 0 };
         if (!b.p || b.p < sp) S.setBm(sp, onPage(sp)[0], 'def');
         S.saveRtags(); App.render(); App.toast('Main counts from P. ' + sp);
       });
@@ -1064,6 +1083,7 @@
     tapShow: function () { S.d.settings.tapShow = !S.d.settings.tapShow; S.saveSettings(); openSettings(); },
     boxHLock: function () { S.d.settings.boxHLock = S.d.settings.boxHLock === false; S.saveSettings(); openSettings(); },
     cropRestore: function () { if (!confirm('Restore the default crop to the auto-trim?')) return; S.d.settings.cropDef = null; S.saveSettings(); /* null, not delete, so the restore syncs to other devices */ openSettings(); App.render(); App.toast('Default crop restored'); },
+    rsJuz: function () { S.d.settings.rsJuz = !S.d.settings.rsJuz; S.saveSettings(); openSettings(); },
     showArch: function () { S.d.settings.showArch = !S.d.settings.showArch; S.saveSettings(); openSettings(); App.render(); },
     decayOn: function () { S.d.settings.decayOn = !S.d.settings.decayOn; S.saveSettings(); openSettings(); App.render(); },
     cover: function (el) { S.d.settings.hideCol = el.dataset.c; S.saveSettings(); openSettings(); },

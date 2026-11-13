@@ -128,7 +128,7 @@
     /* v117 Recitation bookmark: one moving bookmark per tag ("resume at p, finished up to p-1"), every move logged. */
     bm: function (tag) { var B = this.d.rbm || (this.d.rbm = {}); return B[tag || 'def'] || (B[tag || 'def'] = { p: 0, n: 0, t: 0, log: [] }); },
     // v119: Recitation tags. 'def' = Main (can't be renamed or deleted). Each tag = one cover-to-cover reading.
-    rtags: function () { var m = this.d.rmain || {}; return [{ id: 'def', name: 'Main', start: m.start, from: m.from, target: m.target }].concat(this.d.rtags || []); },
+    rtags: function () { var m = this.d.rmain || {}; return [{ id: 'def', name: 'Main', start: m.start, from: m.from, target: m.target, daily: m.daily }].concat(this.d.rtags || []); },
     /* v126: a reading's bookmark log as counted for stats and the Reading log, oldest first. A start date (Main → Start page)
        drops everything logged before it, so pages read elsewhere and old test bookmarks don't count. */
     rlog: function (tag) {
@@ -187,9 +187,11 @@
     /* v128 (SL11) Daily reading plan from a reading's target date. Re-planned every day from where the bookmark stood
        when the day began: today's quota = pages left ÷ days left (today included), rounded up. Reading past today's set
        makes it grow; the days after are re-planned from the bookmark. Returns null without a target (or once completed). */
-    plan: function (tag) {
+    /* v139: plan(tag, true) = his own daily pages (t.daily) instead of the target date: today's set is that many pages
+       from where the bookmark stood at day start, then sets of the same size; the finish date is only an estimate. */
+    plan: function (tag, fixed) {
       tag = tag || 'def';
-      var t = this.rtag(tag); if (!t || !t.target || t.done) return null;
+      var t = this.rtag(tag); if (!t || t.done || (fixed ? !(t.daily > 0) : !t.target)) return null;
       var b = this.bm(tag), log = this.rlog(tag), td = this.today(), day = 864e5;
       var D = function (k) { return new Date(k + 'T00:00:00').getTime(); };
       var K = function (ms) { var d = new Date(ms); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
@@ -197,9 +199,13 @@
       var base = t.start || (log[0] ? log[0][1] : b.p || 1);
       var s0 = last ? last[1] : base; if (s0 > 604) s0 = 1; // a khatm (605) restarts Main at P. 1
       var cur = b.p > 0 && b.p <= 605 ? b.p : s0;
-      var dl = Math.round((D(t.target) - t0) / day) + 1, rem = 605 - s0;
-      var o = { tag: tag, target: t.target, s0: s0, cur: cur, dl: dl, passed: dl < 1, left: Math.max(0, 605 - cur) };
-      if (o.passed) { o.q = rem; o.e0 = 604; o.secs = [{ d: td, a: s0, b: 604 }]; }
+      var rem = 605 - s0, dl = fixed ? Math.max(1, Math.ceil(rem / t.daily)) : Math.round((D(t.target) - t0) / day) + 1;
+      var o = { tag: tag, fixed: !!fixed, target: fixed ? K(t0 + (dl - 1) * day + day / 2) : t.target, s0: s0, cur: cur, dl: dl, passed: dl < 1, left: Math.max(0, 605 - cur) };
+      if (fixed) {
+        o.q = t.daily; o.e0 = Math.min(604, s0 + o.q - 1);
+        o.secs = [{ d: td, a: s0, b: Math.max(o.e0, Math.min(604, cur - 1)) }];
+        for (var fp = Math.max(o.e0 + 1, cur), fi = 1; fp <= 604; fp += o.q, fi++) o.secs.push({ d: K(t0 + fi * day + day / 2), a: fp, b: Math.min(604, fp + o.q - 1) });
+      } else if (o.passed) { o.q = rem; o.e0 = 604; o.secs = [{ d: td, a: s0, b: 604 }]; }
       else {
         o.q = Math.ceil(rem / dl); o.e0 = Math.min(604, s0 + o.q - 1);
         // Today's set grows to the bookmark when he reads past it; the rest of the days split what's left.
@@ -212,7 +218,7 @@
       o.todayLeft = Math.max(0, o.e0 + 1 - Math.max(cur, s0));
       // Original daily target: whole reading ÷ every day from its start to the target. Average: pages read per calendar day since the start.
       var sd = t.from || t.c || (log[0] ? K(log[0][0]) : td), tot = Math.max(1, Math.round((D(t.target) - D(sd)) / day) + 1);
-      o.orig = Math.ceil((605 - (t.start || base)) / tot);
+      o.orig = fixed ? t.daily : Math.ceil((605 - (t.start || base)) / tot);
       var rr = this.rread(tag).days, sum = 0; for (var k in rr) if (k >= sd) sum += rr[k].pg;
       var el = Math.max(1, Math.round((t0 - D(sd)) / day) + 1); o.avg = Math.round(sum / el * 10) / 10; o.since = sd;
       o.next = o.secs[1] || null;
@@ -327,7 +333,13 @@
       var self = this;
       try { var t = JSON.parse(localStorage.getItem(TK)); if (t && t.exp > Date.now() + 60000 && t.acct === S.d.acct) { this.tok = t.tok; this.exp = t.exp; } } catch (e) {}
       if (!this.cid()) return;
-      var onTap = function () { setTimeout(function () { if (!S.d.acct || self.asking) return; if (S.dirty && !self.valid() && navigator.onLine !== false) self.signIn(true); }, 30); };
+      /* v139: never from a tap inside the reader — asking Google for a token opens its popup for a moment, which flashed
+         over the page when a Bookmark tap made a change after the hour-long token had run out. Changes wait (kept on the
+         phone) and go up on his first tap outside the reader (home, Settings), or at once while the token is still valid. */
+      var onTap = function (e) {
+        var inRd = !!(window.Reader && Reader.isOpen && Reader.isOpen());
+        setTimeout(function () { if (!S.d.acct || self.asking || inRd) return; if (S.dirty && !self.valid() && navigator.onLine !== false) self.signIn(true); }, 30);
+      };
       document.addEventListener('click', onTap, true); document.addEventListener('pointerup', onTap, true);
       window.addEventListener('online', function () { if (self.valid()) self.pull(); else if (S.d.acct) self.set(S.dirty ? 'paused' : 'idle'); });
       if (this.valid()) this.pull();
