@@ -1120,7 +1120,11 @@
     x += '<div class="sgrid">' + tile('Reads ' + per, S.tally(k, prd).page + '×') + tile('Reads lifetime', all.page + '×') +
       tile('Time ' + per, Timer.mins(S.pageTime(p, prd))) + tile('Time lifetime', Timer.mins(S.pageTime(p))) +
       tile('Days ' + per, S.activeDays(k, prd).length) + tile('Days lifetime', S.activeDays(k).length) + '</div>';
-    if (ns > 1) x += '<div class="slbl">Reads by section (lifetime)</div><div class="ssec">' + all.sec.map(function (c, i) { return '<span>S' + (i + 1) + ' · ' + c + '×</span>'; }).join('') + '</div>';
+    // v144: Reads table — full page and each section, today beside lifetime (was lifetime-only section chips)
+    var td = S.today(), tdy = S.tally(k, function (d) { return d === td; });
+    var rrow = function (l, a, b) { return '<tr><th>' + l + '</th><td>' + a + '×</td><td>' + b + '×</td></tr>'; };
+    x += '<div class="slbl">Reads</div><table class="srt"><tr><th></th><td>Today</td><td>Lifetime</td></tr>' + rrow('Full page', tdy.page, all.page) +
+      (ns > 1 ? all.sec.map(function (c, i) { return rrow('Section ' + (i + 1), tdy.sec[i], c); }).join('') : '') + '</table>';
     if (m) x += '<div class="slbl">Health</div><div class="shl"><button class="icb" data-ract="hminus" aria-label="Lower health">−</button>' + bar(h, h ? App.hcol(h) : 'var(--line)') +
       '<button class="icb" data-ract="hplus" aria-label="Raise health">+</button><b>' + h + '%</b></div>';
     if (g) x += '<div class="slbl">Today\'s goal</div><div class="shl">' + bar(dd.t / (g * 60) * 100, 'var(--acc)') + '<b>' + Math.floor(dd.t / 60) + ' / ' + g + ' min</b></div>';

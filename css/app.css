@@ -499,6 +499,9 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 .spage .stile span { display: block; font-size: 12px; color: var(--muted); } .spage .stile b { font-size: 20px; }
 .spage .slbl { font-size: 12.5px; color: var(--muted); margin: 16px 0 6px; }
 .spage .ssec { display: flex; flex-wrap: wrap; gap: 6px; } .spage .ssec span { border: 1px solid var(--line); border-radius: 99px; padding: 3px 10px; font-size: 13px; }
+.spage .srt { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; font-size: 14px; } /* v144 */
+.spage .srt th, .spage .srt td { padding: 7px 12px; text-align: right; border-top: 1px solid var(--line); } .spage .srt th { text-align: left; font-weight: 500; }
+.spage .srt tr:first-child td { color: var(--muted); font-size: 12px; border-top: 0; } .spage .srt tr:first-child th { border-top: 0; } .spage .srt td { font-weight: 700; } .spage .srt tr:first-child td { font-weight: 500; }
 .spage .shl { display: flex; align-items: center; gap: 10px; } .spage .sbar { flex: 1; height: 8px; margin: 0; }
 .spage .sfoot { display: flex; justify-content: flex-end; padding: 6px 12px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--card); }
 .statopen #tally { display: none !important; }

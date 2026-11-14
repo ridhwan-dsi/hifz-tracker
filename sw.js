@@ -4,7 +4,7 @@
      the new sw.js installs the new files → takes over → the page reloads once. Bump SHELL with every release.
    - Mushaf pages cache-first (full resolution, offline), kept across versions.
    - Google Fonts (CSS + font files) cache-first, kept across versions, so the Arabic font works offline too. */
-var SHELL = 'hifz-shell-v143', PAGES = 'hifz-pages-2x', PAGES1 = 'hifz-pages-1x', FONTS = 'hifz-fonts'; // v143: pages1x/ = original-quality pages
+var SHELL = 'hifz-shell-v144', PAGES = 'hifz-pages-2x', PAGES1 = 'hifz-pages-1x', FONTS = 'hifz-fonts'; // v143: pages1x/ = original-quality pages
 var FILES = ['./', 'index.html', 'css/app.css', 'js/config.js', 'js/quran.js', 'js/autocrop.js', 'js/store.js', 'js/timer.js', 'js/tally.js', 'js/reader.js', 'js/app.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(SHELL).then(function (c) {
