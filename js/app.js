@@ -176,7 +176,12 @@
       return '<button class="chip ' + (t.id === rt ? 'on' : '') + (t.a ? ' arch' : '') + (t.done ? ' done' : '') + '" data-act="rchip" data-t="' + esc(t.id) + '"' + (t.id === 'def' ? ' data-long="rmain"' : ' data-long="rtag"') + '>' + esc(t.name) + '</button>';
     }).join('') + '<button class="chip add" data-act="raddTag">+ Tag</button></div>';
     // v117: Continue (last page read) and the bookmark (where the reading really stands) side by side.
-    if ((rl && rl.p) || bm.p) h += '<div class="rconts">' + (rl && rl.p ? '<div class="cont min"><button class="go" data-act="ropen" data-p="' + rl.p + '" data-n="' + (rl.n || 0) + '">' + ICON.play + ' Continue · ' + esc(SUR[(rl.n || onPage(rl.p)[0]) - 1][0]) + ' · P. ' + rl.p + '</button></div>' : '') +
+    if (NU() && rl && rl.p) { // v146: Continue as the Memorization card; bookmark stays a chip under it
+      var cn = rl.n || onPage(rl.p)[0];
+      h += '<div class="ncont"><div class="lab"><span>CONTINUE WHERE YOU LEFT OFF</span></div><div class="hrow">' + badge(cn, true) + '<div class="tx"><h2>' + esc(SUR[cn - 1][0]) + ' · P. ' + rl.p + '</h2><p>' + (bm.p > 604 ? 'Completed' : bm.p ? 'Bookmark at P. ' + bm.p : 'No bookmark yet') + '</p></div></div>' +
+        '<button class="pbtn" data-act="ropen" data-p="' + rl.p + '" data-n="' + cn + '" aria-label="Continue">' + ICON.play + '</button></div>';
+      if (bm.p && rl.p !== bm.p) h += '<div class="rconts"><div class="cont min bmc"><button class="go" data-act="ropen" data-p="' + Math.min(604, bm.p) + '" data-n="' + (bm.p > 604 ? 114 : bm.n || 0) + '">' + ICON.bmk + (bm.p > 604 ? ' Completed' : ' P. ' + bm.p) + '</button></div></div>';
+    } else if ((rl && rl.p) || bm.p) h += '<div class="rconts">' + (rl && rl.p ? '<div class="cont min"><button class="go" data-act="ropen" data-p="' + rl.p + '" data-n="' + (rl.n || 0) + '">' + ICON.play + ' Continue · ' + esc(SUR[(rl.n || onPage(rl.p)[0]) - 1][0]) + ' · P. ' + rl.p + '</button></div>' : '') +
       (bm.p && !(rl && rl.p === bm.p) ? '<div class="cont min bmc"><button class="go" data-act="ropen" data-p="' + Math.min(604, bm.p) + '" data-n="' + (bm.p > 604 ? 114 : bm.n || 0) + '">' + ICON.bmk + (bm.p > 604 ? ' Completed' : ' P. ' + bm.p) + '</button></div>' : '') + '</div>';
     // v128 (SL11): with a target date, today's set shows on the home too.
     var pl = S.plan(rt);
@@ -234,6 +239,14 @@
   function rchips(ps, n) { return ps.map(function (p) { return '<button class="pl" data-act="ropen" data-p="' + p + '"' + (n ? ' data-n="' + n + '"' : '') + '>P. ' + p + '</button>'; }).join(''); }
   function rrow(k, key, n, num, nm, sub, ar, ps, force) {
     var open = st.exp[k][key] || force;
+    // v146: New design — Recitation rows look like Memorization's (badge, name + number, pages line)
+    if (NU()) {
+      var bdg = k === 'rec' ? badge(n) : '<span class="sbadge jz" style="--h1:hsl(' + (num * 29 % 360) + ' 42% 34%);--h2:hsl(' + ((num * 29 + 40) % 360) + ' 48% 20%)"><span class="ar">' + num + '</span></span>';
+      var sb = (sub || pgRange(ps)) + ' · ' + ps.length + (ps.length === 1 ? ' page' : ' pages');
+      return '<div class="nrow"><button class="sname" data-act="ropen" data-p="' + ps[0] + '" data-n="' + n + '">' + bdg + '<span class="tx"><span class="nm">' + esc(nm) + (k === 'rec' ? ' <span class="num">' + num + '</span>' : '') + '</span><span class="sub">' + sb + '</span></span></button>' +
+        '<button class="exp ' + (open ? 'open' : '') + '" data-act="exp" data-k="' + k + '" data-n="' + key + '" aria-label="Pages">' + ICON.chev + '</button></div>' +
+        (open ? '<div class="pages">' + rchips(ps, k === 'rec' ? n : 0) + '</div>' : '');
+    }
     return '<div class="srow"><button class="sname" data-act="ropen" data-p="' + ps[0] + '" data-n="' + n + '"><span class="num">' + num + '</span><span class="nm">' + esc(nm) + '</span>' + (sub ? '<span class="jsub">' + sub + '</span>' : '') + (ar ? '<span class="ar">' + esc(ar) + '</span>' : '') + '</button>' +
       '<button class="exp ' + (open ? 'open' : '') + '" data-act="exp" data-k="' + k + '" data-n="' + key + '" aria-label="Pages">' + ICON.chev + '</button></div>' +
       (open ? '<div class="pages">' + rchips(ps, k === 'rec' ? n : 0) + '</div>' : '');
