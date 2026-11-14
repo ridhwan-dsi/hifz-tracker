@@ -140,12 +140,16 @@
     var lp = d.last.p, lk = d.last.k || S.uk(lp), n = S.kn(lk);
     if (d.ui.contMin) return '<div class="ncont min"><button class="go" data-act="open" data-p="' + lk + '">' + ICON.play + '<b>' + esc(SUR[n - 1][0]) + '</b> · P. ' + lp + '</button><button class="ib" data-act="contMin" aria-label="Expand">' + ICON.chev + '</button></div>';
     var mem = units(n).filter(function (k) { return S.isMem(k); }), i = mem.indexOf(lk), hh = S.health(lk), la = S.lastActive(lk);
-    var line = (S.isMem(lk) ? (subOf(lk) === 'new' ? 'New' : 'Review') + ' · health ' + hh + '%' : 'Not in Memorizing') + ' · ' + (la ? 'read ' + ago(la) : 'not read yet');
+    // v145: reading data instead of health — reads of this page today; surah reads + time over the last 7 days
+    var td = S.today(), wk = (function () { var o = {}, t = new Date(); for (var j = 0; j < 7; j++) { var x = new Date(t.getFullYear(), t.getMonth(), t.getDate() - j); o[x.getFullYear() + '-' + ('0' + (x.getMonth() + 1)).slice(-2) + '-' + ('0' + x.getDate()).slice(-2)] = 1; } return function (d) { return !!o[d]; }; })();
+    var rt = S.tally(lk, function (d) { return d === td; }).page;
+    var line = (S.isMem(lk) ? (subOf(lk) === 'new' ? 'New' : 'Review') + ' · ' : 'Not in Memorizing · ') + (rt ? 'read ' + rt + '× today' : la ? 'read ' + ago(la) : 'not read yet');
+    var wr = 0, wt = 0; mem.forEach(function (k) { wr += S.tally(k, wk).page; wt += S.pageTime(parseInt(k, 10), wk); });
     var h = '<div class="ncont"><div class="lab"><span>CONTINUE WHERE YOU LEFT OFF</span><button class="ib" data-act="contMin" aria-label="Minimise">' + ICON.chev + '</button></div>' +
       '<div class="hrow">' + badge(n, true) + '<div class="tx"><h2>' + esc(SUR[n - 1][0]) + ' · P. ' + lp + '</h2><p>' + line + '</p></div></div>';
     if (i >= 0 && mem.length > 1) {
       h += '<div class="segb">' + mem.slice(0, 24).map(function (k, j) { return '<i class="' + (j < i ? 'f' : j === i ? 'c' : '') + '" style="--hc:' + hcol(S.health(k)) + '"></i>'; }).join('') + '</div>' +
-        '<div class="meta2"><span>Page ' + (i + 1) + ' of ' + mem.length + ' in ' + esc(SUR[n - 1][0]) + '</span><span>avg health ' + avgH(mem) + '%</span></div>';
+        '<div class="meta2"><span>Page ' + (i + 1) + ' of ' + mem.length + ' in ' + esc(SUR[n - 1][0]) + '</span><span>This week: ' + wr + ' read' + (wr === 1 ? '' : 's') + ' · ' + Timer.mins(wt) + '</span></div>';
     }
     return h + '<button class="pbtn" data-act="open" data-p="' + lk + '" aria-label="Continue">' + ICON.play + '</button></div>';
   }
