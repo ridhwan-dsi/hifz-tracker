@@ -4,7 +4,7 @@
      the new sw.js installs the new files → takes over → the page reloads once. Bump SHELL with every release.
    - Mushaf pages cache-first (full resolution, offline), kept across versions.
    - Google Fonts (CSS + font files) cache-first, kept across versions, so the Arabic font works offline too. */
-var SHELL = 'hifz-shell-v142', PAGES = 'hifz-pages-2x', FONTS = 'hifz-fonts';
+var SHELL = 'hifz-shell-v143', PAGES = 'hifz-pages-2x', PAGES1 = 'hifz-pages-1x', FONTS = 'hifz-fonts'; // v143: pages1x/ = original-quality pages
 var FILES = ['./', 'index.html', 'css/app.css', 'js/config.js', 'js/quran.js', 'js/autocrop.js', 'js/store.js', 'js/timer.js', 'js/tally.js', 'js/reader.js', 'js/app.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(SHELL).then(function (c) {
@@ -13,7 +13,7 @@ self.addEventListener('install', function (e) {
 });
 self.addEventListener('activate', function (e) {
   e.waitUntil(caches.keys().then(function (ks) {
-    return Promise.all(ks.filter(function (k) { return k !== SHELL && k !== PAGES && k !== FONTS; }).map(function (k) { return caches.delete(k); }));
+    return Promise.all(ks.filter(function (k) { return k !== SHELL && k !== PAGES && k !== PAGES1 && k !== FONTS; }).map(function (k) { return caches.delete(k); }));
   }).then(function () { return self.clients.claim(); }));
 });
 function cacheFirst(name, req, key) {
@@ -30,6 +30,7 @@ self.addEventListener('fetch', function (e) {
   if (url.origin !== location.origin) return; // Google sign-in and Drive go straight to the network
   if (url.pathname.endsWith('/sw.js')) return;
   if (url.pathname.indexOf('/pages/') >= 0) { e.respondWith(cacheFirst(PAGES, req)); return; }
+  if (url.pathname.indexOf('/pages1x/') >= 0) { e.respondWith(cacheFirst(PAGES1, req)); return; }
   e.respondWith(caches.open(SHELL).then(function (c) {
     var key = req.mode === 'navigate' ? 'index.html' : req;
     return c.match(key, { ignoreSearch: true }).then(function (hit) {
@@ -42,7 +43,8 @@ self.addEventListener('fetch', function (e) {
 self.addEventListener('message', function (e) {
   if (!e.data || e.data.type !== 'precache') return;
   var urls = e.data.urls || [];
-  e.waitUntil(caches.open(PAGES).then(function (c) {
+  var name = urls.length && String(urls[0]).indexOf('pages1x/') >= 0 ? PAGES1 : PAGES;
+  e.waitUntil(caches.open(name).then(function (c) {
     var i = 0;
     function next() {
       if (i >= urls.length) return Promise.resolve();

@@ -38,13 +38,22 @@
     var k = ks.filter(function (u) { return S.kn(u) === R.n; })[0] || ks[0];
     return { p: q, n: S.kn(k) };
   }
+  /* v143 section groups: neighbouring sections joined into one oval (e.g. 1·2), saved on the page as grp = [[from, to], …].
+     A section is in at most one group. secRange gives what is shown: [from, to] (to > from for a group), [0, 0] = All. */
+  function grpsOf(m, nd) { return ((m && m.grp) || []).filter(function (g) { return g[0] >= 1 && g[1] > g[0] && g[1] <= nd + 1; }); }
+  function secRange(m, nd) {
+    var f = m ? m.sec || 0 : 0, t = m ? m.sec2 || f : 0;
+    if (!f || !nd || f > nd + 1) return [0, 0];
+    if (t !== f && !grpsOf(m, nd).some(function (g) { return g[0] === f && g[1] === t; })) t = f;
+    return [f, t];
+  }
   // The facing page wears the same mask slot as the open page (Mask 1 on both, or None on both).
   function staticMask(q, Hu) {
     migrateMasks(q);
     var m = masksOf(q)[0]; if (!m || !m.items || !m.items.length) return '';
     var it = viewItems(m, q), s = '', cov = (S.d.settings.hideCol || '#f3e9d4');
     var ds = it.filter(function (x) { return x.k === 'div'; }).sort(function (a, b) { return (a.y1 + a.y2) - (b.y1 + b.y2); });
-    var sec = m.sec || 0, sec2 = sec; if (sec2 > ds.length + 1) sec = sec2 = 0; var hl = !!m.hl;
+    var sr = secRange(m, ds.length), sec = sr[0], sec2 = sr[1]; var hl = !!m.hl;
     if (!m.hb) it.forEach(function (x) { if (x.k === 'box') s += '<rect x="' + r1(x.x) + '" y="' + r1(x.y) + '" width="' + r1(x.w) + '" height="' + r1(x.h) + '" rx="4" fill="' + x.c + '" fill-opacity="' + x.o + '"' + (x.b ? ' stroke="' + x.c + '" stroke-width="4"' : '') + '/>'; });
     if (sec && ds.length) {
       var above = ds[sec - 2], below = ds[sec2 - 1];
@@ -136,7 +145,7 @@
   function rnd(m) { var c = {}; for (var k in m) c[k] = typeof m[k] === 'number' ? r1(m[k]) : m[k]; return c; }
   function commitItems() {
     var am0 = activeMask(), am = am0 ? am0.id : null, items = conv(shiftItems(R.items, -R.oy), cropOf(R.p), R.p, false).map(function (m) { var c = {}; for (var k in m) c[k] = typeof m[k] === 'number' ? r1(m[k]) : m[k]; return c; });
-    saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am) { m.items = items; m.pg = 1; if (Math.max(m.sec || 0, m.sec2 || 0) > nDiv(items) + 1) m.sec = m.sec2 = 0; } }); });
+    saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am) { m.items = items; m.pg = 1; if (Math.max(m.sec || 0, m.sec2 || 0) > nDiv(items) + 1) m.sec = m.sec2 = 0; if (m.grp) m.grp = grpsOf(m, nDiv(items)); } }); });
   }
   function nDiv(items) { return items.filter(function (m) { return m.k === 'div'; }).length; }
   function loadItems() { var m = activeMask(); R.items = shiftItems(m ? viewItems(m, R.p) : [], R.oy); }
@@ -150,7 +159,7 @@
       R.imgs[q] = new Promise(function (res, rej) {
         var im = new Image(); im.decoding = 'async';
         im.onload = function () { res(im); }; im.onerror = function () { delete R.imgs[q]; rej(new Error('img ' + q)); };
-        im.src = 'pages/p' + String(q).padStart(3, '0') + '.jpg';
+        im.src = pgSrc(q);
       });
       var keys = Object.keys(R.imgs);
       if (keys.length > 14) keys.forEach(function (k) { if (Math.abs(k - R.p) > 3) delete R.imgs[k]; });
@@ -162,6 +171,7 @@
   var Reader = {
     // range: optional list of unit keys (from the Memorizing tab) — swiping/arrows then stay within those pages.
     // v116: rec = Recitation mode — plain pages (no boxes, lines, joins or sections), free swipe, Timer + Back only.
+    flushImgs: function () { R.imgs = {}; }, // v143: page quality switched
     open: function (p, n, range, tag, rec) {
       R.rec = !!rec; R.rtag = S.d.ui.rtag || 'def'; if (R.rec) { range = null; tag = null; R.sub = R.sub === 'timer' ? 'timer' : null; R.edOpen = false; }
       R.style = boxDef(); R.palOpen = false; R.wasDesk = desk();
@@ -410,8 +420,7 @@
     var ov = $('#ov'); if (!ov) return;
     var am = activeMask(), cov = (S.d.settings.hideCol || '#f3e9d4'), divs = dividers(), H = R.Hu, s = '', tint = tallyTint();
     if (!am && !R.edit) { ov.innerHTML = tint; return; }
-    var sec = R.edit ? 0 : (am.sec || 0), sec2 = sec, hb = !R.edit && am.hb;
-    if (sec2 > divs.length + 1) sec = sec2 = 0;
+    var sr = R.edit ? [0, 0] : secRange(am, divs.length), sec = sr[0], sec2 = sr[1], hb = !R.edit && am.hb;
     var lockB = R.edit && R.etool === 'line', lockL = R.edit && R.etool === 'box'; // v93: only the tool being edited is touchable
     if (!hb) R.items.forEach(function (m, i) {
       if (m.k !== 'box') return;
@@ -910,10 +919,24 @@
     }
     // v104: Box / Line show-hide switches live in their own rows (bottom bar); this row is the Section oval only.
     var r = '<div class="rrow wrap mwrap"><div class="mrow scroll">';
-    var f = am ? am.sec || 0 : 0; if (f > nd + 1) f = 0;
-    r += '<span class="soval' + (nd ? '' : ' off') + '"><span class="sovl">Section</span>';
-    for (var i = 1; i <= nd + 1 && nd; i++) r += '<button class="' + (f === i ? 'on' : '') + '" data-ract="sec" data-s="' + i + '">' + i + '</button>';
-    r += '<button class="' + (!f ? 'on' : '') + '" data-ract="sec" data-s="0"' + (nd ? '' : ' disabled') + '>All</button></span>';
+    var sr = secRange(am, nd), G = grpsOf(am, nd), gm = R.gm && R.gm.p === R.p && nd ? R.gm : null;
+    var inG = function (i) { return G.filter(function (g) { return i >= g[0] && i <= g[1]; })[0]; };
+    r += '<span class="soval' + (nd ? '' : ' off') + (gm ? ' gmode' : '') + '"><span class="sovl">Section</span>';
+    for (var i = 1; i <= nd + 1 && nd; i++) {
+      var g = inG(i), on, dim = false;
+      if (g) { // a group: one oval holding its numbers with a dot between them
+        var nums = []; for (var j = g[0]; j <= g[1]; j++) nums.push(j);
+        on = gm ? !!(gm.g && gm.g[0] === g[0]) : sr[0] === g[0] && sr[1] === g[1];
+        dim = gm && !on;
+        r += '<button class="sgrp' + (on ? (gm ? ' gsel' : ' on') : '') + (dim ? ' dim' : '') + '" data-ract="sec" data-s="' + g[0] + '" data-t="' + g[1] + '" aria-label="Sections ' + g[0] + ' to ' + g[1] + '">' + nums.join('<i class="sdot"></i>') + '</button>';
+        i = g[1]; continue;
+      }
+      if (gm) { on = !gm.g && i >= gm.a && i <= gm.b; dim = !!gm.g; }
+      else on = sr[0] === i && sr[1] === i;
+      r += '<button class="' + (on ? (gm ? 'gsel' : 'on') : '') + (dim ? ' dim' : '') + '" data-ract="sec" data-s="' + i + '">' + i + '</button>';
+    }
+    if (gm) r += '<button class="gact ok" data-ract="gOk" aria-label="Done">' + IC.check + '</button><button class="gact no" data-ract="gNo" aria-label="' + (gm.g ? 'Delete group' : 'Cancel') + '">' + IC.x + '</button></span>';
+    else r += '<button class="' + (!sr[0] ? 'on' : '') + '" data-ract="sec" data-s="0"' + (nd ? '' : ' disabled') + '>All</button></span>';
     return r + '</div></div>';
   }
   function mainPanel() {
@@ -1204,7 +1227,7 @@
   function afterStyle() { var m = selBox(); if (m !== R.style) { R.style.c = m.c; R.style.o = m.o; R.style.b = m.b; commitItems(); } rememberStyle(m); draw(); renderPanel(); }
   function startEdit(sel) {
     var am = ensureLayer(); if (!am) return false;
-    if (!R.edit) { R.snap = { items: JSON.stringify(am.items || []), sec: am.sec || 0 }; R.edit = true; R.sub = R.sub === 'box' || R.sub === 'line' ? R.sub : null; R.etool = R.sub === 'line' ? 'line' : R.sub === 'box' ? 'box' : R.etool; R.sel = sel; renderPanel(); layout(); }
+    if (!R.edit) { R.snap = { items: JSON.stringify(am.items || []), sec: am.sec || 0, sec2: am.sec2 || 0, grp: JSON.stringify(am.grp || []) }; R.edit = true; R.sub = R.sub === 'box' || R.sub === 'line' ? R.sub : null; R.etool = R.sub === 'line' ? 'line' : R.sub === 'box' ? 'box' : R.etool; R.sel = sel; renderPanel(); layout(); }
     return true;
   }
   // Long-press in read mode: which shape (if any) is under the finger.
@@ -1232,12 +1255,31 @@
   }
   /* The section shown is the section Tally counts; each section's unsaved count waits on its own. */
   function syncSec() {
-    var m1 = masksOf(R.p)[0], f = m1 ? m1.sec || 0 : 0;
-    if (m1 && f > nDiv(m1.items || []) + 1) f = 0;
-    Tally.section(f, R.k);
+    var m1 = masksOf(R.p)[0], r = m1 ? secRange(m1, nDiv(m1.items || [])) : [0, 0];
+    Tally.section(r[0], R.k, r[1]);
   }
   function newMask(n) { return { id: 'm' + Date.now().toString(36) + n, name: 'Mask ' + n, items: [], sec: 0, pg: 1 }; }
   function setActive(id) { saveMasks(function (ms, o) { o.am = id || ''; }); loadItems(); }
+  /* v143: long-press a section to start a group (tick and X appear), or a group to get its tick and X (X deletes it). */
+  (function () {
+    var t = null, fired = 0;
+    document.addEventListener('pointerdown', function (e) {
+      var b = e.target.closest && e.target.closest('.rpanel .soval button[data-ract="sec"]'); if (!b || b.disabled || R.gm) return;
+      var i = +b.dataset.s, j = +b.dataset.t || 0; if (!i) return;
+      t = setTimeout(function () {
+        t = null; var am = activeMask(); if (!am) return;
+        if (!j && grpsOf(am, nDiv(R.items)).some(function (g) { return i >= g[0] && i <= g[1]; })) return;
+        fired = Date.now(); buzz();
+        R.gm = j ? { p: R.p, g: [i, j] } : { p: R.p, a: i, b: i };
+        renderPanel();
+      }, 500);
+    }, true);
+    // Only the click that ends the long-press itself is swallowed (timed from lifting the finger), never the next tap.
+    var upAt = 0;
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { document.addEventListener(ev, function () { if (t) { clearTimeout(t); t = null; } if (fired) { upAt = Date.now(); fired = 0; } }, true); });
+    document.addEventListener('click', function (e) { if (Date.now() - upAt < 350 && e.target.closest && e.target.closest('.soval')) { upAt = 0; e.stopPropagation(); e.preventDefault(); } }, true);
+    document.addEventListener('contextmenu', function (e) { if (e.target.closest && e.target.closest('.rpanel .soval')) e.preventDefault(); }, true);
+  })();
   /* v104: hold the bin (in the Box or Line row, or while editing) to delete every box, or every line, on the page. */
   (function () {
     var t = null, fired = 0;
@@ -1359,13 +1401,13 @@
     cancelEdit: function () {
       // Put the mask back exactly as it was when editing started.
       var am = activeMask(), snap = R.snap;
-      if (am && snap) saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) { m.items = JSON.parse(snap.items); m.sec = snap.sec; } }); });
+      if (am && snap) saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) { m.items = JSON.parse(snap.items); m.sec = snap.sec; m.sec2 = snap.sec2 || snap.sec; if (snap.grp) m.grp = JSON.parse(snap.grp); } }); });
       loadItems(); R.edit = false; R.sel = -1; R.tmp = null; R.snap = null; draw(); renderPanel(); layout();
     },
     delMask: function () {
       var am = activeMask(); if (!am) return;
       if (!confirm('Clear all boxes and lines on this page?')) return;
-      saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) { m.items = []; m.sec = 0; } }); });
+      saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) { m.items = []; m.sec = m.sec2 = 0; m.grp = []; } }); });
       loadItems(); R.edit = false; R.sel = -1; R.sub = null; draw(); renderPanel(); layout();
     },
     addBox: function () {
@@ -1384,10 +1426,41 @@
     del: function () { if (R.sel < 0) return; R.items.splice(R.sel, 1); R.sel = -1; commitItems(); draw(); renderPanel(); },
     straight: function () { var m = R.items[R.sel]; if (!m) return; m.y2 = m.y1; m.x = 500; commitItems(); draw(); },
     sec: function (el) {
-      var i = +el.dataset.s; if (!activeMask()) return;
-      saveMasks(function (ms) { ms[0].sec = i; ms[0].sec2 = i; });
-      Tally.section(i, R.k); // v102: each section keeps its own count; switching shows that section's count
+      var i = +el.dataset.s, t = +el.dataset.t || i, am = activeMask(); if (!am) return;
+      var gm = R.gm && R.gm.p === R.p ? R.gm : null;
+      if (gm) { // v143 grouping: tap neighbouring sections to add or take them off the ends
+        if (gm.g || el.dataset.t) { if (!gm.g) App.toast('That section is already in a group'); return; }
+        if (i >= gm.a && i <= gm.b) { if (gm.a === gm.b) return; if (i === gm.a) gm.a++; else if (i === gm.b) gm.b--; else App.toast('Only neighbouring sections can be grouped'); }
+        else if (i === gm.a - 1) gm.a = i; else if (i === gm.b + 1) gm.b = i;
+        else App.toast('Only neighbouring sections can be grouped');
+        renderPanel(); return;
+      }
+      saveMasks(function (ms) { ms[0].sec = i; ms[0].sec2 = t; });
+      Tally.section(i, R.k, t); // v102: each section (v143: or group) keeps its own count; switching shows that one's count
       draw(); renderPanel();
+    },
+    // v143: tick — make the selected neighbouring sections a group (and show it), or close a group's long-press options.
+    gOk: function () {
+      var gm = R.gm; R.gm = null;
+      if (gm && !gm.g && gm.b > gm.a) {
+        saveMasks(function (ms) { var m = ms[0]; m.grp = (m.grp || []).filter(function (g) { return g[1] < gm.a || g[0] > gm.b; }); m.grp.push([gm.a, gm.b]); m.grp.sort(function (x, y) { return x[0] - y[0]; }); m.sec = gm.a; m.sec2 = gm.b; });
+        Tally.section(gm.a, R.k, gm.b); draw();
+      }
+      renderPanel();
+    },
+    // v143: X — cancel a new group, or delete the long-pressed group (its sections go back to single ovals).
+    gNo: function () {
+      var gm = R.gm; R.gm = null;
+      if (gm && gm.g) {
+        var g = gm.g, was = null;
+        saveMasks(function (ms) { var m = ms[0]; was = { sec: m.sec, sec2: m.sec2 }; m.grp = (m.grp || []).filter(function (x) { return x[0] !== g[0]; }); if (m.sec === g[0] && m.sec2 === g[1]) m.sec2 = m.sec; });
+        syncSec(); draw();
+        App.toast('Group ' + g[0] + '–' + g[1] + ' removed', function () {
+          saveMasks(function (ms) { var m = ms[0]; m.grp = (m.grp || []).concat([g]).sort(function (x, y) { return x[0] - y[0]; }); m.sec = was.sec; m.sec2 = was.sec2; });
+          syncSec(); draw(); renderPanel();
+        }, 'Undo');
+      }
+      renderPanel();
     },
     hb: function () { if (!activeMask()) return; saveMasks(function (ms) { ms[0].hb = !ms[0].hb; }); draw(); renderPanel(); },
     hl: function () { if (!activeMask()) return; saveMasks(function (ms) { ms[0].hl = !ms[0].hl; }); draw(); renderPanel(); },

@@ -444,6 +444,16 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 .soval button { min-width: 38px; height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 99px; background: none; font-size: 14.5px; font-weight: 700; color: var(--muted); }
 .soval.off { opacity: .45; } .soval.off button { pointer-events: none; }
 .soval button.on { background: var(--acc-soft); color: var(--acc); border-color: var(--acc); }
+/* v143 section groups: one oval holding neighbouring sections, a dot between the numbers; long-press mode shows tick / X */
+.soval button { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.soval button.sgrp { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 12px; }
+.soval .sdot { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: .75; }
+.soval button.gsel { background: var(--acc); color: #fff; border-color: var(--acc); }
+.soval button.dim { opacity: .35; }
+.soval button.gact { min-width: 34px; width: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.soval button.gact svg { width: 18px; height: 18px; }
+.soval button.gact.ok { color: var(--acc); border-color: var(--acc); }
+.soval button.gact.no { color: #c0392b; border-color: #c0392b; }
 #reader.desk .mainp > .mwrap { flex-wrap: nowrap; }
 /* v102 Box / Line show-hide toggles: green outline = shown, grey with a slash = hidden */
 .vtog { position: relative; flex: none; width: 46px; height: 38px; border-radius: 99px; border: 1.5px solid var(--acc); background: var(--card); color: var(--acc); display: inline-flex; align-items: center; justify-content: center; }

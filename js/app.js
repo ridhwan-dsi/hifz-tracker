@@ -54,7 +54,7 @@
 
   /* v133: the look (New/Classic design + new colour mode) belongs to this phone, not the synced data. */
   var NTHEMES = [['mushafw', 'Mushaf White', '#ffffff', '#e1ede0', '#278a3d'], ['mushaf', 'Mushaf', '#edf2e6', '#cfdcbf', '#2f8a3c'], ['midnight', 'Midnight', '#07090d', '#1a2029', '#3ba7ff'], ['emerald', 'Emerald', '#05100c', '#15291f', '#d9b25a'], ['dusk', 'Dusk', '#0d0a14', '#221a33', '#b68cff'], ['sand', 'Sand', '#f5efe3', '#e3d7c0', '#b4612a'], ['cgreen', 'Classic Green', '#111513', '#2a332e', '#4cbf8a']];
-  function look() { var L = {}; try { L = JSON.parse(localStorage.getItem('hifz.look')) || {}; } catch (e) {} return { ui: L.ui === 'classic' ? 'classic' : 'new', nt: NTHEMES.some(function (t) { return t[0] === L.nt; }) ? L.nt : 'mushafw', rb: ['white', 'black'].indexOf(L.rb) >= 0 ? L.rb : 'theme' }; }
+  function look() { var L = {}; try { L = JSON.parse(localStorage.getItem('hifz.look')) || {}; } catch (e) {} return { ui: L.ui === 'classic' ? 'classic' : 'new', nt: NTHEMES.some(function (t) { return t[0] === L.nt; }) ? L.nt : 'mushafw', rb: ['white', 'black'].indexOf(L.rb) >= 0 ? L.rb : 'theme', pq: L.pq === 'std' ? 'std' : 'hd' }; }
   function setLook(k, v) { var L = look(); L[k] = v; try { localStorage.setItem('hifz.look', JSON.stringify(L)); } catch (e) {} }
 
   var App = {
@@ -88,7 +88,7 @@
     precache: function () {
       if (!navigator.serviceWorker || !navigator.serviceWorker.controller) return;
       var set = App.autoPages();
-      var urls = Object.keys(set).map(function (p) { return 'pages/p' + String(p).padStart(3, '0') + '.jpg'; });
+      var urls = Object.keys(set).map(function (p) { return pgSrc(p); });
       navigator.serviceWorker.controller.postMessage({ type: 'precache', urls: urls });
     }
   };
@@ -774,6 +774,7 @@
   var SHELP = {
     acct: 'Your progress, boxes and lines are kept in your own Google Drive and synced across devices. Sign out to use the app on this device only.',
     theme: 'Colour of the app. Kept on this phone only, so each device can have its own.',
+    pq: 'Sharp: pages enlarged to twice the size and lightly sharpened (bigger downloads, ~490 KB a page). Original: the mushaf PDF’s own images (~250 KB a page). Switch to compare them. Each keeps its own offline copy on this phone.',
     readerBg: 'Colour of the space around the page in the reader (e.g. between the page and the drawer): Theme follows your colour mode, or pick plain White or Black. Saved on this phone.',
     design: 'New is the redesigned look; Classic is the earlier design, kept for now as a fallback. Your data and features are the same in both.',
     web: 'For laptops and big screens: a thin control bar across the bottom, page arrows at the sides, two facing pages. Off: the phone reader. Also on the switch beside Settings.',
@@ -821,6 +822,7 @@
         : '<div class="frow">' + nm('theme', 'Theme') + '<div class="themes">' + themes.map(function (t) { return '<button class="' + (s.theme === t[0] ? 'on' : '') + '" data-act="theme" data-t="' + t[0] + '"><span class="sq" style="background:' + t[1] + '"></span>' + t[2] + '</button>'; }).join('') + '</div></div>') +
       '<h4>Page display</h4>' +
       (innerWidth >= 1000 ? row('web', 'Web view', sw(s.view === 'web', 'webView')) + row('webTrim', 'Trim margins in web view', sw(s.webTrim, 'webTrim')) : '') +
+      row('pq', 'Page quality', '<div class="dsw">' + [['hd', 'Sharp'], ['std', 'Original']].map(function (d) { return '<button class="' + (lk.pq === d[0] ? 'on' : '') + '" data-act="pageQ" data-d="' + d[0] + '">' + d[1] + '</button>'; }).join('') + '</div>') +
       row('fit', 'Show pages', sel('fit', [['page', 'Whole page'], ['width', 'Fit width']], s.fit === 'width' ? 'width' : 'page')) +
       row('trim', 'Auto-trim', sel('trim', [['full', 'Keep header'], ['frame', 'Frame only'], ['off', 'Off']], s.trim || 'full')) +
       row('crop', 'Default crop', s.cropDef ? '<span class="sst">P. ' + s.cropDef.p + '</span><button class="btn sm" data-act="cropRestore">Restore</button>' : '<span class="sst">Auto-trim</span>') +
@@ -1063,7 +1065,7 @@
       el.disabled = true; el.textContent = 'Updating…';
       var sw = navigator.serviceWorker, files = ['./', 'index.html', 'css/app.css', 'js/config.js', 'js/quran.js', 'js/autocrop.js', 'js/store.js', 'js/timer.js', 'js/tally.js', 'js/reader.js', 'js/app.js', 'sw.js'];
       var p1 = sw ? sw.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }) : Promise.resolve();
-      var p2 = window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k !== 'hifz-pages' && k !== 'hifz-fonts'; }).map(function (k) { return caches.delete(k); })); }) : Promise.resolve();
+      var p2 = window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k.indexOf('hifz-pages') !== 0 && k !== 'hifz-fonts'; /* v143: keep every page cache (2×, 1×) — since v141 Update was wiping the 2× offline pages */ }).map(function (k) { return caches.delete(k); })); }) : Promise.resolve();
       // Refetch the app files past the browser's HTTP cache so the reload gets fresh copies.
       var p3 = Promise.all(files.map(function (f) { return fetch(f, { cache: 'reload' }).catch(function () {}); }));
       // v110: come back to Settings at the same scroll spot, so the result of the update is visible.
@@ -1074,6 +1076,17 @@
     theme: function (el) { S.d.settings.theme = el.dataset.t; S.saveSettings(); App.render(); openSettings(); },
     ntheme: function (el) { setLook('nt', el.dataset.t); App.render(); openSettings(); },
     readerBg: function (el) { setLook('rb', el.dataset.d); App.render(); openSettings(); },
+    // v143: Sharp (2×) ⇄ Original pages. The reader drops its loaded images so the next page opens in the new quality.
+    pageQ: function (el) {
+      var v = el.dataset.d; if (look().pq === v) return;
+      setLook('pq', v); if (window.Reader && Reader.flushImgs) Reader.flushImgs(); App.precache(); openSettings();
+      var ks = Object.keys(offD().sel), t = {}; ks.forEach(function (k) { t[k] = 1; });
+      var nm = v === 'std' ? 'Original' : 'Sharp';
+      if (ks.length) App.toast(nm + ' pages · your offline pages need downloading in this quality', function () {
+        App.toast('Downloading offline pages…'); offApply(t, function (ok, bad) { App.toast(bad ? ok + ' pages saved, ' + bad + ' failed — try again in Settings → Offline pages' : ok + ' pages saved offline'); });
+      }, 'Download', 10000);
+      else App.toast(nm + ' pages');
+    },
     design: function (el) { setLook('ui', el.dataset.d); App.render(); openSettings(); },
     swipeSur: function () { S.d.settings.swipeSur = S.d.settings.swipeSur === false; S.saveSettings(); openSettings(); },
     viewFlip: function () { S.d.settings.view = S.d.settings.view === 'web' ? 'mobile' : 'web'; S.saveSettings(); App.render(); },
@@ -1114,7 +1127,9 @@
      Device-only record in localStorage 'hifz.off': sel = chosen keys { key: { at } }, used = { key: last opened },
      asked = { key: when the reminder was answered }. Keys: 'all' (whole mushaf), 'mem' (all Memorizing pages),
      'm:<tag id>' (Memorization tag), 'r:<tag id>' (Recitation reading: bookmark → end of the mushaf). */
-  var OFK = 'hifz.off', PCN = 'hifz-pages-2x'; // v141: pages are now 2× sharper images in a new cache; the old one is dropped
+  var OFK = 'hifz.off';
+  function pcn() { return pgQ() === 'std' ? 'hifz-pages-1x' : 'hifz-pages-2x'; } // v143: each page quality has its own cache
+  // v141: pages are now 2× sharper images in a new cache; the old one is dropped
   /* v141: once, after the switch to sharper pages, offer to re-download the offline pages he had chosen
      (the old copies went with the old cache). Not automatic, as the whole mushaf is ~290 MB. */
   setTimeout(function () {
@@ -1127,8 +1142,8 @@
   }, 2500);
   function offD() { var o = null; try { o = JSON.parse(localStorage.getItem(OFK)); } catch (e) {} o = o || {}; o.sel = o.sel || {}; o.used = o.used || {}; o.asked = o.asked || {}; return o; }
   function offW(o) { try { localStorage.setItem(OFK, JSON.stringify(o)); } catch (e) {} }
-  function pgUrl(p) { return new URL('pages/p' + String(p).padStart(3, '0') + '.jpg', location.href).href; }
-  function kbOf(ps) { var K = (window.AUTOCROP && AUTOCROP.kb) || []; return ps.reduce(function (a, p) { return a + (K[p - 1] || 250); }, 0); }
+  function pgUrl(p) { return new URL(pgSrc(p), location.href).href; }
+  function kbOf(ps) { var K = (window.AUTOCROP && AUTOCROP[pgQ() === 'std' ? 'kb1' : 'kb']) || []; return ps.reduce(function (a, p) { return a + (K[p - 1] || 250); }, 0); }
   function mb(kb) { var m = kb / 1024; return (m >= 10 ? Math.round(m) : m.toFixed(1)) + ' MB'; }
   function offList() { // [{ k, name, grp, pages: [p…] }]
     var L = [{ k: 'all', name: 'Whole mushaf', grp: '', pages: Array.from({ length: 604 }, function (_, i) { return i + 1; }) }];
@@ -1145,7 +1160,7 @@
   }
   function offCached() { // Promise → { page: 1 } for every page saved on this device
     if (!window.caches) return Promise.resolve({});
-    return caches.open(PCN).then(function (c) { return c.keys(); }).then(function (ks) {
+    return caches.open(pcn()).then(function (c) { return c.keys(); }).then(function (ks) {
       var o = {}; ks.forEach(function (r) { var m = /\/p(\d{3})\.jpg/.exec(r.url); if (m) o[+m[1]] = 1; }); return o;
     }).catch(function () { return {}; });
   }
@@ -1180,7 +1195,7 @@
     L.forEach(function (x) { if (sel[x.k]) x.pages.forEach(function (p) { need[p] = 1; }); });
     L.forEach(function (x) { if (prev[x.k] && !sel[x.k]) x.pages.forEach(function (p) { if (!need[p] && !auto[p]) gone[p] = 1; }); });
     if (!window.caches) { done && done(0, 0, 0); return; }
-    caches.open(PCN).then(function (c) {
+    caches.open(pcn()).then(function (c) {
       return Promise.all(Object.keys(gone).map(function (p) { return c.delete(pgUrl(p)); })).then(function () { return offCached(); }).then(function (C) {
         var q = Object.keys(need).filter(function (p) { return !C[p]; }).map(Number), n = q.length, ok = 0, bad = 0, i = 0;
         if (!n) { done && done(0, 0, Object.keys(gone).length); return; }
@@ -1233,7 +1248,7 @@
       dialog({ title: 'Remove all offline pages?', msg: 'Every tag is unticked and its pages are removed from this device. Pages you are memorizing and the next 10 pages of each reading stay.', always: true, btns: [['x', 'Cancel'], ['go', 'Remove all', 'danger']] }, function (v, w) {
         if (w !== 'go') { offRender(); return; }
         var auto = App.autoPages(); var o = offD(); o.sel = {}; offW(o); ofs.tick = {}; ofs.busy = true; offRender();
-        caches.open(PCN).then(function (c) { return c.keys().then(function (ks) { return Promise.all(ks.filter(function (r) { var m = /\/p(\d{3})\.jpg/.exec(r.url); return !m || !auto[+m[1]]; }).map(function (r) { return c.delete(r); })); }); })
+        caches.open(pcn()).then(function (c) { return c.keys().then(function (ks) { return Promise.all(ks.filter(function (r) { var m = /\/p(\d{3})\.jpg/.exec(r.url); return !m || !auto[+m[1]]; }).map(function (r) { return c.delete(r); })); }); })
           .catch(function () {}).then(function () { return offCached(); }).then(function (C) { if (ofs) { ofs.busy = false; ofs.cached = C; ofs.prog = 'Removed.'; offRender(); } });
       });
     }
