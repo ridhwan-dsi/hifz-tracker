@@ -749,3 +749,7 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 #ov .vg { stroke: #1d6fe0; stroke-width: 1.6px; stroke-dasharray: 5 5; vector-effect: non-scaling-stroke; opacity: .75; pointer-events: none; }
 #ov .vg.on { opacity: 1; stroke-width: 2.2px; }
 #ov .sg { stroke: #1d6fe0; stroke-width: 1px; vector-effect: non-scaling-stroke; opacity: .45; pointer-events: none; }
+/* v148: pinwheel guides — the horizontal (height) ones in coral; magnet switch in the Box/Line edit row */
+#ov .vg.hz { stroke: #d85a30; }
+.pill.mag svg.i { width: 16px; height: 16px; margin-right: 4px; vertical-align: -3px; }
+.pill.mag.on { background: var(--muted); color: var(--card); border-color: transparent; }

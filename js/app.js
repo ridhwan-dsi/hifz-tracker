@@ -803,6 +803,7 @@
     tap: 'On: double-tap the page to hide or bring back the drawer. Off: a single tap hides it and the page number brings it back.',
     boxW: 'How wide a new box starts, as a share of the page width.',
     boxH: 'On: a box’s handles change only its width, so the height can’t shift by accident. Off: the corner handles change width and height.',
+    guides: 'On: boxes and lines snap like magnets to the invisible lines between the 15 text lines, dotted guides change a box’s width (and its height with the magnet off), and a magnet switch shows while editing. Off: no guides or snapping — boxes and lines work as they did before.',
     cover: 'What covers the part of a page hidden by a section line. Paper is the default; White is how it used to look.',
     swipe: 'Swiping stays inside one surah. On: when the next surah in your list starts on the same or the next page (e.g. Faatir → Yaseen), swiping carries on into it.',
     decay: 'A page loses health when it isn’t reviewed: after the days you pick, then by the percentage each week.',
@@ -848,6 +849,7 @@
     if (!rec) h += '<h4>Boxes &amp; lines</h4>' +
       row('boxW', 'New box width', sel('boxW', [8, 11, 15, 20, 25, 34, 50], +s.boxW || 11, function (v) { return v + '%'; })) +
       row('boxH', 'Lock box height', sw(s.boxHLock !== false, 'boxHLock')) +
+      row('guides', 'Helper lines and snapping', sw(s.guides !== false, 'guides')) +
       '<div class="frow">' + nm('cover', 'Hidden area') + '<div class="rrow">' + [['#f3e9d4', 'Paper'], ['#ffffff', 'White'], ['#fbf6e9', 'Cream'], ['#e9ecea', 'Grey']].map(function (c) { return '<button class="sw-c ' + ((s.hideCol || '#f3e9d4') === c[0] ? 'on' : '') + '" style="background:' + c[0] + '" data-act="cover" data-c="' + c[0] + '" aria-label="' + c[1] + '" title="' + c[1] + '"></button>'; }).join('') + '</div></div>' +
       '<h4>Reading</h4>' + row('swipe', 'Swipe into next surah', sw(s.swipeSur !== false, 'swipeSur')) +
       row('goal', 'Daily goal', sel('goalDay', [0, 10, 15, 20, 30, 45, 60, 90], s.goalDay || 0, function (v) { return v ? v + ' min' : 'Off'; })) +
@@ -1110,6 +1112,7 @@
     webTrim: function () { S.d.settings.webTrim = !S.d.settings.webTrim; S.saveSettings(); openSettings(); },
     webView: function () { S.d.settings.view = S.d.settings.view === 'web' ? 'mobile' : 'web'; S.saveSettings(); App.render(); openSettings(); },
     tapShow: function () { S.d.settings.tapShow = !S.d.settings.tapShow; S.saveSettings(); openSettings(); },
+    guides: function () { S.d.settings.guides = S.d.settings.guides === false; S.saveSettings(); openSettings(); },
     boxHLock: function () { S.d.settings.boxHLock = S.d.settings.boxHLock === false; S.saveSettings(); openSettings(); },
     cropRestore: function () { if (!confirm('Restore the default crop to the auto-trim?')) return; S.d.settings.cropDef = null; S.saveSettings(); /* null, not delete, so the restore syncs to other devices */ openSettings(); App.render(); App.toast('Default crop restored'); },
     showArch: function () { S.d.settings.showArch = !S.d.settings.showArch; S.saveSettings(); openSettings(); App.render(); },

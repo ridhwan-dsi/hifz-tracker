@@ -147,22 +147,26 @@
      (Fatiha / Baqarah opening, circular frame) have no grid. gridOf() gives the 16 invisible lines between and around
      the text lines, in on-screen units of the current crop and join, plus the line pitch. Boxes and lines snap to them. */
   function gridOf() {
-    var p = R.p; if (p < 3 || R.rec) return null;
+    var p = R.p; if (p < 3 || R.rec || !guidesOn()) return null;
     var c = cropOf(p), f = Math.max(0.2, 1 - c.l - c.r), oy = c.t * aspect(p) * 1000, k = 1000 / 750;
     var c0 = p <= 61 ? 220 : 169, pt = p <= 61 ? 52.75 : 52.6, ys = [];
     for (var i = 0; i <= 15; i++) ys.push(((c0 + pt * (i - 0.5)) * k - oy) / f + R.oy);
     return { ys: ys, pitch: pt * k / f };
   }
   var SNAP_PX = 16; // magnet reach in screen px
+  /* v148: Settings → Helper lines and snapping (on by default; off = everything as before v147), and the magnet
+     switch in the Box/Line edit row (starts on every time editing begins; off = free placement + height guides). */
+  function guidesOn() { return S.d.settings.guides !== false; }
+  function magOn() { return guidesOn() && R.mag !== false; }
   function snapY(y, far) { // nearest invisible line within reach (far: any distance), else y unchanged
-    var g = gridOf(); if (!g) return y;
+    var g = gridOf(); if (!g || (!far && !magOn())) return y;
     var best = y, bd = far ? 1e9 : SNAP_PX * pxU();
     g.ys.forEach(function (v) { var d = Math.abs(v - y); if (d < bd) { bd = d; best = v; } });
     if (best !== y && R.drag) R.drag.sy = best;
     return best;
   }
   function snapMid(top, h, far) { // box: centre it on a text line when close (top and bottom then sit on the invisible lines)
-    var g = gridOf(); if (!g) return top;
+    var g = gridOf(); if (!g || (!far && !magOn())) return top;
     var mid = top + h / 2, bd = far ? 1e9 : SNAP_PX * pxU(), best = null;
     for (var i = 0; i < 15; i++) { var c = (g.ys[i] + g.ys[i + 1]) / 2, d = Math.abs(c - mid); if (d < bd) { bd = d; best = i; } }
     if (best == null) return top;
@@ -464,8 +468,8 @@
     else if ((!sec || lockL) && !(am.hl && !R.edit)) divs.forEach(function (x) { s += '<polyline class="div view" points="' + divPts(x.m) + '"/>'; });
     var m = R.items[R.sel];
     if (R.edit && m && kindOK(m)) { // v147: dotted vertical guides + the invisible line(s) the drag has snapped to
-      var gxs = m.k === 'box' ? [m.x, m.x + m.w] : [m.x], dg = R.drag && R.drag.i === R.sel ? R.drag : null;
-      gxs.forEach(function (x) { s += '<line class="vg' + (dg && dg.wo ? ' on' : '') + '" x1="' + r1(x) + '" y1="0" x2="' + r1(x) + '" y2="' + r1(H) + '"/>'; });
+      var dg = R.drag && R.drag.i === R.sel ? R.drag : null;
+      guideSegs(m).forEach(function (g) { s += '<line class="vg' + (g.y1 === g.y2 ? ' hz' : '') + (dg && dg.wo && dg.h === g.h ? ' on' : '') + '" x1="' + r1(g.x1) + '" y1="' + r1(g.y1) + '" x2="' + r1(g.x2) + '" y2="' + r1(g.y2) + '"/>'; });
       if (dg) (dg.sb || (dg.sy != null ? [dg.sy] : [])).forEach(function (y) { s += '<line class="sg" x1="0" y1="' + r1(y) + '" x2="1000" y2="' + r1(y) + '"/>'; });
     }
     if (R.edit && m && kindOK(m)) {
@@ -569,6 +573,8 @@
         var lk = hLock() || d.wo; d.sy = d.sb = null; // d.wo: dragged by a dotted width guide — width only
         if (d.h === 'br') { m.w = Math.max(12, pt.x - m.x); if (!lk) m.h = Math.max(12, snapY(pt.y) - m.y); }
         else if (d.h === 'tl') { var rx = m.x + m.w, by = m.y + m.h; m.x = Math.min(pt.x, rx - 12); m.w = rx - m.x; if (!lk) { m.y = Math.min(snapY(pt.y), by - 12); m.h = by - m.y; } }
+        else if (d.h === 'tt') { var by2 = m.y + m.h; m.y = Math.min(pt.y, by2 - 12); m.h = by2 - m.y; }
+        else if (d.h === 'bb') m.h = Math.max(12, pt.y - m.y);
         else if (d.h === 'g') { var dy = pt.y - d.pt.y, lo = -Math.min(d.orig.y1, d.orig.y2), hi = R.Hu - Math.max(d.orig.y1, d.orig.y2); dy = clamp(dy, lo, hi); var ny = snapY(d.orig.y1 + dy); dy = clamp(ny - d.orig.y1, lo, hi); m.y1 = d.orig.y1 + dy; m.y2 = d.orig.y2 + dy; }
         else if (d.h === 'r') m.y1 = clamp(snapY(pt.y), 0, R.Hu); else if (d.h === 'l') m.y2 = clamp(snapY(pt.y), 0, R.Hu); else if (d.h === 's') m.x = clamp(pt.x, 15, 985);
         draw();
@@ -617,14 +623,22 @@
      to change only its width) and a line's step (slide to move where the line breaks). Inside a box an edge guide
      wins only close to the edge (never the middle third), so the box can still be dragged. */
   var GD_GRAB = 18; // screen px
+  /* v148 pinwheel: each guide runs from one corner to the page edge — left edge up, right edge down, top edge left,
+     bottom edge right (the last two only with the magnet off) — so no two guides meet. */
+  function guideSegs(m) {
+    if (!guidesOn()) return [];
+    if (m.k === 'div') return [{ h: 's', x1: m.x, y1: 0, x2: m.x, y2: R.Hu }];
+    var r = m.x + m.w, b = m.y + m.h, g = [{ h: 'tl', x1: m.x, y1: 0, x2: m.x, y2: m.y }, { h: 'br', x1: r, y1: b, x2: r, y2: R.Hu }];
+    if (!magOn()) g.push({ h: 'tt', x1: 0, y1: m.y, x2: m.x, y2: m.y }, { h: 'bb', x1: r, y1: b, x2: 1000, y2: b });
+    return g;
+  }
   function nearGuide(m, pt) {
-    var u = pxU(), r = GD_GRAB * u;
-    if (m.k === 'div') return Math.abs(pt.x - m.x) <= r ? 's' : null;
-    var inY = pt.y > m.y && pt.y < m.y + m.h, rin = inY ? Math.min(r, m.w / 3) : r;
-    var dl = Math.abs(pt.x - m.x), dr = Math.abs(pt.x - (m.x + m.w));
-    if (inY && pt.x > m.x && pt.x < m.x + m.w) { dl = pt.x - m.x <= rin ? dl : 1e9; dr = m.x + m.w - pt.x <= rin ? dr : 1e9; }
-    if (Math.min(dl, dr) > r) return null;
-    return dl <= dr ? 'tl' : 'br';
+    var rr = GD_GRAB * pxU(), best = null;
+    guideSegs(m).forEach(function (s) {
+      var d = s.x1 === s.x2 ? (pt.y >= s.y1 - rr && pt.y <= s.y2 + rr ? Math.abs(pt.x - s.x1) : 1e9) : (pt.x >= s.x1 - rr && pt.x <= s.x2 + rr ? Math.abs(pt.y - s.y1) : 1e9);
+      if (d <= rr) { rr = d; best = s.h; }
+    });
+    return best;
   }
   // v93: while editing boxes, lines are view-only, and while editing lines, boxes are view-only.
   function kindOK(m) { return !m || !R.etool || (R.etool === 'box') === (m.k === 'box'); }
@@ -744,6 +758,7 @@
     fitp: I('<rect x="6" y="3" width="12" height="18" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h4"/>'), fitw: I('<path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/>'),
     left: I('<path d="M15 18l-6-6 6-6"/>'), right: I('<path d="M9 18l6-6-6-6"/>'), check: I('<path d="M20 6L9 17l-5-5"/>'),
     pen: I('<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), up: I('<path d="M18 15l-6-6-6 6"/>'), down: I('<path d="M6 9l6 6 6-6"/>'), trash: I('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'), x: I('<path d="M6 6l12 12M18 6L6 18"/>'), back: I('<path d="M19 12H5M12 19l-7-7 7-7"/>'), tally: I('<circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/>'),
+    mag: I('<path d="M6 3v8a6 6 0 0 0 12 0V3M6 7h4M14 7h4"/>'), magOff: I('<path d="M6 3v8a6 6 0 0 0 12 0V3M6 7h4M14 7h4M3 3l18 18"/>'),
     phone: I('<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/>'),
     bmk: I('<path d="M6.5 3h11v18l-5.5-4.2L6.5 21z"/>'), bmgo: I('<path d="M5 3h9v18l-4.5-3.4L5 21z"/><path d="M15 12h6M18.5 9l2.5 3-2.5 3"/>'),
     scroll: I('<path d="M15 12h-5M15 8h-5M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/>'),
@@ -1201,6 +1216,7 @@
     x += '<div class="rrow etop">' +
       (R.etool === 'line' ? '<button class="pill soft" data-ract="addLine">+ ' + IC.line + 'Line</button>' : '<button class="pill soft" data-ract="addBox">+ ' + IC.box + 'Box</button>') +
       (m && m.k === 'div' ? '<button class="icb" data-ract="straight" aria-label="Straighten line" title="Straighten">' + IC.line.replace('M3 9h10v6h8', 'M3 12h18') + '</button>' : '') +
+      (guidesOn() ? '<button class="pill soft mag' + (magOn() ? ' on' : '') + '" data-ract="mag" role="switch" aria-checked="' + magOn() + '">' + (magOn() ? IC.mag : IC.magOff) + (magOn() ? 'Snap on' : 'Snap off') + '</button>' : '') +
       '<button class="icb danger" data-ract="del" data-k="' + (R.etool === 'line' ? 'div' : 'box') + '" aria-label="Delete selected (hold to delete all)">' + IC.trash + '</button>' +
       '<button class="icb" data-ract="cancelEdit" aria-label="Cancel changes">' + IC.x + '</button>' +
       '<button class="icb pri" data-ract="doneEdit" aria-label="Save">' + IC.check + '</button></div>';
@@ -1279,7 +1295,7 @@
   function afterStyle() { var m = selBox(); if (m !== R.style) { R.style.c = m.c; R.style.o = m.o; R.style.b = m.b; commitItems(); } rememberStyle(m); draw(); renderPanel(); }
   function startEdit(sel) {
     var am = ensureLayer(); if (!am) return false;
-    if (!R.edit) { R.snap = { items: JSON.stringify(am.items || []), sec: am.sec || 0, sec2: am.sec2 || 0, grp: JSON.stringify(am.grp || []) }; R.edit = true; R.sub = R.sub === 'box' || R.sub === 'line' ? R.sub : null; R.etool = R.sub === 'line' ? 'line' : R.sub === 'box' ? 'box' : R.etool; R.sel = sel; renderPanel(); layout(); }
+    if (!R.edit) { R.mag = true; R.snap = { items: JSON.stringify(am.items || []), sec: am.sec || 0, sec2: am.sec2 || 0, grp: JSON.stringify(am.grp || []) }; R.edit = true; R.sub = R.sub === 'box' || R.sub === 'line' ? R.sub : null; R.etool = R.sub === 'line' ? 'line' : R.sub === 'box' ? 'box' : R.etool; R.sel = sel; renderPanel(); layout(); }
     return true;
   }
   // Long-press in read mode: which shape (if any) is under the finger.
@@ -1462,6 +1478,7 @@
       saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) { m.items = []; m.sec = m.sec2 = 0; m.grp = []; } }); });
       loadItems(); R.edit = false; R.sel = -1; R.sub = null; draw(); renderPanel(); layout();
     },
+    mag: function () { R.mag = !magOn(); draw(); renderPanel(); },
     addBox: function () {
       if (!startEdit(-1)) return; R.etool = 'box';
       var nb = R.items.filter(function (q) { return q.k === 'box'; }).length, off = (nb % 6) * 40;
