@@ -681,7 +681,7 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 [data-ui="new"] .subtabs button { border: 0; border-radius: 99px; padding: 8px 4px; margin: 0; }
 [data-ui="new"] .subtabs button.on { background: var(--acc); color: var(--acc-ink); }
 [data-ui="new"] .chip { border: 0; background: var(--card); box-shadow: inset 0 0 0 1px var(--line); font-weight: 700; }
-[data-ui="new"] .chip.on { background: var(--ink); color: var(--bg); box-shadow: none; }
+[data-ui="new"] .chip.on { background: var(--muted); color: var(--card); box-shadow: none; } /* v147: selected tag = the unselected chip inverted (its text colour as fill, its fill as text), not bright white */
 [data-ui="new"] .chip.add { box-shadow: inset 0 0 0 1px var(--line); background: transparent; border: 1px dashed var(--line); }
 [data-ui="new"] .tagbar b { font-size: 17px; font-weight: 800; }
 [data-ui="new"] .list { border-radius: 20px; }
@@ -745,3 +745,7 @@ body.web #app { max-width: 1100px; padding-left: 24px; padding-right: 24px; }
 .rplbl { font-size: 12.5px; color: var(--muted); margin: 12px 0 2px; }
 #reader.desk .mainp .rpstats.more { grid-area: 1 / 1 / 4 / 4; max-height: 70vh; }
 .sbadge.jz .ar { font-family: inherit; font-size: 17px; font-weight: 800; direction: ltr; } /* v146 juz badge */
+/* v147: dotted vertical guides of the selected box/line (drag to change width / move the step) and the invisible text-line a drag snaps to */
+#ov .vg { stroke: #1d6fe0; stroke-width: 1.6px; stroke-dasharray: 5 5; vector-effect: non-scaling-stroke; opacity: .75; pointer-events: none; }
+#ov .vg.on { opacity: 1; stroke-width: 2.2px; }
+#ov .sg { stroke: #1d6fe0; stroke-width: 1px; vector-effect: non-scaling-stroke; opacity: .45; pointer-events: none; }

@@ -141,7 +141,34 @@
     S.edit(p, function (o) { o.mk = ms; delete o.masks; delete o.sec; delete o.hb; });
   }
   // New-box height tracks the text: 80 on-screen units under the plain auto-trim, scaled for any tighter or looser crop.
-  function boxH() { var b = baseCrop(R.p), c = cropOf(R.p); return 80 * (1 - b.l - b.r) / Math.max(0.2, 1 - c.l - c.r); }
+  function boxH() { var g = gridOf(); if (g) return g.pitch; var b = baseCrop(R.p), c = cropOf(R.p); return 80 * (1 - b.l - b.r) / Math.max(0.2, 1 - c.l - c.r); }
+  /* v147: the 15 text lines. Every page of this mushaf uses one fixed 15-line grid (measured from the page images):
+     line centres at 220 + 52.75·i px on pages 3–61 and 169 + 52.6·i px from p. 62 (750 px wide images). Pages 1–2
+     (Fatiha / Baqarah opening, circular frame) have no grid. gridOf() gives the 16 invisible lines between and around
+     the text lines, in on-screen units of the current crop and join, plus the line pitch. Boxes and lines snap to them. */
+  function gridOf() {
+    var p = R.p; if (p < 3 || R.rec) return null;
+    var c = cropOf(p), f = Math.max(0.2, 1 - c.l - c.r), oy = c.t * aspect(p) * 1000, k = 1000 / 750;
+    var c0 = p <= 61 ? 220 : 169, pt = p <= 61 ? 52.75 : 52.6, ys = [];
+    for (var i = 0; i <= 15; i++) ys.push(((c0 + pt * (i - 0.5)) * k - oy) / f + R.oy);
+    return { ys: ys, pitch: pt * k / f };
+  }
+  var SNAP_PX = 16; // magnet reach in screen px
+  function snapY(y, far) { // nearest invisible line within reach (far: any distance), else y unchanged
+    var g = gridOf(); if (!g) return y;
+    var best = y, bd = far ? 1e9 : SNAP_PX * pxU();
+    g.ys.forEach(function (v) { var d = Math.abs(v - y); if (d < bd) { bd = d; best = v; } });
+    if (best !== y && R.drag) R.drag.sy = best;
+    return best;
+  }
+  function snapMid(top, h, far) { // box: centre it on a text line when close (top and bottom then sit on the invisible lines)
+    var g = gridOf(); if (!g) return top;
+    var mid = top + h / 2, bd = far ? 1e9 : SNAP_PX * pxU(), best = null;
+    for (var i = 0; i < 15; i++) { var c = (g.ys[i] + g.ys[i + 1]) / 2, d = Math.abs(c - mid); if (d < bd) { bd = d; best = i; } }
+    if (best == null) return top;
+    if (R.drag) R.drag.sb = [g.ys[best], g.ys[best + 1]];
+    return (g.ys[best] + g.ys[best + 1]) / 2 - h / 2;
+  }
   function rnd(m) { var c = {}; for (var k in m) c[k] = typeof m[k] === 'number' ? r1(m[k]) : m[k]; return c; }
   function commitItems() {
     var am0 = activeMask(), am = am0 ? am0.id : null, items = conv(shiftItems(R.items, -R.oy), cropOf(R.p), R.p, false).map(function (m) { var c = {}; for (var k in m) c[k] = typeof m[k] === 'number' ? r1(m[k]) : m[k]; return c; });
@@ -436,6 +463,11 @@
     });
     else if ((!sec || lockL) && !(am.hl && !R.edit)) divs.forEach(function (x) { s += '<polyline class="div view" points="' + divPts(x.m) + '"/>'; });
     var m = R.items[R.sel];
+    if (R.edit && m && kindOK(m)) { // v147: dotted vertical guides + the invisible line(s) the drag has snapped to
+      var gxs = m.k === 'box' ? [m.x, m.x + m.w] : [m.x], dg = R.drag && R.drag.i === R.sel ? R.drag : null;
+      gxs.forEach(function (x) { s += '<line class="vg' + (dg && dg.wo ? ' on' : '') + '" x1="' + r1(x) + '" y1="0" x2="' + r1(x) + '" y2="' + r1(H) + '"/>'; });
+      if (dg) (dg.sb || (dg.sy != null ? [dg.sy] : [])).forEach(function (y) { s += '<line class="sg" x1="0" y1="' + r1(y) + '" x2="1000" y2="' + r1(y) + '"/>'; });
+    }
     if (R.edit && m && kindOK(m)) {
       // Handles are sized in screen pixels (not page units) so they stay easy to hold on a phone.
       var hr = 18, ad = R.drag && R.drag.k === 'h' ? R.drag.h : '';
@@ -505,6 +537,8 @@
       // A touch anywhere near a handle of the selected shape grabs that handle (nearest wins), before the line or box itself.
       var nh = R.sel >= 0 && kindOK(R.items[R.sel]) ? nearHandle(R.items[R.sel], pt) : null;
       if (nh) { R.drag = { k: 'h', h: nh, i: R.sel, pt: pt, orig: JSON.parse(JSON.stringify(R.items[R.sel])) }; draw(); return; }
+      var ng = R.sel >= 0 && kindOK(R.items[R.sel]) ? nearGuide(R.items[R.sel], pt) : null; // v147: dotted vertical guides
+      if (ng) { R.drag = { k: 'h', h: ng, i: R.sel, pt: pt, wo: true, orig: JSON.parse(JSON.stringify(R.items[R.sel])) }; draw(); return; }
       if (ds.i != null && R.items[+ds.i].k === 'div') { R.sel = +ds.i; draw(); renderPanel(); return; } // touching a line only selects it
       if (ds.i != null) { R.sel = +ds.i; R.drag = { k: 'move', i: +ds.i, pt: pt, orig: JSON.parse(JSON.stringify(R.items[+ds.i])) }; draw(); renderPanel(); return; }
       if (R.sel >= 0) { R.sel = -1; draw(); renderPanel(); }
@@ -526,16 +560,17 @@
       if (d.k === 'new') { R.tmp = { x: Math.min(d.x0, pt.x), y: Math.min(d.y0, pt.y), w: Math.abs(pt.x - d.x0), h: Math.abs(pt.y - d.y0) }; draw(); return; }
       if (d.k === 'move') {
         m = R.items[d.i]; var mx = pt.x - d.pt.x, my = pt.y - d.pt.y;
-        if (m.k === 'box') { m.x = d.orig.x + mx; m.y = d.orig.y + my; } else { m.y1 = d.orig.y1 + my; m.y2 = d.orig.y2 + my; }
+        d.sy = d.sb = null;
+        if (m.k === 'box') { m.x = d.orig.x + mx; m.y = snapMid(d.orig.y + my, m.h); } else { m.y1 = d.orig.y1 + my; m.y2 = d.orig.y2 + my; }
         draw(); return;
       }
       if (d.k === 'h') {
         m = R.items[d.i]; if (!m) return;
-        var lk = hLock();
-        if (d.h === 'br') { m.w = Math.max(12, pt.x - m.x); if (!lk) m.h = Math.max(12, pt.y - m.y); }
-        else if (d.h === 'tl') { var rx = m.x + m.w, by = m.y + m.h; m.x = Math.min(pt.x, rx - 12); m.w = rx - m.x; if (!lk) { m.y = Math.min(pt.y, by - 12); m.h = by - m.y; } }
-        else if (d.h === 'g') { var dy = pt.y - d.pt.y, lo = -Math.min(d.orig.y1, d.orig.y2), hi = R.Hu - Math.max(d.orig.y1, d.orig.y2); dy = clamp(dy, lo, hi); m.y1 = d.orig.y1 + dy; m.y2 = d.orig.y2 + dy; }
-        else if (d.h === 'r') m.y1 = clamp(pt.y, 0, R.Hu); else if (d.h === 'l') m.y2 = clamp(pt.y, 0, R.Hu); else if (d.h === 's') m.x = clamp(pt.x, 15, 985);
+        var lk = hLock() || d.wo; d.sy = d.sb = null; // d.wo: dragged by a dotted width guide — width only
+        if (d.h === 'br') { m.w = Math.max(12, pt.x - m.x); if (!lk) m.h = Math.max(12, snapY(pt.y) - m.y); }
+        else if (d.h === 'tl') { var rx = m.x + m.w, by = m.y + m.h; m.x = Math.min(pt.x, rx - 12); m.w = rx - m.x; if (!lk) { m.y = Math.min(snapY(pt.y), by - 12); m.h = by - m.y; } }
+        else if (d.h === 'g') { var dy = pt.y - d.pt.y, lo = -Math.min(d.orig.y1, d.orig.y2), hi = R.Hu - Math.max(d.orig.y1, d.orig.y2); dy = clamp(dy, lo, hi); var ny = snapY(d.orig.y1 + dy); dy = clamp(ny - d.orig.y1, lo, hi); m.y1 = d.orig.y1 + dy; m.y2 = d.orig.y2 + dy; }
+        else if (d.h === 'r') m.y1 = clamp(snapY(pt.y), 0, R.Hu); else if (d.h === 'l') m.y2 = clamp(snapY(pt.y), 0, R.Hu); else if (d.h === 's') m.x = clamp(pt.x, 15, 985);
         draw();
       }
     };
@@ -551,7 +586,7 @@
       }
       if (d.k === 'line') {
         if (Math.abs(pt.y - d.y0) < 40 && Math.abs(pt.x - d.x0) < 40) {
-          R.items.push({ k: 'div', x: 500, y1: pt.y, y2: pt.y }); R.sel = R.items.length - 1; commitItems(); renderPanel();
+          var sy = snapY(pt.y); R.items.push({ k: 'div', x: 500, y1: sy, y2: sy }); R.sel = R.items.length - 1; commitItems(); renderPanel();
         }
         draw(); return;
       }
@@ -577,6 +612,19 @@
     if (m.k === 'box' && pt.x > m.x && pt.x < m.x + m.w && pt.y > m.y && pt.y < m.y + m.h) bd = Math.min((HD_R + 8) * u, m.w / 3);
     handlesOf(m).forEach(function (h) { var d = Math.hypot(pt.x - h.x, pt.y - h.y); if (d <= bd) { bd = d; best = h.h; } });
     return best;
+  }
+  /* v147: dotted vertical guides of the selected item, full page height — a box's two edges (hold and slide left/right
+     to change only its width) and a line's step (slide to move where the line breaks). Inside a box an edge guide
+     wins only close to the edge (never the middle third), so the box can still be dragged. */
+  var GD_GRAB = 18; // screen px
+  function nearGuide(m, pt) {
+    var u = pxU(), r = GD_GRAB * u;
+    if (m.k === 'div') return Math.abs(pt.x - m.x) <= r ? 's' : null;
+    var inY = pt.y > m.y && pt.y < m.y + m.h, rin = inY ? Math.min(r, m.w / 3) : r;
+    var dl = Math.abs(pt.x - m.x), dr = Math.abs(pt.x - (m.x + m.w));
+    if (inY && pt.x > m.x && pt.x < m.x + m.w) { dl = pt.x - m.x <= rin ? dl : 1e9; dr = m.x + m.w - pt.x <= rin ? dr : 1e9; }
+    if (Math.min(dl, dr) > r) return null;
+    return dl <= dr ? 'tl' : 'br';
   }
   // v93: while editing boxes, lines are view-only, and while editing lines, boxes are view-only.
   function kindOK(m) { return !m || !R.etool || (R.etool === 'box') === (m.k === 'box'); }
@@ -1418,13 +1466,14 @@
       if (!startEdit(-1)) return; R.etool = 'box';
       var nb = R.items.filter(function (q) { return q.k === 'box'; }).length, off = (nb % 6) * 40;
       var bw = (+S.d.settings.boxW || 11) * 10; // Settings → New box width, % of the page width
-      R.items.push({ k: 'box', x: clamp(500 - bw / 2 + off * 0.5, 0, 1000 - bw), y: clamp(R.Hu * 0.3 + off, 0, R.Hu - 90), w: bw, h: boxH(), c: R.style.c, o: R.style.o, b: R.style.b });
+      R.items.push({ k: 'box', x: clamp(500 - bw / 2 + off * 0.5, 0, 1000 - bw), y: snapMid(clamp(R.Hu * 0.3 + off, 0, R.Hu - 90), boxH(), true), w: bw, h: boxH(), c: R.style.c, o: R.style.o, b: R.style.b });
       R.sel = R.items.length - 1; commitItems(); draw(); renderPanel();
     },
     addLine: function () {
       if (!startEdit(-1)) return; R.etool = 'line';
       var ds = dividers(), last = ds.length ? ds[ds.length - 1].m : null, y = last ? Math.max(last.y1, last.y2) + 140 : R.Hu * 0.35;
       if (y > R.Hu - 40) y = R.Hu / 2;
+      y = snapY(y, true);
       R.items.push({ k: 'div', x: 500, y1: y, y2: y }); R.sel = R.items.length - 1; commitItems(); draw(); renderPanel();
     },
     del: function () { if (R.sel < 0) return; R.items.splice(R.sel, 1); R.sel = -1; commitItems(); draw(); renderPanel(); },
