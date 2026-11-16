@@ -6,7 +6,7 @@
   function month() { return today().slice(0, 7); }
   function blank() {
     return {
-      v: 2, acct: null, pages: {}, tags: [], time: {}, rtime: {}, su: 0, last: null,
+      v: 2, acct: null, pages: {}, tags: [], time: {}, rtime: {}, atime: {}, artime: {}, su: 0, last: null,
       settings: { theme: 'green', decayOn: true, decayAfter: 14, decayPct: 5, cover: '#ffffff', hideCol: '#f3e9d4', fit: 'page', trim: 'full', trimPad: 0.01, goalDay: 30, autoRev: 10, sessT: 0, tHold: 0.4, tDay: 0, tRuleN: 0, tRulePct: 5, tapShow: false },
       ui: { tab: 'mem', contMin: false, chips: [] }
     };
@@ -53,6 +53,7 @@
       this.d.tags = this.d.tags || [];
       this.d.pages = this.d.pages || {};
       this.d.time = this.d.time || {};
+      this.d.atime = this.d.atime || {}; this.d.artime = this.d.artime || {}; // v150: real time in the app (same shape as time / rtime)
       this.d.rtime = this.d.rtime || {}; // v116: Recitation mode's stopwatch time (never mixed with memorization)
       this.d.rtags = this.d.rtags || []; // v119: Recitation tags [{ id, name, start, target, c }] — 'def' (Main) is built in
       this.d.radj = this.d.radj || {}; // v124 (SL10): manual pages-read per day { tag: { 'YYYY-MM-DD': pages } }
@@ -240,7 +241,7 @@
       if ((r.su || 0) > (L.su || 0)) { L.settings = Object.assign(L.settings, r.settings || {}); L.tags = r.tags || L.tags; L.su = r.su; }
       // Stopwatch time: day → device → mode → page seconds. Counts only grow, so keep the larger of each.
       // v116: rtime (Recitation, mode 'c') merges the same way.
-      ['time', 'rtime'].forEach(function (key) {
+      ['time', 'rtime', 'atime', 'artime'].forEach(function (key) {
         var T = L[key] || (L[key] = {});
         Object.keys(r[key] || {}).forEach(function (day) {
           var rd = r[key][day], ld = T[day] || (T[day] = {});
@@ -292,15 +293,20 @@
     /* Activity is automatic: a page counts as read on a day when it got at least 5 min of stopwatch time
        or at least one saved tally that day (older manual "Reviewed" days still count). */
     ACT_SECS: 300,
-    pageSecs: function (d, p) {
-      var D = (this.d.time || {})[d] || {}, t = 0;
+    /* v150: two time sources — 'a' = real time in the app (automatic, idle cut-off), 's' = stopwatch. Stats show the one
+       picked with the App time / Stopwatch switch (tsrc, kept on this phone); a day counts as active on either. */
+    tsrc: function () { return this.d.ui.tsrc === 's' ? 's' : 'a'; },
+    tkey: function (src) { return (src || this.tsrc()) === 'a' ? 'atime' : 'time'; },
+    pageSecs: function (d, p, src) {
+      var D = (this.d[this.tkey(src)] || {})[d] || {}, t = 0;
       for (var dv in D) ['r', 'n'].forEach(function (md) { t += ((D[dv][md] || {})[p]) || 0; });
       return t;
     },
-    pageTime: function (p, pred) { var t = 0; for (var d in (this.d.time || {})) if (!pred || pred(d)) t += this.pageSecs(d, p); return t; },
+    pageTime: function (p, pred, src) { var K = this.d[this.tkey(src)] || {}, t = 0; for (var d in K) if (!pred || pred(d)) t += this.pageSecs(d, p, src); return t; },
     activeDays: function (k, pred) {
       var o = this.get(k), p = kp(k), set = {}, self = this;
-      for (var d in (this.d.time || {})) if ((!pred || pred(d)) && this.pageSecs(d, p) >= this.ACT_SECS) set[d] = 1;
+      for (var d in (this.d.time || {})) if ((!pred || pred(d)) && this.pageSecs(d, p, 's') >= this.ACT_SECS) set[d] = 1;
+      for (var d2 in (this.d.atime || {})) if ((!pred || pred(d2)) && this.pageSecs(d2, p, 'a') >= this.ACT_SECS) set[d2] = 1;
       (o.tl || []).forEach(function (e) { if (e[3] > 0 && (!pred || pred(e[0]))) set[e[0]] = 1; });
       (o.rl || []).forEach(function (d) { if (!pred || pred(d)) set[d] = 1; });
       return Object.keys(set).sort();

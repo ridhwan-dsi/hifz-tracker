@@ -582,6 +582,7 @@
     mem.forEach(function (p) { sumH += S.health(p); });
     var h = NU() ? nuHeader() : '<header class="top"><button class="ib" data-act="home" aria-label="Back">' + ICON.back + '</button><div class="brand">Stats</div>' + viewSw() + '</header>';
     h += '<div class="seg">' + [['rep', 'Report'], ['prog', 'Progress'], ['time', 'Calendar']].map(function (x) { return '<button class="' + (st.stab === x[0] ? 'on' : '') + '" data-act="stab" data-t="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
+    h += tsrcSw(); // v150: App time / Stopwatch
     if (st.stab === 'time') return h + timeStats();
     if (st.stab === 'rep') return h + report();
     h += '<div class="cards"><div class="card"><div class="v">' + mem.length + '</div><div class="k">Pages memorizing</div></div>' +
@@ -604,9 +605,9 @@
     if (st.sf === 'low') list = list.filter(function (p) { return S.health(p) < 50; });
     // Sort: page / health / time / reviews / last reviewed; time and review counts for all time or one month.
     var prd = st.sprd, tmap = {}, pms = {};
-    Object.keys(S.d.time || {}).forEach(function (d) {
+    Object.keys(S.d[S.tkey()] || {}).forEach(function (d) {
       var mm = d.slice(0, 7); pms[mm] = 1; if (prd !== 'all' && mm !== prd) return;
-      var pg = Timer.day(d).pages; for (var q in pg) tmap[q] = (tmap[q] || 0) + pg[q].r + pg[q].n;
+      var pg = Timer.day(d, S.tsrc()).pages; for (var q in pg) tmap[q] = (tmap[q] || 0) + pg[q].r + pg[q].n;
     });
     for (var mm2 in months) pms[mm2] = 1; pms[m] = 1;
     var tOf = function (p) { return tmap[S.kp(p)] || 0; };
@@ -678,8 +679,8 @@
     var inR = function (d) { return d >= s0 && d <= s1; };
     // Per page number: time, reads (tally; shared pages add their surah parts), active days.
     var P = {}, get = function (p) { return P[p] || (P[p] = { t: 0, rd: 0, days: {} }); };
-    Object.keys(S.d.time || {}).forEach(function (d) {
-      if (!inR(d)) return; var pg = Timer.day(d).pages;
+    Object.keys(S.d[S.tkey()] || {}).forEach(function (d) {
+      if (!inR(d)) return; var pg = Timer.day(d, S.tsrc()).pages;
       for (var p in pg) { var v = pg[p].r + pg[p].n; if (v >= 1) { var q = get(p); q.t += v; if (v >= S.ACT_SECS) q.days[d] = 1; } }
     });
     Object.keys(S.d.pages).forEach(function (k) {
@@ -705,7 +706,7 @@
       var B = [];
       if (pd === 'year') for (var mi = 0; mi < 12; mi++) B.push({ k: s0.slice(0, 4) + '-' + String(mi + 1).padStart(2, '0'), l: 'JFMAMJJASOND'[mi], t: 0, on: 0 });
       else for (var d = s0; d <= s1; d = addD(d, 1)) B.push({ k: d, l: pd === 'week' ? new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'narrow' }) : String(+d.slice(8)), t: 0, on: 0 });
-      Object.keys(S.d.time || {}).forEach(function (d) { if (!inR(d)) return; var b = B.filter(function (x) { return d.indexOf(x.k) === 0; })[0]; if (b) b.t += Timer.day(d).t; });
+      Object.keys(S.d[S.tkey()] || {}).forEach(function (d) { if (!inR(d)) return; var b = B.filter(function (x) { return d.indexOf(x.k) === 0; })[0]; if (b) b.t += Timer.day(d, S.tsrc()).t; });
       Object.keys(DAYS).forEach(function (d) { var b = B.filter(function (x) { return d.indexOf(x.k) === 0; })[0]; if (b) b.on++; });
       var mx = Math.max.apply(null, B.map(function (b) { return b.t; }).concat([60]));
       h += '<div class="rbars' + (B.length > 12 ? ' dense' : '') + '">' + B.map(function (b) {
@@ -727,10 +728,12 @@
   }
 
   /* ---------------- Time dashboard ---------------- */
+  function tsrcSw() { var a = S.tsrc(); return '<div class="seg mini tsrc">' + [['a', 'App time'], ['s', 'Stopwatch']].map(function (x) { return '<button class="' + (a === x[0] ? 'on' : '') + '" data-act="tsrc" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>'; }
+  App.tsrcSw = tsrcSw;
   function dkey(dt) { return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0'); }
   function timeStats() {
-    var TM = S.d.time || {}, days = Object.keys(TM).sort(), g = S.d.settings.goalDay, td = S.today(), D = {};
-    days.forEach(function (k) { D[k] = Timer.day(k); });
+    var TM = S.d[S.tkey()] || {}, days = Object.keys(TM).sort(), g = S.d.settings.goalDay, td = S.today(), D = {};
+    days.forEach(function (k) { D[k] = Timer.day(k, S.tsrc()); });
     var sum = function (pred) { var t = 0; days.forEach(function (k) { if (pred(k)) t += D[k].t; }); return t; };
     var now = new Date(), wk = new Date(now); wk.setDate(now.getDate() - 6); var wks = dkey(wk), mth = S.month();
     // Streak: consecutive days meeting the daily goal (any time at all when no goal is set), ending today or yesterday.
@@ -808,6 +811,7 @@
     swipe: 'Swiping stays inside one surah. On: when the next surah in your list starts on the same or the next page (e.g. Faatir → Yaseen), swiping carries on into it.',
     decay: 'A page loses health when it isn’t reviewed: after the days you pick, then by the percentage each week.',
     goal: 'Minutes of stopwatch time a day across all pages. You get a note when you reach it.',
+    idle: 'App time counts by itself while a page is open. It stops after this long without a touch, so a phone left open doesn’t add time.',
     tHold: 'How long to hold the counter until the ring closes and one read is counted.',
     tDay: 'Page reads a day (a page counts once all its sections are read).',
     tRule: 'Every so many reads of a page raises its health by the percentage you pick.',
@@ -853,6 +857,7 @@
       '<div class="frow">' + nm('cover', 'Hidden area') + '<div class="rrow">' + [['#f3e9d4', 'Paper'], ['#ffffff', 'White'], ['#fbf6e9', 'Cream'], ['#e9ecea', 'Grey']].map(function (c) { return '<button class="sw-c ' + ((s.hideCol || '#f3e9d4') === c[0] ? 'on' : '') + '" style="background:' + c[0] + '" data-act="cover" data-c="' + c[0] + '" aria-label="' + c[1] + '" title="' + c[1] + '"></button>'; }).join('') + '</div></div>' +
       '<h4>Reading</h4>' + row('swipe', 'Swipe into next surah', sw(s.swipeSur !== false, 'swipeSur')) +
       row('goal', 'Daily goal', sel('goalDay', [0, 10, 15, 20, 30, 45, 60, 90], s.goalDay || 0, function (v) { return v ? v + ' min' : 'Off'; })) +
+      row('idle', 'Idle cut-off', sel('idleMin', [1, 2, 3, 5, 10], +s.idleMin || 2, function (v) { return v + ' min'; })) +
       '<h4>Tally</h4>' + row('tHold', 'Hold to count', sel('tHold', [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1, 1.2, 1.5], +s.tHold || 0.4, function (v) { return v + ' s'; })) +
       row('tDay', 'Daily target', sel('tDay', [0, 1, 2, 3, 5, 10, 20, 30], +s.tDay || 0, function (v) { return v ? v + ' reads' : 'Off'; })) +
       row('tRule', 'Raise health every', sel('tRuleN', [0, 5, 10, 20, 30, 50, 100], +s.tRuleN || 0, function (v) { return v ? v + ' reads' : 'Off'; })) +
@@ -1034,6 +1039,7 @@
     home: function () { st.view = 'home'; App.render(); },
     sf: function (el) { st.sf = el.dataset.f; App.render(); },
     sdir: function () { st.sdir = st.sdir ? 0 : 1; App.render(); },
+    tsrc: function (el) { S.d.ui.tsrc = el.dataset.v; S.saveUi(); App.render(); },
     stab: function (el) { st.stab = el.dataset.t; st.cday = null; App.render(); },
     cal: function (el) { st.cal = el.dataset.m; App.render(); },
     cday: function (el) { st.cday = el.dataset.d || null; App.render(); window.scrollTo(0, 0); },
@@ -1136,7 +1142,7 @@
       st.q = e.target.value; var pos = e.target.selectionStart; App.render();
       var inp = document.querySelector('[data-in=q]'); if (inp) { inp.focus(); try { inp.setSelectionRange(pos, pos); } catch (x) {} }
     } else if (k === 'offRem') { S.d.settings.offRem = +e.target.value; S.saveSettings();
-    } else if (k === 'decayAfter' || k === 'decayPct' || k === 'trimPad' || k === 'goalDay' || k === 'autoRev' || k === 'tHold' || k === 'boxW' || k === 'tDay' || k === 'tRuleN' || k === 'tRulePct') { S.d.settings[k] = +e.target.value; S.saveSettings(); App.render(); if (k === 'tRuleN') openSettings(); }
+    } else if (k === 'decayAfter' || k === 'decayPct' || k === 'trimPad' || k === 'goalDay' || k === 'autoRev' || k === 'tHold' || k === 'idleMin' || k === 'boxW' || k === 'tDay' || k === 'tRuleN' || k === 'tRulePct') { S.d.settings[k] = +e.target.value; S.saveSettings(); App.render(); if (k === 'tRuleN') openSettings(); }
     else if (k === 'srt') { st.srt = e.target.value; st.sdir = 0; App.render(); }
     else if (k === 'sprd') { st.sprd = e.target.value; App.render(); }
     else if (k === 'fit' || k === 'trim') { S.d.settings[k] = e.target.value; S.saveSettings(); App.render(); }

@@ -1182,6 +1182,7 @@
     var tile = function (l, v) { return '<div class="stile"><span>' + l + '</span><b>' + v + '</b></div>'; };
     var bar = function (pc, col) { return '<div class="hbar sbar"><i style="width:' + Math.max(0, Math.min(100, pc)) + '%;background:' + col + '"></i></div>'; };
     var x = '<div class="spage"><div class="sbody"><div class="shead"><b>P. ' + p + ' stats</b><span>' + App.esc(App.pageTitle(p)) + '</span></div>';
+    x += App.tsrcSw().replace(/data-act=/g, 'data-ract='); // v150: Time tiles show App time or Stopwatch
     x += '<div class="sgrid">' + tile('Reads ' + per, S.tally(k, prd).page + '×') + tile('Reads lifetime', all.page + '×') +
       tile('Time ' + per, Timer.mins(S.pageTime(p, prd))) + tile('Time lifetime', Timer.mins(S.pageTime(p))) +
       tile('Days ' + per, S.activeDays(k, prd).length) + tile('Days lifetime', S.activeDays(k).length) + '</div>';
@@ -1483,6 +1484,7 @@
       saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) { m.items = []; m.sec = m.sec2 = 0; m.grp = []; } }); });
       loadItems(); R.edit = false; R.sel = -1; R.sub = null; draw(); renderPanel(); layout();
     },
+    tsrc: function (b) { S.d.ui.tsrc = b.dataset.v; S.saveUi(); renderPanel(); },
     rper: function (b) { R.rper = b.dataset.v; renderPanel(); },
     mag: function () { R.mag = !magOn(); draw(); renderPanel(); App.toast(magOn() ? 'Snap on' : 'Snap off', null, null, 1400); },
     addBox: function () {

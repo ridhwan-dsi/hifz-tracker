@@ -25,8 +25,8 @@
   function modeOf(p) { return S.isMem(p) && !S.hasTag(p, 'new') ? 'r' : 'n'; }
 
   /* Totals for one day across all devices: { r, n, t, pages: { p: { r, n } } } */
-  function day(d) {
-    var o = { r: 0, n: 0, t: 0, pages: {} }, D = (S.d.time || {})[d] || {};
+  function day(d, src) { // src 'a' = app time (v150); default = stopwatch
+    var o = { r: 0, n: 0, t: 0, pages: {} }, D = (S.d[src === 'a' ? 'atime' : 'time'] || {})[d] || {};
     Object.keys(D).forEach(function (dv) {
       ['r', 'n'].forEach(function (md) {
         var a = D[dv][md] || {};
@@ -111,5 +111,24 @@
   };
   window.Timer = Timer;
   setInterval(tick, 1000);
+
+  /* v150: real time in the app — counts by itself while a page is open in the reader and the app is on screen.
+     Stops after Settings → Idle cut-off without a touch (default 2 min) so a phone left open doesn't add time;
+     a running stopwatch always counts as active. Credited per day/device/page like the stopwatch (atime, Recitation artime). */
+  var lastAct = Date.now(), aLast = 0, aN = 0;
+  ['pointerdown', 'keydown', 'wheel', 'touchmove'].forEach(function (ev) { document.addEventListener(ev, function () { lastAct = Date.now(); }, { passive: true, capture: true }); });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) lastAct = Date.now(); aLast = 0; });
+  setInterval(function () {
+    var now = Date.now(), ok = window.Reader && Reader.isOpen() && !document.hidden &&
+      (T.run || now - lastAct < (S.d.settings.idleMin || 2) * 60000);
+    if (!ok) { aLast = 0; return; }
+    var dt = aLast ? Math.min((now - aLast) / 1000, 3) : 0; aLast = now; if (dt <= 0) return;
+    var rec = !!(Reader.rec && Reader.rec()), key = rec ? 'artime' : 'atime', p = Reader.page();
+    var md = rec ? 'c' : modeOf(Reader.unit ? Reader.unit() : p), TM = S.d[key] || (S.d[key] = {}), d = S.today();
+    var D = TM[d] || (TM[d] = {}), v = D[dev] || (D[dev] = rec ? {} : { r: {}, n: {} }), m = v[md] || (v[md] = {});
+    m[p] = Math.round(((m[p] || 0) + dt) * 10) / 10;
+    aN++; if (aN % 15 === 0) S.persist(); if (aN % 120 === 0) S.save();
+  }, 1000);
+  document.addEventListener('visibilitychange', function () { if (document.hidden && aN) S.save(); });
   document.addEventListener('visibilitychange', function () { if (document.hidden) Timer.pause(); });
 })();
