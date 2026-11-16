@@ -356,7 +356,9 @@
       spr.style.marginTop = (fit && document.body.classList.contains('web') ? Math.max(top, (innerHeight - R.ph - H) / 2) : 0) + 'px';
       spr.style.transition = 'none'; spr.style.transform = '';
       sheet.innerHTML = html + '<svg id="ov" viewBox="0 0 1000 ' + R.Hu.toFixed(1) + '" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>';
-      $('#rpad').style.height = fit ? '0px' : (R.ph + 20) + 'px';
+      // v149: zoomed (portrait) with the drawer hidden had only ~20px under the page, so its last lines couldn't be dragged up;
+      // zoomed keeps at least ~40% of the screen as room under the page, drawer or not.
+      $('#rpad').style.height = fit ? '0px' : Math.max(R.ph + 20, pzOn() ? Math.round(innerHeight * 0.4) : 0) + 'px';
       // v113: the Expanded drawer fills exactly the empty space under the page, so every tool's drawer starts where the page ends.
       if (!desk() && !fitAll) { var dh = Math.round(innerHeight - (sheet.getBoundingClientRect().bottom + sc.scrollTop)); if (dh !== R.dh) { R.dh = dh; $('#reader').style.setProperty('--dh', Math.max(0, dh) + 'px'); requestAnimationFrame(function () { if (measurePanel()) relayout(); }); } }
       sc.style.overflowY = fit ? 'hidden' : 'auto';
@@ -1183,11 +1185,14 @@
     x += '<div class="sgrid">' + tile('Reads ' + per, S.tally(k, prd).page + '×') + tile('Reads lifetime', all.page + '×') +
       tile('Time ' + per, Timer.mins(S.pageTime(p, prd))) + tile('Time lifetime', Timer.mins(S.pageTime(p))) +
       tile('Days ' + per, S.activeDays(k, prd).length) + tile('Days lifetime', S.activeDays(k).length) + '</div>';
-    // v144: Reads table — full page and each section, today beside lifetime (was lifetime-only section chips)
-    var td = S.today(), tdy = S.tally(k, function (d) { return d === td; });
-    var rrow = function (l, a, b) { return '<tr><th>' + l + '</th><td>' + a + '×</td><td>' + b + '×</td></tr>'; };
-    x += '<div class="slbl">Reads</div><table class="srt"><tr><th></th><td>Today</td><td>Lifetime</td></tr>' + rrow('Full page', tdy.page, all.page) +
-      (ns > 1 ? all.sec.map(function (c, i) { return rrow('Section ' + (i + 1), tdy.sec[i], c); }).join('') : '') + '</table>';
+    // v149: Reads table — one column for the chosen period (Today / Week = last 7 days / Month / Lifetime) picked from a switch
+    var td = S.today(), w0 = new Date(); w0.setDate(w0.getDate() - 6); var ws = w0.getFullYear() + '-' + String(w0.getMonth() + 1).padStart(2, '0') + '-' + String(w0.getDate()).padStart(2, '0');
+    var RP = { t: ['Today', function (d) { return d === td; }], w: ['Week', function (d) { return d >= ws; }], m: ['Month', function (d) { return d.slice(0, 7) === mo; }], l: ['Lifetime', null] };
+    var rp = RP[R.rper] ? R.rper : 't', rq = rp === 'l' ? all : S.tally(k, RP[rp][1]);
+    var rrow = function (l, a) { return '<tr><th>' + l + '</th><td>' + a + '×</td></tr>'; };
+    x += '<div class="slbl">Reads</div><div class="seg mini srp">' + Object.keys(RP).map(function (q) { return '<button class="' + (q === rp ? 'on' : '') + '" data-ract="rper" data-v="' + q + '">' + RP[q][0] + '</button>'; }).join('') + '</div>' +
+      '<table class="srt one">' + rrow('Full page', rq.page) +
+      (ns > 1 ? all.sec.map(function (c, i) { return rrow('Section ' + (i + 1), rq.sec[i] || 0); }).join('') : '') + '</table>';
     if (m) x += '<div class="slbl">Health</div><div class="shl"><button class="icb" data-ract="hminus" aria-label="Lower health">−</button>' + bar(h, h ? App.hcol(h) : 'var(--line)') +
       '<button class="icb" data-ract="hplus" aria-label="Raise health">+</button><b>' + h + '%</b></div>';
     if (g) x += '<div class="slbl">Today\'s goal</div><div class="shl">' + bar(dd.t / (g * 60) * 100, 'var(--acc)') + '<b>' + Math.floor(dd.t / 60) + ' / ' + g + ' min</b></div>';
@@ -1214,9 +1219,9 @@
   function editPanel() {
     var am = activeMask(), m = R.items[R.sel], x = '';
     x += '<div class="rrow etop">' +
-      (R.etool === 'line' ? '<button class="pill soft" data-ract="addLine">+ ' + IC.line + 'Line</button>' : '<button class="pill soft" data-ract="addBox">+ ' + IC.box + 'Box</button>') +
+      (R.etool === 'line' ? '<button class="pill soft icon-only" data-ract="addLine" aria-label="Add line">+ ' + IC.line + '</button>' : '<button class="pill soft icon-only" data-ract="addBox" aria-label="Add box">+ ' + IC.box + '</button>') +
       (m && m.k === 'div' ? '<button class="icb" data-ract="straight" aria-label="Straighten line" title="Straighten">' + IC.line.replace('M3 9h10v6h8', 'M3 12h18') + '</button>' : '') +
-      (guidesOn() ? '<button class="pill soft mag' + (magOn() ? ' on' : '') + '" data-ract="mag" role="switch" aria-checked="' + magOn() + '">' + (magOn() ? IC.mag : IC.magOff) + (magOn() ? 'Snap on' : 'Snap off') + '</button>' : '') +
+      (guidesOn() ? '<button class="pill soft mag' + (magOn() ? ' on' : '') + '" data-ract="mag" role="switch" aria-checked="' + magOn() + '" aria-label="' + (magOn() ? 'Snap on' : 'Snap off') + '">' + (magOn() ? IC.mag : IC.magOff) + '</button>' : '') +
       '<button class="icb danger" data-ract="del" data-k="' + (R.etool === 'line' ? 'div' : 'box') + '" aria-label="Delete selected (hold to delete all)">' + IC.trash + '</button>' +
       '<button class="icb" data-ract="cancelEdit" aria-label="Cancel changes">' + IC.x + '</button>' +
       '<button class="icb pri" data-ract="doneEdit" aria-label="Save">' + IC.check + '</button></div>';
@@ -1478,7 +1483,8 @@
       saveMasks(function (ms) { ms.forEach(function (m) { if (m.id === am.id) { m.items = []; m.sec = m.sec2 = 0; m.grp = []; } }); });
       loadItems(); R.edit = false; R.sel = -1; R.sub = null; draw(); renderPanel(); layout();
     },
-    mag: function () { R.mag = !magOn(); draw(); renderPanel(); },
+    rper: function (b) { R.rper = b.dataset.v; renderPanel(); },
+    mag: function () { R.mag = !magOn(); draw(); renderPanel(); App.toast(magOn() ? 'Snap on' : 'Snap off', null, null, 1400); },
     addBox: function () {
       if (!startEdit(-1)) return; R.etool = 'box';
       var nb = R.items.filter(function (q) { return q.k === 'box'; }).length, off = (nb % 6) * 40;
