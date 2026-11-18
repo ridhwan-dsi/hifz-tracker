@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mock — Tag targets, tag list, Surah view</title>
+<style>
+:root{--bg:#f4f7f5;--card:#fff;--ink:#1c2a23;--muted:#6a7a71;--line:#e1e8e3;--acc:#1f7a52;--soft:#e5f2ea;--paper:#fbf7ee}
+*{box-sizing:border-box}body{margin:0;font:14px/1.35 system-ui,sans-serif;background:#d9e0dc;color:var(--ink)}
+h1{font-size:17px;margin:14px 16px 4px}p.note{margin:0 16px 12px;color:#44524a;font-size:13px;max-width:900px}
+.wrap{display:flex;gap:18px;overflow-x:auto;padding:4px 16px 24px;scroll-snap-type:x mandatory}
+.ph{flex:none;width:340px;height:700px;background:var(--bg);border-radius:26px;border:8px solid #1b1f1d;overflow:hidden;display:flex;flex-direction:column;position:relative;scroll-snap-align:center}
+.cap{font-size:12px;font-weight:700;color:#2d3a33;margin:0 0 6px 4px}
+.col{flex:none}
+.hd{padding:12px 14px 8px;background:var(--card);border-bottom:1px solid var(--line)}
+.hd .t{font-weight:700;font-size:16px;display:flex;align-items:center;gap:8px}
+.hd .t .gear{margin-left:auto;font-size:17px;color:var(--muted)}
+.rule{margin-top:6px;font-size:12px;color:var(--acc);background:var(--soft);border-radius:8px;padding:4px 8px;display:inline-block}
+.bar{display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:12.5px}
+.seg{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--card)}
+.seg b{padding:4px 10px;font-weight:600;color:var(--muted)}.seg b.on{background:var(--acc);color:#fff}
+.sw{display:inline-flex;align-items:center;gap:5px;margin-left:auto;color:var(--muted)}
+.tg{width:30px;height:17px;border-radius:9px;background:#c9d2cd;position:relative}.tg:after{content:"";position:absolute;left:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff}
+.tg.on{background:var(--acc)}.tg.on:after{left:15px}
+.sort{width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;font-weight:700;color:var(--acc)}
+.list{flex:1;overflow:auto;padding:0 10px 8px}
+.sur{background:var(--card);border-radius:12px;margin-bottom:8px;padding:4px 0;border:1px solid var(--line)}
+.row{display:flex;align-items:center;padding:7px 12px;gap:8px}
+.row .n{flex:1}.row .c{font-weight:700;min-width:44px;text-align:right}
+.row.s .n{font-weight:700}.row.s .bd{width:24px;height:24px;border-radius:7px;background:var(--soft);color:var(--acc);font-size:11px;display:grid;place-items:center;font-weight:700}
+.row.p{padding-left:44px;font-size:13px;color:#33423a}.row.p .pp{background:#eef2ef;border-radius:999px;padding:1px 8px;font-size:12px}
+.prog{flex:none;width:58px;height:5px;border-radius:3px;background:#e6ece8;overflow:hidden}.prog i{display:block;height:100%;background:var(--acc)}
+.row.done{opacity:.45}.row .ck{color:var(--acc);font-size:12px}
+.part{font-size:11px;color:var(--muted)}
+.btabs{display:flex;background:var(--card);border-top:1px solid var(--line)}
+.btabs div{flex:1;text-align:center;padding:9px 2px 11px;font-size:11.5px;color:var(--muted);border-top:3px solid transparent}
+.btabs div b{display:block;font-size:13px;color:inherit}
+.btabs div.on{color:var(--acc);border-top-color:var(--acc)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-radius:18px 18px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.18);padding:10px 16px 18px}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.35)}
+.grip{width:38px;height:4px;border-radius:2px;background:#cfd6d2;margin:0 auto 10px}
+.sheet h3{margin:0 0 10px;font-size:15px}
+.f{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.f small{display:block;color:var(--muted);font-size:11.5px}
+.num{border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-weight:700;min-width:64px;text-align:center}
+.btns{display:flex;gap:10px;margin-top:14px}.btns div{flex:1;text-align:center;padding:9px;border-radius:10px;border:1px solid var(--line);font-weight:600}.btns .pri{background:var(--acc);color:#fff;border-color:var(--acc)}
+.rd{flex:1;background:#0b0d0c;overflow:auto;padding:10px 0}
+.pg{background:var(--paper);margin:0 8px;position:relative;padding:8px 14px}
+.ln{height:9px;border-radius:4px;background:#2b2b2b;opacity:.75;margin:11px 0}
+.ln.h{height:22px;border-radius:6px;background:none;border:2px solid #b7a46a;opacity:1;display:grid;place-items:center;font-size:11px;color:#8a7a45;font-weight:700}
+.seam{margin:0 8px;height:22px;background:#0b0d0c;color:#9fb3a8;font-size:11px;display:flex;align-items:center;gap:6px;padding:0 6px}
+.seam:before,.seam:after{content:"";flex:1;border-top:1px dashed #4d5b53}
+.cut{position:absolute;left:0;right:0;height:0;border-top:2px solid #e0a032}
+.cut span{position:absolute;right:6px;top:-11px;background:#e0a032;color:#fff;font-size:10px;font-weight:700;border-radius:999px;padding:2px 7px}
+.fade{opacity:.25}
+.rbar{background:var(--card);padding:8px 12px 12px;border-top:1px solid var(--line)}
+.rbar .t1{display:flex;align-items:center;gap:8px;font-weight:700}
+.rbar .t1 .sw{font-weight:500;font-size:12.5px}
+.rbar .t2{font-size:12px;color:var(--muted);margin-top:4px}
+.legend{margin:0 16px 22px;max-width:900px;font-size:13px;color:#2d3a33}
+.legend li{margin:3px 0}
+</style></head><body>
+<h1>Mock — Tag targets · tag list · Surah view</h1>
+<p class="note">Swipe sideways for the 4 screens. Grey bars stand in for mushaf lines. Nothing here is built yet; numbers are made up.</p>
+<div class="wrap">
+
+<!-- 1. Tag list, Reads tab -->
+<div class="col"><div class="cap">1 · Tag list — Reads tab, By surah</div>
+<div class="ph">
+  <div class="hd"><div class="t">Juz ʿAmma sprint <span class="gear">⚙</span></div>
+    <span class="rule">Target 500 per page · 20 a day</span></div>
+  <div class="bar"><div class="seg"><b class="on">By surah</b><b>By page</b></div>
+    <span class="sw">Show all <span class="tg"></span></span><span class="sort">↓</span></div>
+  <div class="list">
+    <div class="sur">
+      <div class="row s"><span class="bd">88</span><span class="n">Al-Ghashiyah <span class="part">· split</span></span><span class="prog"><i style="width:62%"></i></span><span class="c">311</span></div>
+      <div class="row p"><span class="n"><span class="pp">P. 592</span> <span class="part">part</span></span><span class="c">14 today</span></div>
+      <div class="row p"><span class="n"><span class="pp">P. 593</span> <span class="part">part</span></span><span class="c">14 today</span></div>
+    </div>
+    <div class="sur">
+      <div class="row s"><span class="bd">78</span><span class="n">An-Naba</span><span class="prog"><i style="width:48%"></i></span><span class="c">240</span></div>
+      <div class="row p"><span class="n"><span class="pp">P. 582</span></span><span class="c">252</span></div>
+      <div class="row p"><span class="n"><span class="pp">P. 583</span></span><span class="c">240</span></div>
+    </div>
+    <div class="sur">
+      <div class="row s"><span class="bd">112</span><span class="n">Al-Ikhlas <span class="part">· ⅓ of P. 604</span></span><span class="prog"><i style="width:30%"></i></span><span class="c">152</span></div>
+    </div>
+    <div class="sur">
+      <div class="row s"><span class="bd">113</span><span class="n">Al-Falaq <span class="part">· ⅓ of P. 604</span></span><span class="prog"><i style="width:22%"></i></span><span class="c">109</span></div>
+    </div>
+    <p class="part" style="text-align:center;margin:10px 0">3 pages hidden — done for today · 1 hidden — target reached</p>
+  </div>
+  <div class="btabs"><div class="on"><b>Reads</b>total</div><div><b>Days</b>read on</div><div><b>Last read</b>days ago</div></div>
+</div></div>
+
+<!-- 2. Show all on, By page, Last read tab -->
+<div class="col"><div class="cap">2 · Show all on — By page, Last read tab</div>
+<div class="ph">
+  <div class="hd"><div class="t">Juz ʿAmma sprint <span class="gear">⚙</span></div>
+    <span class="rule">Target 500 per page · 20 a day</span></div>
+  <div class="bar"><div class="seg"><b>By surah</b><b class="on">By page</b></div>
+    <span class="sw">Show all <span class="tg on"></span></span><span class="sort">↓</span></div>
+  <div class="list">
+    <div class="sur">
+      <div class="row s"><span class="n">P. 589 <span class="part">· At-Takwir</span></span><span class="c">9 d</span></div>
+      <div class="row s"><span class="n">P. 586 <span class="part">· ʿAbasa</span></span><span class="c">6 d</span></div>
+      <div class="row s"><span class="n">P. 583 <span class="part">· An-Naba</span></span><span class="c">2 d</span></div>
+      <div class="row s"><span class="n">P. 604 <span class="part">· Al-Ikhlas</span></span><span class="c">1 d</span></div>
+      <div class="row s"><span class="n">P. 604 <span class="part">· Al-Falaq</span></span><span class="c">1 d</span></div>
+      <div class="row s done"><span class="n">P. 592 <span class="part">· Al-Ghashiyah</span></span><span class="ck">✓ 20/20 today</span><span class="c">0 d</span></div>
+      <div class="row s done"><span class="n">P. 593 <span class="part">· Al-Ghashiyah</span></span><span class="ck">✓ 20/20 today</span><span class="c">0 d</span></div>
+      <div class="row s done"><span class="n">P. 582 <span class="part">· An-Naba</span></span><span class="ck">★ 500 reached</span><span class="c">0 d</span></div>
+    </div>
+    <p class="part" style="margin:4px 4px">Greyed = hidden normally (done for today ✓ or target reached ★). Tap the active tab again = flip sort direction (same as the ↓ arrow).</p>
+  </div>
+  <div class="btabs"><div><b>Reads</b>total</div><div><b>Days</b>read on</div><div class="on"><b>Last read</b>days ago</div></div>
+</div></div>
+
+<!-- 3. Tag rules sheet -->
+<div class="col"><div class="cap">3 · ⚙ Tag rules (sheet from the gear)</div>
+<div class="ph">
+  <div class="hd"><div class="t">Juz ʿAmma sprint <span class="gear">⚙</span></div></div>
+  <div class="list" style="padding-top:10px"><div class="sur"><div class="row s"><span class="n">…</span></div></div></div>
+  <div class="dim"></div>
+  <div class="sheet"><div class="grip"></div><h3>Rules for this tag</h3>
+    <div class="f"><span>Total target per page<small>Page/surah hidden for good once reached</small></span><span class="num">500</span></div>
+    <div class="f"><span>Daily target per page<small>Hidden until tomorrow once reached</small></span><span class="num">20</span></div>
+    <div class="f"><span>What counts as a read<small>Full-page tally, or full-surah tally for a surah unit — section counts don't count</small></span><span class="num" style="font-weight:600">Full only</span></div>
+    <div class="f"><span>Off = plain tag, no targets</span><span class="tg on"></span></div>
+    <div class="btns"><div>Cancel</div><div class="pri">Save</div></div>
+  </div>
+</div></div>
+
+<!-- 4. Surah view -->
+<div class="col"><div class="cap">4 · Surah view — a split surah read as one scroll</div>
+<div class="ph">
+  <div class="rd">
+    <div class="pg">
+      <div class="ln fade"></div><div class="ln fade"></div><div class="ln fade"></div>
+      <div class="cut" style="top:96px"><span>Starts here ↕</span></div>
+      <div class="ln h" style="margin-top:22px">سورة الغاشية</div>
+      <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+      <div class="cut" style="bottom:4px"><span>Crop bottom ↕</span></div>
+    </div>
+    <div class="seam">P. 592 → P. 593</div>
+    <div class="pg">
+      <div class="cut" style="top:4px"><span>Crop top ↕</span></div>
+      <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+      <div class="cut" style="top:132px"><span>Ends here ↕</span></div>
+      <div class="ln fade" style="margin-top:20px"></div><div class="ln fade"></div><div class="ln fade"></div>
+    </div>
+  </div>
+  <div class="rbar"><div class="t1">88 · Al-Ghashiyah <span class="sw">Surah view <span class="tg on"></span></span></div>
+    <div class="t2">Only for surahs that cross pages. Start/End lines placed automatically from the 15-line layout; drag to correct. Crop top/bottom trims page margins in this view only. Tally here counts a full-surah read.</div></div>
+</div></div>
+
+</div>
+<ul class="legend">
+<li><b>Bottom tabs</b> pick which count shows on the right <i>and</i> the sort order; ↓ flips direction. No separate sort/filter button.</li>
+<li><b>By surah</b>: multi-page surahs stay grouped, ordered by their first page; split surahs show their page parts. <b>By page</b>: one row per page (per surah on shared pages).</li>
+<li><b>Show all</b> off: pages done for today and pages at their total target are hidden, with a one-line count at the bottom.</li>
+<li><b>Surah view</b> switch appears only on surahs that cross a page break; pages stay unchanged in normal view.</li>
+</ul>
+</body></html>
