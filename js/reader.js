@@ -349,7 +349,10 @@
         H = Math.max(H, fch * fk);
       } else face.innerHTML = '';
       sheet.style.order = 1;
-      var fit = (fitPage() || fitAll) && H <= (desk() || fitAll ? vh : innerHeight - R.ph) + 2;
+      // v151: zoomed (phone portrait) is never 'fit' — before, shrinking the drawer made the zoomed page fit the taller gap,
+      // which switched scrolling off and snapped the page back down; now it stays draggable at the same spot whatever the drawer does.
+      var pzz = pzOn() && !fitAll && !two;
+      var fit = !pzz && (fitPage() || fitAll) && H <= (desk() || fitAll ? vh : innerHeight - R.ph) + 2;
       sheet.style.width = W + 'px'; sheet.style.marginLeft = sheet.style.marginRight = sheet.style.marginTop = '';
       if (W > vw + 1 && !desk()) { spr.style.justifyContent = 'flex-start'; sheet.style.marginLeft = -pzX + 'px'; } else spr.style.justifyContent = '';
       // v91: only web view centres the page vertically; the phone reader keeps it at the top, leaving the space below free (e.g. for the tally button)
@@ -358,7 +361,8 @@
       sheet.innerHTML = html + '<svg id="ov" viewBox="0 0 1000 ' + R.Hu.toFixed(1) + '" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>';
       // v149: zoomed (portrait) with the drawer hidden had only ~20px under the page, so its last lines couldn't be dragged up;
       // zoomed keeps at least ~40% of the screen as room under the page, drawer or not.
-      $('#rpad').style.height = fit ? '0px' : Math.max(R.ph + 20, pzOn() ? Math.round(innerHeight * 0.4) : 0) + 'px';
+      // v151: zoomed keeps a fixed room under the page (60% of the screen) that doesn't follow the drawer, so the dragged position is kept.
+      $('#rpad').style.height = fit ? '0px' : Math.max(R.ph + 20, pzz ? Math.round(innerHeight * 0.6) : 0) + 'px';
       // v113: the Expanded drawer fills exactly the empty space under the page, so every tool's drawer starts where the page ends.
       if (!desk() && !fitAll) { var dh = Math.round(innerHeight - (sheet.getBoundingClientRect().bottom + sc.scrollTop)); if (dh !== R.dh) { R.dh = dh; $('#reader').style.setProperty('--dh', Math.max(0, dh) + 'px'); requestAnimationFrame(function () { if (measurePanel()) relayout(); }); } }
       sc.style.overflowY = fit ? 'hidden' : 'auto';
