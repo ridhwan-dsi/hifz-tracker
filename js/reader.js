@@ -967,12 +967,14 @@
     var ss = S.onPage(p).filter(function (n) { return n === R.n || !R.range || R.range.indexOf(S.uk(p, n)) >= 0; });
     var nx = hasMore(1) ? 0 : nbSurah(1), pv = hasMore(-1) ? 0 : nbSurah(-1);
     if (ss.indexOf(nx) >= 0) nx = 0; if (ss.indexOf(pv) >= 0) pv = 0;
-    if (ss.length < 2 && !nx && !pv) return App.esc(App.pageTitle(p));
-    var nm = function (n) { return App.esc(QURAN.S[n - 1][0]); };
+    // v152: like Recitation (v139) — "17. Surah Al-Isra · Juz 15": surah number in front, juz after the name.
+    var jz = '<i class="mdot"></i>Juz ' + juzOf(p);
+    if (ss.length < 2 && !nx && !pv) return QURAN.S[R.n - 1] ? '<span class="rectn">' + R.n + '. Surah ' + App.esc(QURAN.S[R.n - 1][0]) + jz + '</span>' : App.esc(App.pageTitle(p));
+    var nm = function (n, num) { return (num ? n + '. ' : '') + App.esc(QURAN.S[n - 1][0]); };
     return '<span class="sswitch">' +
       (nx ? '<button class="nb" data-ract="nbS" data-n="' + nx + '" data-d="1" aria-label="Next surah">‹ ' + nm(nx) + '</button>' : '') +
-      ss.slice().reverse().map(function (n) { return '<button class="' + (n === R.n ? 'on' : '') + '" data-ract="surah" data-n="' + n + '">' + nm(n) + '</button>'; }).join('') +
-      (pv ? '<button class="nb" data-ract="nbS" data-n="' + pv + '" data-d="-1" aria-label="Previous surah">' + nm(pv) + ' ›</button>' : '') + '</span>';
+      ss.slice().reverse().map(function (n) { return '<button class="' + (n === R.n ? 'on' : '') + '" data-ract="surah" data-n="' + n + '">' + nm(n, n === R.n) + '</button>'; }).join('') +
+      (pv ? '<button class="nb" data-ract="nbS" data-n="' + pv + '" data-d="-1" aria-label="Previous surah">' + nm(pv) + ' ›</button>' : '') + '<span class="rectn sjz">' + jz + '</span></span>';
   }
   /* v139 Recitation title: "17. Surah Al-Isra · Juz 15" (the dot is a centred dot), with the strip-mode scroll icon. */
   function recTitle(p) {
