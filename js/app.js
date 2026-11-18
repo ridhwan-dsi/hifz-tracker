@@ -808,6 +808,7 @@
     boxH: 'On: a box’s handles change only its width, so the height can’t shift by accident. Off: the corner handles change width and height.',
     guides: 'On: boxes and lines snap like magnets to the invisible lines between the 15 text lines, dotted guides change a box’s width (and its height with the magnet off), and a magnet switch shows while editing. Off: no guides or snapping — boxes and lines work as they did before.',
     cover: 'What covers the part of a page hidden by a section line. Paper is the default; White is how it used to look.',
+    sbl: 'On a page shared by two or more surahs, amber lines mark where the surah you’re in starts and ends, and the other surah’s part is faded. They’re placed from the 15-line layout; drag the “Starts here” / “Ends here” label to correct one (it snaps to the lines between text lines).',
     swipe: 'Swiping stays inside one surah. On: when the next surah in your list starts on the same or the next page (e.g. Faatir → Yaseen), swiping carries on into it.',
     decay: 'A page loses health when it isn’t reviewed: after the days you pick, then by the percentage each week.',
     goal: 'Minutes of stopwatch time a day across all pages. You get a note when you reach it.',
@@ -856,6 +857,7 @@
       row('guides', 'Helper lines and snapping', sw(s.guides !== false, 'guides')) +
       '<div class="frow">' + nm('cover', 'Hidden area') + '<div class="rrow">' + [['#f3e9d4', 'Paper'], ['#ffffff', 'White'], ['#fbf6e9', 'Cream'], ['#e9ecea', 'Grey']].map(function (c) { return '<button class="sw-c ' + ((s.hideCol || '#f3e9d4') === c[0] ? 'on' : '') + '" style="background:' + c[0] + '" data-act="cover" data-c="' + c[0] + '" aria-label="' + c[1] + '" title="' + c[1] + '"></button>'; }).join('') + '</div></div>' +
       '<h4>Reading</h4>' + row('swipe', 'Swipe into next surah', sw(s.swipeSur !== false, 'swipeSur')) +
+      row('sbl', 'Surah start/end lines', sw(s.sbl !== false, 'sbl')) +
       row('goal', 'Daily goal', sel('goalDay', [0, 10, 15, 20, 30, 45, 60, 90], s.goalDay || 0, function (v) { return v ? v + ' min' : 'Off'; })) +
       row('idle', 'Idle cut-off', sel('idleMin', [1, 2, 3, 5, 10], +s.idleMin || 2, function (v) { return v + ' min'; })) +
       '<h4>Tally</h4>' + row('tHold', 'Hold to count', sel('tHold', [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1, 1.2, 1.5], +s.tHold || 0.4, function (v) { return v + ' s'; })) +
@@ -1113,6 +1115,7 @@
       else App.toast(nm + ' pages');
     },
     design: function (el) { setLook('ui', el.dataset.d); App.render(); openSettings(); },
+    sbl: function () { S.d.settings.sbl = S.d.settings.sbl === false; S.saveSettings(); openSettings(); },
     swipeSur: function () { S.d.settings.swipeSur = S.d.settings.swipeSur === false; S.saveSettings(); openSettings(); },
     viewFlip: function () { S.d.settings.view = S.d.settings.view === 'web' ? 'mobile' : 'web'; S.saveSettings(); App.render(); },
     webTrim: function () { S.d.settings.webTrim = !S.d.settings.webTrim; S.saveSettings(); openSettings(); },

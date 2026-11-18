@@ -148,10 +148,36 @@
      the text lines, in on-screen units of the current crop and join, plus the line pitch. Boxes and lines snap to them. */
   function gridOf() {
     var p = R.p; if (p < 3 || R.rec || !guidesOn()) return null;
+    return gridYs(p);
+  }
+  function gridYs(p) {
     var c = cropOf(p), f = Math.max(0.2, 1 - c.l - c.r), oy = c.t * aspect(p) * 1000, k = 1000 / 750;
     var c0 = p <= 61 ? 220 : 169, pt = p <= 61 ? 52.75 : 52.6, ys = [];
     for (var i = 0; i <= 15; i++) ys.push(((c0 + pt * (i - 0.5)) * k - oy) / f + R.oy);
-    return { ys: ys, pitch: pt * k / f };
+    return { ys: ys, pitch: pt * k / f, top: -oy / f + R.oy, bot: (aspect(p) * 1000 - oy) / f + R.oy };
+  }
+  /* v153: surah start/end lines on a page shared by 2+ surahs. QURAN.B gives each surah's part as text lines [a, e)
+     of the 15-line grid (from the green header bands); a drag fix is kept on the page as o.sb[surah] = [a, e].
+     The other surah's part is faded; the label on each line is the only touchable bit, and dragging it snaps to the grid. */
+  function sbOn() { return !R.rec && S.d.settings.sbl !== false && R.p >= 3 && !R.edit && R.sub !== 'crop' && R.sub !== 'join'; }
+  function sbAuto(p, n) { var b = (QURAN.B || {})[p] || []; for (var i = 0; i < b.length; i++) if (b[i][0] === n) return [b[i][1], b[i][2]]; return null; }
+  function sbOf(p, n) { var a = sbAuto(p, n); if (!a) return null; var o = (S.get(p).sb || {})[n]; return o ? [o[0], o[1]] : a; }
+  var SB_C = '#e0a032';
+  function sbSvg() {
+    if (!sbOn()) return '';
+    var b = R.sbd || sbOf(R.p, R.n); if (!b) return '';
+    var g = gridYs(R.p), u = pxU(), H = R.Hu, top = clamp(g.top, 0, H), bot = clamp(g.bot, 0, H), cov = S.d.settings.hideCol || '#f3e9d4', s = '';
+    var fade = function (y0, y1) { return y1 > y0 ? '<rect x="0" y="' + r1(y0) + '" width="1000" height="' + r1(y1 - y0) + '" fill="' + cov + '" fill-opacity="0.62" style="pointer-events:none"/>' : ''; };
+    var mark = function (y, w, txt) {
+      var ph = 20 * u, pw = (txt.length * 6.4 + 18) * u, x1 = 1000 - 6 * u, x0 = x1 - pw, on = R.drag && R.drag.k === 'sb' && R.drag.w === w;
+      return '<line x1="0" x2="1000" y1="' + r1(y) + '" y2="' + r1(y) + '" stroke="' + SB_C + '" stroke-width="' + r1(2 * u) + '" style="pointer-events:none"/>' +
+        '<rect x="' + r1(x0) + '" y="' + r1(y - ph / 2) + '" width="' + r1(pw) + '" height="' + r1(ph) + '" rx="' + r1(ph / 2) + '" fill="' + SB_C + '"' + (on ? ' stroke="#fff" stroke-width="' + r1(2 * u) + '"' : '') + ' style="pointer-events:none"/>' +
+        '<text x="' + r1(x0 + pw / 2) + '" y="' + r1(y + 4 * u) + '" text-anchor="middle" font-size="' + r1(11 * u) + '" font-weight="700" fill="#fff" font-family="system-ui,sans-serif" style="pointer-events:none">' + txt + '</text>' +
+        '<rect data-sb="' + w + '" x="' + r1(x0 - 10 * u) + '" y="' + r1(y - 22 * u) + '" width="' + r1(pw + 16 * u) + '" height="' + r1(44 * u) + '" fill="transparent" style="pointer-events:all;cursor:ns-resize"/>';
+    };
+    if (b[0] > 0) s += fade(top, g.ys[b[0]]); if (b[1] < 15) s += fade(g.ys[b[1]], bot);
+    if (b[0] > 0) s += mark(g.ys[b[0]], 't', 'Starts here ↕'); if (b[1] < 15) s += mark(g.ys[b[1]], 'b', 'Ends here ↕');
+    return s;
   }
   var SNAP_PX = 16; // magnet reach in screen px
   /* v148: Settings → Helper lines and snapping (on by default; off = everything as before v147), and the magnet
@@ -456,7 +482,7 @@
   function draw() {
     var ov = $('#ov'); if (!ov) return;
     var am = activeMask(), cov = (S.d.settings.hideCol || '#f3e9d4'), divs = dividers(), H = R.Hu, s = '', tint = tallyTint();
-    if (!am && !R.edit) { ov.innerHTML = tint; return; }
+    if (!am && !R.edit) { ov.innerHTML = tint + sbSvg(); return; }
     var sr = R.edit ? [0, 0] : secRange(am, divs.length), sec = sr[0], sec2 = sr[1], hb = !R.edit && am.hb;
     var lockB = R.edit && R.etool === 'line', lockL = R.edit && R.etool === 'box'; // v93: only the tool being edited is touchable
     if (!hb) R.items.forEach(function (m, i) {
@@ -491,7 +517,7 @@
         s += '<circle class="hd' + (ad === h.h ? ' on' : '') + '" data-h="' + h.h + '" cx="' + r1(h.x) + '" cy="' + r1(h.y) + '" r="' + (h.h === 's' ? 15 : hr) + '"/>';
       });
     }
-    s += tint;
+    s += tint + sbSvg();
     if (R.tmp) s += '<rect x="' + r1(R.tmp.x) + '" y="' + r1(R.tmp.y) + '" width="' + r1(R.tmp.w) + '" height="' + r1(R.tmp.h) + '" fill="' + R.style.c + '" fill-opacity="' + R.style.o + '" stroke="#1d6fe0" stroke-width="3" stroke-dasharray="8 6"/>';
     ov.innerHTML = s;
   }
@@ -531,6 +557,12 @@
     ov.style.pointerEvents = active ? 'auto' : 'none';
     ov.style.touchAction = 'none';
     ov.onpointerdown = function (e) {
+      var sb = e.target && e.target.dataset ? e.target.dataset.sb : null;
+      if (sb && sbOn() && sbOf(R.p, R.n)) { // v153: drag a surah start/end label
+        e.preventDefault(); e.stopPropagation();
+        ov.style.pointerEvents = 'auto'; try { ov.setPointerCapture(e.pointerId); } catch (x) {}
+        R.sbd = sbOf(R.p, R.n); R.drag = { k: 'sb', w: sb }; draw(); return;
+      }
       if (!active) return;
       e.preventDefault(); e.stopPropagation();
       try { ov.setPointerCapture(e.pointerId); } catch (x) {}
@@ -556,6 +588,12 @@
     ov.onpointermove = function (e) {
       var d = R.drag; if (!d) return;
       var pt = P(e), m;
+      if (d.k === 'sb') {
+        var gy = gridYs(R.p).ys, bi = 0, bd = 1e9;
+        gy.forEach(function (v, i) { var dd = Math.abs(v - pt.y); if (dd < bd) { bd = dd; bi = i; } });
+        if (d.w === 't') R.sbd[0] = clamp(bi, 0, R.sbd[1] - 1); else R.sbd[1] = clamp(bi, R.sbd[0] + 1, 15);
+        draw(); return;
+      }
       if (d.k === 'crop') {
         var o = d.orig, H = R.Hu, dx = (pt.x - d.pt.x) / 1000, dy = (pt.y - d.pt.y) / H, n = R.draft, MIN = 0.2;
         if (d.move) {
@@ -586,10 +624,16 @@
         draw();
       }
     };
-    ov.onpointercancel = function () { R.drag = null; R.tmp = null; if (R.sub !== 'crop') draw(); };
+    ov.onpointercancel = function () { if (R.drag && R.drag.k === 'sb') ov.style.pointerEvents = active ? 'auto' : 'none'; R.drag = null; R.tmp = null; R.sbd = null; if (R.sub !== 'crop') draw(); };
     ov.onpointerup = function (e) {
       var d = R.drag; R.drag = null; if (!d) return;
       var pt = P(e);
+      if (d.k === 'sb') {
+        ov.style.pointerEvents = active ? 'auto' : 'none';
+        var v = R.sbd, au = sbAuto(R.p, R.n), n = R.n; R.sbd = null;
+        if (v && au) S.edit(R.p, function (o) { var b = o.sb || {}; if (v[0] === au[0] && v[1] === au[1]) delete b[n]; else b[n] = v; if (Object.keys(b).length) o.sb = b; else delete o.sb; });
+        draw(); return;
+      }
       if (d.k === 'crop') return;
       if (d.k === 'new') {
         var t = R.tmp; R.tmp = null;
@@ -1439,7 +1483,7 @@
       else { var s = QURAN.S[n - 1]; q = d > 0 ? s[3] : s[4]; }
       if (q) go(q, d, n);
     },
-    surah: function (el) { if (Tally.dirty()) Tally.park(); R.n = +el.dataset.n; R.k = S.uk(R.p, R.n); S.setLast(R.p, R.k); syncSec(); renderPanel(); },
+    surah: function (el) { if (Tally.dirty()) Tally.park(); R.n = +el.dataset.n; R.k = S.uk(R.p, R.n); S.setLast(R.p, R.k); syncSec(); renderPanel(); draw(); },
     rev: function () {
       var p = R.k;
       if (S.get(p).lr === S.today()) { S.unreviewToday(p); renderPanel(); App.toast('Review for today removed'); return; }

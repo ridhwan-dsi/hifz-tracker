@@ -14,7 +14,7 @@
 
   /* Memorization units: a page shared by several surahs is a separate unit per surah ("312:19", "312:20");
      any other page is just its page number ("305"). Page-level data (crop, masks) always lives under the page number. */
-  var SUR = QURAN.S, MF = ['m', 'tags', 'h', 'hd', 'lr', 'rv', 'rl'];
+  var SUR = QURAN.S, MF = ['m', 'tags', 'h', 'hd', 'lr', 'rv', 'rl', 'tl']; // v153: tally log goes with the unit too (6 pages became shared when surah end pages were corrected)
   function onPage(p) { var o = []; SUR.forEach(function (s, i) { if (s[3] <= p && s[4] >= p) o.push(i + 1); }); return o; }
   var SHARED = []; for (var sp = 1; sp <= 604; sp++) if (onPage(sp).length > 1) SHARED.push(sp);
   function uk(p, n) { p = parseInt(p, 10); var ss = onPage(p); if (ss.length < 2) return String(p); if (ss.indexOf(n) < 0) n = ss[0]; return p + ':' + n; }
